@@ -57,11 +57,14 @@
             </div>
 
             <div class="input-group">
-                <label for="origen">¿A dónde ingresa? (Efectivo o Banco)</label>
+                <label for="origen">¿A dónde ingresa el dinero?</label>
                 <select id="origen" name="origen" required>
-                    <option value="">Selecciona el destino</option>
+                    <option value="">Selecciona la cuenta</option>
                     <option value="efectivo">Efectivo</option>
                     <option value="banco">Banco</option>
+                    <option value="tarjetaCredito">Tarjeta de crédito</option>
+                    <option value="nequi">Nequi</option>
+                    <option value="daviplata">Daviplata</option>
                 </select>
             </div>
 
@@ -83,6 +86,7 @@
         <p>MoneyTrack - Control de gastos personales</p>
     </footer>
 
+    <script src="js/utils.js"></script>
     <script>
         document.getElementById('fecha').valueAsDate = new Date();
 

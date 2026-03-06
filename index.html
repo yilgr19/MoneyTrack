@@ -50,16 +50,8 @@
             <!-- 1. Saldo actual -->
             <div class="resumen-card resumen-saldo">
                 <h3>Saldo actual</h3>
-                <p class="saldo-descripcion">Dinero disponible en efectivo y en banco:</p>
-                <div class="saldos-divididos">
-                    <div class="saldo-tipo">
-                        <span class="saldo-label">Efectivo:</span>
-                        <span id="saldo-efectivo" class="saldo-valor">0.00</span>
-                    </div>
-                    <div class="saldo-tipo">
-                        <span class="saldo-label">Banco:</span>
-                        <span id="saldo-banco" class="saldo-valor">0.00</span>
-                    </div>
+                <p class="saldo-descripcion">Dinero disponible por cuenta:</p>
+                <div id="saldos-divididos" class="saldos-divididos">
                     <div class="saldo-tipo saldo-total">
                         <span class="saldo-label">Total:</span>
                         <span id="saldo-actual" class="saldo-monto">—</span>
@@ -190,16 +182,11 @@
     <script src="js/utils.js"></script>
     <script>
         const moneda = localStorage.getItem('moneda') || '';
-        let saldoEfectivo = parseFloat(localStorage.getItem('saldoEfectivo'));
-        let saldoBanco = parseFloat(localStorage.getItem('saldoBanco'));
-        if (isNaN(saldoEfectivo) || isNaN(saldoBanco)) {
-            const saldoInicial = parseFloat(localStorage.getItem('saldoInicial')) || 0;
-            const origen = localStorage.getItem('origenDinero');
-            saldoEfectivo = origen === 'efectivo' ? saldoInicial : 0;
-            saldoBanco = origen === 'banco' ? saldoInicial : 0;
-        }
+        const saldosPorCuenta = calcularSaldosPorCuenta();
+        const saldoActual = saldosPorCuenta.total || 0;
         const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
         const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
+        const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
 
         const ahora = new Date();
         const mesActual = ahora.getMonth();
@@ -215,23 +202,6 @@
             return d.toLocaleDateString('es') + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
         }
 
-        const ingresosEf = ingresos.filter(i => i.origen === 'efectivo');
-        const ingresosBq = ingresos.filter(i => !i.origen || i.origen === 'banco');
-        const gastosEfectivo = gastos.filter(g => g.origen === 'efectivo');
-        const gastosBanco = gastos.filter(g => !g.origen || g.origen === 'banco');
-        const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
-        const contribEf = contribuciones.filter(c => c.origen === 'efectivo').reduce((s, c) => s + c.cantidad, 0);
-        const contribBq = contribuciones.filter(c => !c.origen || c.origen === 'banco').reduce((s, c) => s + c.cantidad, 0);
-
-        const totalIngresosEf = ingresosEf.reduce((s, i) => s + i.cantidad, 0);
-        const totalIngresosBq = ingresosBq.reduce((s, i) => s + i.cantidad, 0);
-        const totalGastosEfectivo = gastosEfectivo.reduce((s, g) => s + g.cantidad, 0);
-        const totalGastosBanco = gastosBanco.reduce((s, g) => s + g.cantidad, 0);
-
-        const saldoEfectivoActual = saldoEfectivo + totalIngresosEf - totalGastosEfectivo - contribEf;
-        const saldoBancoActual = saldoBanco + totalIngresosBq - totalGastosBanco - contribBq;
-        const saldoActual = saldoEfectivoActual + saldoBancoActual;
-
         const ingresosMesActual = ingresos
             .filter(i => {
                 const { mes, año } = obtenerMesAño(i.fecha);
@@ -246,11 +216,11 @@
             })
             .reduce((s, g) => s + g.cantidad, 0);
 
-        const totalGastos = totalGastosEfectivo + totalGastosBanco;
+        const totalGastos = gastos.reduce((s, g) => s + g.cantidad, 0);
 
         const nombreMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mesActual];
 
-        const esUsuarioNuevo = ((saldoEfectivo || 0) + (saldoBanco || 0)) === 0 && ingresos.length === 0;
+        const esUsuarioNuevo = saldoActual === 0 && ingresos.length === 0;
         const bienvenidaEl = document.getElementById('bienvenida-nuevo');
         const contenidoPrincipal = document.getElementById('contenido-principal');
         const graficaContenedor = document.getElementById('grafica-contenedor');
@@ -338,24 +308,30 @@
         });
 
         // Mostrar saldos
-        const saldoEfectivoEl = document.getElementById('saldo-efectivo');
-        const saldoBancoEl = document.getElementById('saldo-banco');
         const saldoEl = document.getElementById('saldo-actual');
         const saldoDetalle = document.getElementById('saldo-detalle');
         const sinSaldo = document.getElementById('sin-saldo');
-
+        const saldosDivididos = document.getElementById('saldos-divididos');
         const saldoIngresosMesEl = document.getElementById('saldo-ingresos-mes');
         const inicioSaldosTitulo = document.getElementById('inicio-saldos-titulo');
-        if (saldoEfectivo > 0 || saldoBanco > 0 || ingresos.length > 0 || gastos.length > 0 || contribuciones.length > 0) {
+
+        if (saldoActual > 0 || ingresos.length > 0 || gastos.length > 0 || contribuciones.length > 0) {
             sinSaldo.style.display = 'none';
-            if (inicioSaldosTitulo) {
-                inicioSaldosTitulo.textContent = `Efectivo: ${formatearNumero(saldoEfectivoActual)} ${moneda} | Banco: ${formatearNumero(saldoBancoActual)} ${moneda}`;
+            const partes = CUENTAS.filter(c => (saldosPorCuenta[c.id] || 0) !== 0).map(c => `${c.nombre}: ${formatearNumero(saldosPorCuenta[c.id])}`);
+            if (inicioSaldosTitulo && partes.length > 0) {
+                inicioSaldosTitulo.textContent = partes.join(' | ') + ' ' + moneda;
                 inicioSaldosTitulo.style.display = 'block';
             }
-            saldoEfectivoEl.textContent = `${formatearNumero(saldoEfectivoActual)} ${moneda}`;
-            saldoEfectivoEl.className = 'saldo-valor ' + (saldoEfectivoActual >= 0 ? 'positivo' : 'negativo');
-            saldoBancoEl.textContent = `${formatearNumero(saldoBancoActual)} ${moneda}`;
-            saldoBancoEl.className = 'saldo-valor ' + (saldoBancoActual >= 0 ? 'positivo' : 'negativo');
+            const totalDiv = saldosDivididos.querySelector('.saldo-total');
+            CUENTAS.forEach(c => {
+                const val = saldosPorCuenta[c.id] || 0;
+                if (val !== 0) {
+                    const div = document.createElement('div');
+                    div.className = 'saldo-tipo';
+                    div.innerHTML = `<span class="saldo-label">${c.nombre}:</span><span class="saldo-valor ${val >= 0 ? 'positivo' : 'negativo'}">${formatearNumero(val)} ${moneda}</span>`;
+                    saldosDivididos.insertBefore(div, totalDiv);
+                }
+            });
             saldoEl.textContent = `${formatearNumero(saldoActual)} ${moneda}`;
             saldoEl.className = 'saldo-monto ' + (saldoActual >= 0 ? 'positivo' : 'negativo');
             if (saldoIngresosMesEl) {
@@ -558,13 +534,22 @@
                         plazoTexto += ' • ¡Completado!';
                     }
                 }
+                const contribMeta = contribucionesMetas.filter(c => c.metaId === meta.id);
+                const porOrigen = {};
+                contribMeta.forEach(c => { porOrigen[c.origen] = (porOrigen[c.origen] || 0) + c.cantidad; });
+                const metodoPagoTexto = Object.keys(porOrigen).length > 0
+                    ? ' • Método pago: ' + Object.entries(porOrigen).map(([or, cant]) => {
+                        const nom = CUENTAS.find(x => x.id === or)?.nombre || (or || 'Otro');
+                        return `${nom}: ${formatearNumero(cant)}`;
+                    }).join(' | ')
+                    : '';
                 const color = coloresMetas[i % coloresMetas.length];
                 const item = document.createElement('div');
                 item.className = 'grafica-item grafica-item-meta';
                 item.innerHTML = `
                     <div class="grafica-meta-info">
                         <strong>${meta.nombre}</strong>
-                        <span class="grafica-meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)${plazoTexto}</span>
+                        <span class="grafica-meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)${plazoTexto}${metodoPagoTexto}</span>
                         <div class="grafica-meta-barra">
                             <div class="grafica-meta-barra-fill" style="width: ${Math.max(pct, 0)}%; background: ${color}"></div>
                         </div>

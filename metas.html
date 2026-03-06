@@ -117,7 +117,7 @@
                 <span class="input-hint">Se descontará de tu saldo disponible</span>
             </div>
             <div class="input-group">
-                <label for="origen">¿De dónde sale el dinero? (Efectivo o Banco)</label>
+                <label for="origen">¿De qué cuenta sale el dinero?</label>
                 <select id="origen" name="origen" required>
                     <option value="">Selecciona el origen</option>
                     <!-- Se llenan según saldo disponible -->
@@ -140,23 +140,7 @@
         const moneda = localStorage.getItem('moneda') || '';
 
         function calcularSaldos() {
-            let saldoEf = parseFloat(localStorage.getItem('saldoEfectivo')) || 0;
-            let saldoBq = parseFloat(localStorage.getItem('saldoBanco')) || 0;
-            const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
-            const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
-            const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
-            const ingresosEf = ingresos.filter(i => i.origen === 'efectivo').reduce((s, i) => s + i.cantidad, 0);
-            const ingresosBq = ingresos.filter(i => !i.origen || i.origen === 'banco').reduce((s, i) => s + i.cantidad, 0);
-            const gastosEf = gastos.filter(g => g.origen === 'efectivo').reduce((s, g) => s + g.cantidad, 0);
-            const gastosBq = gastos.filter(g => !g.origen || g.origen === 'banco').reduce((s, g) => s + g.cantidad, 0);
-            const contribEf = contribuciones.filter(c => c.origen === 'efectivo').reduce((s, c) => s + c.cantidad, 0);
-            const contribBq = contribuciones.filter(c => !c.origen || c.origen === 'banco').reduce((s, c) => s + c.cantidad, 0);
-            return {
-                efectivo: saldoEf + ingresosEf - gastosEf - contribEf,
-                banco: saldoBq + ingresosBq - gastosBq - contribBq,
-                total: (saldoEf + ingresosEf - gastosEf - contribEf) + (saldoBq + ingresosBq - gastosBq - contribBq),
-                totalReservado: contribuciones.reduce((s, c) => s + c.cantidad, 0)
-            };
+            return calcularSaldosPorCuenta();
         }
 
         function actualizarOpcionesOrigen(selectId, cantidad) {
@@ -164,26 +148,24 @@
             const select = document.getElementById(selectId);
             if (!select) return;
             select.innerHTML = '<option value="">Selecciona el origen</option>';
-            const puedeEf = saldos.efectivo > 0 && (cantidad === 0 || saldos.efectivo >= cantidad);
-            const puedeBq = saldos.banco > 0 && (cantidad === 0 || saldos.banco >= cantidad);
-            if (puedeEf) {
-                const opt = document.createElement('option');
-                opt.value = 'efectivo';
-                opt.textContent = `Efectivo (${formatearNumero(saldos.efectivo)} ${moneda})`;
-                select.appendChild(opt);
-            }
-            if (puedeBq) {
-                const opt = document.createElement('option');
-                opt.value = 'banco';
-                opt.textContent = `Banco (${formatearNumero(saldos.banco)} ${moneda})`;
-                select.appendChild(opt);
-            }
+            CUENTAS.forEach(c => {
+                const saldo = saldos[c.id] || 0;
+                const puede = saldo > 0 && (cantidad === 0 || saldo >= cantidad);
+                if (puede) {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = `${c.nombre} (${formatearNumero(saldo)} ${moneda})`;
+                    select.appendChild(opt);
+                }
+            });
         }
 
         function mostrarSaldoDisponible() {
             const saldos = calcularSaldos();
+            const partes = CUENTAS.filter(c => (saldos[c.id] || 0) > 0).map(c => `${c.nombre}: ${formatearNumero(saldos[c.id])}`);
+            const detalle = partes.length > 0 ? ` (${partes.join(' | ')})` : '';
             document.getElementById('saldo-disponible-info').textContent = 
-                `Tienes ${formatearNumero(saldos.total)} ${moneda} disponible (Efectivo: ${formatearNumero(saldos.efectivo)} | Banco: ${formatearNumero(saldos.banco)}).`;
+                `Tienes ${formatearNumero(saldos.total)} ${moneda} disponible${detalle}.`;
             const reservado = document.getElementById('ahorro-reservado');
             if (saldos.totalReservado > 0) {
                 reservado.textContent = `Reservado en metas: ${formatearNumero(saldos.totalReservado)} ${moneda}`;
@@ -225,12 +207,23 @@
                             plazoTexto += ' • ¡Completado!';
                         }
                     }
+                    const contribMeta = contribuciones.filter(c => c.metaId === meta.id);
+                    const porOrigen = {};
+                    contribMeta.forEach(c => {
+                        porOrigen[c.origen] = (porOrigen[c.origen] || 0) + c.cantidad;
+                    });
+                    const metodoPagoTexto = Object.keys(porOrigen).length > 0
+                        ? ' • Método pago: ' + Object.entries(porOrigen).map(([or, cant]) => {
+                            const nom = CUENTAS.find(x => x.id === or)?.nombre || (or || 'Otro');
+                            return `${nom}: ${formatearNumero(cant)}`;
+                        }).join(' | ')
+                        : '';
                     const li = document.createElement('li');
                     li.className = 'meta-item';
                     li.innerHTML = `
                         <div class="meta-info">
                             <strong>${meta.nombre}</strong>
-                            <span class="meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)${plazoTexto}</span>
+                            <span class="meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)${plazoTexto}${metodoPagoTexto}</span>
                             <div class="meta-barra"><div class="meta-barra-fill" style="width: ${pct}%"></div></div>
                         </div>
                         <button type="button" class="btn-accion btn-editar" data-meta-id="${meta.id}" data-meta-nombre="${meta.nombre}">Aportar más</button>
@@ -270,12 +263,10 @@
                 alert('No tienes saldo suficiente. Disponible: ' + formatearNumero(saldos.total) + ' ' + moneda);
                 return;
             }
-            if (origen === 'efectivo' && aporte > saldos.efectivo) {
-                alert('No tienes suficiente efectivo. Disponible: ' + formatearNumero(saldos.efectivo) + ' ' + moneda);
-                return;
-            }
-            if (origen === 'banco' && aporte > saldos.banco) {
-                alert('No tienes suficiente saldo en banco. Disponible: ' + formatearNumero(saldos.banco) + ' ' + moneda);
+            const saldoOrigen = saldos[origen] || 0;
+            if (aporte > saldoOrigen) {
+                const nomCuenta = CUENTAS.find(c => c.id === origen)?.nombre || origen;
+                alert('No tienes suficiente saldo en ' + nomCuenta + '. Disponible: ' + formatearNumero(saldoOrigen) + ' ' + moneda);
                 return;
             }
 
@@ -332,12 +323,10 @@
                 alert('No tienes saldo suficiente. Disponible: ' + formatearNumero(saldos.total) + ' ' + moneda);
                 return;
             }
-            if (origen === 'efectivo' && cantidad > saldos.efectivo) {
-                alert('No tienes suficiente efectivo.');
-                return;
-            }
-            if (origen === 'banco' && cantidad > saldos.banco) {
-                alert('No tienes suficiente saldo en banco.');
+            const saldoOrigen = saldos[origen] || 0;
+            if (cantidad > saldoOrigen) {
+                const nomCuenta = CUENTAS.find(c => c.id === origen)?.nombre || origen;
+                alert('No tienes suficiente saldo en ' + nomCuenta + '.');
                 return;
             }
 

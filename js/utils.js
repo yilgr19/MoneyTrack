@@ -10,3 +10,51 @@ function formatearNumero(num, decimales = 2) {
         maximumFractionDigits: decimales
     });
 }
+
+/** Cuentas disponibles en el sistema */
+const CUENTAS = [
+    { id: 'efectivo', nombre: 'Efectivo' },
+    { id: 'banco', nombre: 'Banco' },
+    { id: 'tarjetaCredito', nombre: 'Tarjeta de crédito' },
+    { id: 'nequi', nombre: 'Nequi' },
+    { id: 'daviplata', nombre: 'Daviplata' }
+];
+
+/** Obtiene los saldos iniciales (compatibilidad con datos antiguos) */
+function obtenerSaldosIniciales() {
+    const saldosCuentas = localStorage.getItem('saldosCuentas');
+    if (saldosCuentas) {
+        const parsed = JSON.parse(saldosCuentas);
+        return CUENTAS.reduce((acc, c) => {
+            acc[c.id] = parseFloat(parsed[c.id]) || 0;
+            return acc;
+        }, {});
+    }
+    const legacy = {
+        efectivo: parseFloat(localStorage.getItem('saldoEfectivo')) || 0,
+        banco: parseFloat(localStorage.getItem('saldoBanco')) || 0
+    };
+    return CUENTAS.reduce((acc, c) => {
+        acc[c.id] = legacy[c.id] !== undefined ? legacy[c.id] : 0;
+        return acc;
+    }, {});
+}
+
+/** Calcula saldos actuales por cuenta (ingresos - gastos - contribuciones) */
+function calcularSaldosPorCuenta() {
+    const saldosIni = obtenerSaldosIniciales();
+    const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
+    const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+    const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+
+    const saldos = {};
+    CUENTAS.forEach(c => {
+        const ing = ingresos.filter(i => i.origen === c.id).reduce((s, i) => s + i.cantidad, 0);
+        const gast = gastos.filter(g => g.origen === c.id).reduce((s, g) => s + g.cantidad, 0);
+        const contrib = contribuciones.filter(x => x.origen === c.id).reduce((s, x) => s + x.cantidad, 0);
+        saldos[c.id] = saldosIni[c.id] + ing - gast - contrib;
+    });
+    saldos.total = Object.values(saldos).reduce((a, b) => a + b, 0);
+    saldos.totalReservado = contribuciones.reduce((s, c) => s + c.cantidad, 0);
+    return saldos;
+}
