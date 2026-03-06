@@ -546,13 +546,25 @@
                     .reduce((s, c) => s + c.cantidad, 0);
                 const objetivo = parseFloat(meta.objetivo) || 0;
                 const pct = objetivo > 0 ? Math.min(100, (acumulado / objetivo) * 100) : 0;
+                const plazo = meta.plazo ? parseInt(meta.plazo, 10) : null;
+                let plazoTexto = '';
+                if (plazo) {
+                    plazoTexto = ` — Plazo: ${plazo} ${plazo === 1 ? 'mes' : 'meses'}`;
+                    const restante = Math.max(0, objetivo - acumulado);
+                    const ahorroMensual = restante > 0 && plazo > 0 ? restante / plazo : 0;
+                    if (ahorroMensual > 0) {
+                        plazoTexto += ` • Debes ahorrar ${formatearNumero(ahorroMensual)} ${moneda}/mes`;
+                    } else if (acumulado >= objetivo) {
+                        plazoTexto += ' • ¡Completado!';
+                    }
+                }
                 const color = coloresMetas[i % coloresMetas.length];
                 const item = document.createElement('div');
                 item.className = 'grafica-item grafica-item-meta';
                 item.innerHTML = `
                     <div class="grafica-meta-info">
                         <strong>${meta.nombre}</strong>
-                        <span class="grafica-meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)</span>
+                        <span class="grafica-meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)${plazoTexto}</span>
                         <div class="grafica-meta-barra">
                             <div class="grafica-meta-barra-fill" style="width: ${Math.max(pct, 0)}%; background: ${color}"></div>
                         </div>

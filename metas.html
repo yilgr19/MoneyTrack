@@ -92,6 +92,18 @@
                 >
             </div>
             <div class="input-group">
+                <label for="plazo">Plazo (¿en cuántos meses lograrás tu objetivo?)</label>
+                <input 
+                    type="number" 
+                    id="plazo" 
+                    name="plazo" 
+                    placeholder="Ej: 6, 12, 24..." 
+                    step="1"
+                    min="1"
+                >
+                <span class="input-hint">Opcional. Indica los meses en que planeas alcanzar tu meta.</span>
+            </div>
+            <div class="input-group">
                 <label for="aporte">¿Cuánto aportar ahora?</label>
                 <input 
                     type="number" 
@@ -201,12 +213,24 @@
                         .reduce((s, c) => s + c.cantidad, 0);
                     const objetivo = parseFloat(meta.objetivo) || 0;
                     const pct = objetivo > 0 ? Math.min(100, (acumulado / objetivo) * 100) : 0;
+                    const plazo = meta.plazo ? parseInt(meta.plazo, 10) : null;
+                    let plazoTexto = '';
+                    if (plazo) {
+                        plazoTexto = ` — Plazo: ${plazo} ${plazo === 1 ? 'mes' : 'meses'}`;
+                        const restante = Math.max(0, objetivo - acumulado);
+                        const ahorroMensual = restante > 0 && plazo > 0 ? restante / plazo : 0;
+                        if (ahorroMensual > 0) {
+                            plazoTexto += ` • Debes ahorrar ${formatearNumero(ahorroMensual)} ${moneda}/mes`;
+                        } else if (acumulado >= objetivo) {
+                            plazoTexto += ' • ¡Completado!';
+                        }
+                    }
                     const li = document.createElement('li');
                     li.className = 'meta-item';
                     li.innerHTML = `
                         <div class="meta-info">
                             <strong>${meta.nombre}</strong>
-                            <span class="meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)</span>
+                            <span class="meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)${plazoTexto}</span>
                             <div class="meta-barra"><div class="meta-barra-fill" style="width: ${pct}%"></div></div>
                         </div>
                         <button type="button" class="btn-accion btn-editar" data-meta-id="${meta.id}" data-meta-nombre="${meta.nombre}">Aportar más</button>
@@ -230,6 +254,8 @@
             e.preventDefault();
             const nombre = document.getElementById('nombre').value.trim();
             const objetivo = parseFloat(document.getElementById('objetivo').value) || 0;
+            const plazoVal = document.getElementById('plazo').value;
+            const plazo = plazoVal ? parseInt(plazoVal, 10) : null;
             const aporte = parseFloat(document.getElementById('aporte').value) || 0;
             const origen = document.getElementById('origen').value;
             const fecha = document.getElementById('fecha').value;
@@ -255,7 +281,7 @@
 
             const metaId = generarId();
             let metas = JSON.parse(localStorage.getItem('metas') || '[]');
-            metas.push({ id: metaId, nombre, objetivo });
+            metas.push({ id: metaId, nombre, objetivo, plazo: plazo || null });
             localStorage.setItem('metas', JSON.stringify(metas));
 
             let contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
@@ -265,6 +291,7 @@
             alert('¡Meta creada y aporte registrado! Se descontaron ' + formatearNumero(aporte) + ' ' + moneda + ' de tu saldo.');
             document.getElementById('metas-form').reset();
             document.getElementById('fecha').valueAsDate = new Date();
+            document.getElementById('plazo').value = '';
             actualizarOpcionesOrigen('origen', 0);
             mostrarSaldoDisponible();
             cargarMetas();

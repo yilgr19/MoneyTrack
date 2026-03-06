@@ -488,14 +488,29 @@
                     const acumulado = contribuciones.filter(c => c.metaId === meta.id).reduce((s, c) => s + c.cantidad, 0);
                     const objetivo = parseFloat(meta.objetivo) || 0;
                     const pct = objetivo > 0 ? Math.min(100, (acumulado / objetivo) * 100) : 0;
+                    const plazo = meta.plazo ? parseInt(meta.plazo, 10) : null;
+                    let plazoTexto = '';
+                    if (plazo) {
+                        plazoTexto = ` — Plazo: ${plazo} ${plazo === 1 ? 'mes' : 'meses'}`;
+                        const restante = Math.max(0, objetivo - acumulado);
+                        const ahorroMensual = restante > 0 && plazo > 0 ? restante / plazo : 0;
+                        if (ahorroMensual > 0) {
+                            plazoTexto += ` • Debes ahorrar ${formatearNumero(ahorroMensual)} ${moneda}/mes`;
+                        } else if (acumulado >= objetivo) {
+                            plazoTexto += ' • ¡Completado!';
+                        }
+                    }
                     const li = document.createElement('li');
                     li.className = 'meta-item meta-item-admin';
                     li.innerHTML = `
                         <div class="meta-info">
                             <strong>${meta.nombre}</strong>
-                            <span class="meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)</span>
+                            <span class="meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)${plazoTexto}</span>
                             <div class="meta-barra"><div class="meta-barra-fill" style="width: ${pct}%"></div></div>
                         </div>
+                        <span class="meta-acciones-admin">
+                            <button type="button" class="btn-eliminar btn-eliminar-meta" data-meta-id="${meta.id}" data-meta-nombre="${meta.nombre}" title="Eliminar meta">Eliminar</button>
+                        </span>
                     `;
                     lista.appendChild(li);
                 });
@@ -512,6 +527,22 @@
                 categorias.splice(idx, 1);
                 localStorage.setItem('categorias', JSON.stringify(categorias));
                 renderCategoriasAdmin();
+            }
+        });
+
+        document.getElementById('lista-metas-admin').addEventListener('click', function(e) {
+            if (e.target.classList.contains('btn-eliminar-meta')) {
+                e.preventDefault();
+                const metaId = e.target.dataset.metaId;
+                const metaNombre = e.target.dataset.metaNombre;
+                if (!metaId || !confirm(`¿Eliminar la meta "${metaNombre}"? Se borrarán también todos los aportes registrados. El dinero volverá a tu saldo disponible.`)) return;
+                let metas = JSON.parse(localStorage.getItem('metas') || '[]');
+                metas = metas.filter(m => m.id !== metaId);
+                localStorage.setItem('metas', JSON.stringify(metas));
+                let contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+                contribuciones = contribuciones.filter(c => c.metaId !== metaId);
+                localStorage.setItem('contribucionesMetas', JSON.stringify(contribuciones));
+                renderMetasAdmin();
             }
         });
 

@@ -1384,6 +1384,12 @@ body {
     border-bottom: none;
 }
 
+.meta-acciones-admin {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 @media (max-width: 768px) {
     .administrar-bottom-grid {
         grid-template-columns: 1fr;
