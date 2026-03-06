@@ -520,10 +520,74 @@ body {
    INTERFAZ: CATEGORÍAS (categoria.html)
    ======================================== */
 
+/* Grid: bloque centrado, categorías izquierda, formulario derecha (sin tarjeta en form) */
+.section-categorias {
+    display: grid;
+    grid-template-areas:
+        "intro intro"
+        "izquierda derecha";
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.section-categorias .categoria-intro { grid-area: intro; }
+.section-categorias .categorias-columna-izquierda {
+    grid-area: izquierda;
+    min-width: 280px;
+    max-width: 450px;
+    justify-self: start;
+}
+.section-categorias .categorias-columna-derecha {
+    grid-area: derecha;
+    min-width: 280px;
+    max-width: 450px;
+    justify-self: end;
+}
+
+.section-categorias .categorias-lista {
+    margin: 0;
+    max-width: 100%;
+}
+
+/* Formulario sin tarjeta: fondo transparente, sin borde */
+.section-categorias .categoria-form {
+    margin: 0;
+    max-width: 100%;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.section-categorias .categoria-form h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: purple;
+}
+
+@media (max-width: 720px) {
+    .section-categorias {
+        grid-template-areas:
+            "intro"
+            "izquierda"
+            "derecha";
+        grid-template-columns: 1fr;
+    }
+    .section-categorias .categorias-columna-izquierda,
+    .section-categorias .categorias-columna-derecha {
+        justify-self: stretch;
+        max-width: none;
+    }
+}
+
 .categoria-intro {
     text-align: center;
     margin-bottom: 2rem;
-    margin-top: -24px;
 }
 
 .categoria-intro h2 {

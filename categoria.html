@@ -26,16 +26,18 @@
         </ul>
     </nav>
 
-    <section class="section">
+    <section class="section section-categorias">
         <div class="categoria-intro">
             <h2>Categorías</h2>
             <p>Crea las categorías que usarás para clasificar tus gastos</p>
         </div>
 
-        <form id="categoria-form" class="categoria-form">
-            <input type="hidden" id="editar-nombre-original" value="">
+        <div class="categorias-columna-izquierda">
+            <form id="categoria-form" class="categoria-form">
+                    <h3>Nueva categoría</h3>
+                    <input type="hidden" id="editar-nombre-original" value="">
             <div class="input-group">
-                <label for="nombre">Nueva categoría</label>
+                <label for="nombre">Nombre de la categoría</label>
                 <input 
                     type="text" 
                     id="nombre" 
@@ -71,11 +73,14 @@
             </div>
             <button type="submit" class="btn" id="btn-submit-categoria">Agregar categoría</button>
         </form>
+        </div>
 
-        <div class="categorias-lista">
-            <h3>Tus categorías</h3>
-            <ul id="lista-categorias"></ul>
-            <p id="sin-categorias" class="sin-categorias">Aún no hay categorías. Agrega la primera arriba.</p>
+        <div class="categorias-columna-derecha">
+            <div class="categorias-lista resumen-card">
+                <h3>Tus categorías</h3>
+                <ul id="lista-categorias"></ul>
+                <p id="sin-categorias" class="sin-categorias">Aún no hay categorías. Agrega la primera.</p>
+            </div>
         </div>
     </section>
 
