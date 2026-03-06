@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrar - MoneyTrack</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>MoneyTrack</h1>
+            <p>Control de gastos personales</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="saldo.html">Saldo</a></li>
+            <li><a href="ingresos.html">Ingresos</a></li>
+            <li><a href="categoria.html">Categorías</a></li>
+            <li><a href="gastos.html">Gastos</a></li>
+            <li><a href="metas.html">Metas</a></li>
+            <li><a href="administrar.html">Administrar</a></li>
+        </ul>
+    </nav>
+
+    <section class="section">
+        <div class="administrar-intro">
+            <h2>Administrar</h2>
+            <p>Resumen de toda tu información</p>
+        </div>
+
+        <div class="index-grid administrar-grid">
+            <!-- Columna izquierda: Saldo actual -->
+            <div class="index-col">
+                <div class="resumen-card resumen-saldo">
+                    <h3>Saldo actual</h3>
+                    <div class="saldos-divididos">
+                        <div class="saldo-tipo">
+                            <span class="saldo-label">Efectivo:</span>
+                            <span id="saldo-efectivo" class="saldo-valor">0.00</span>
+                        </div>
+                        <div class="saldo-tipo">
+                            <span class="saldo-label">Banco:</span>
+                            <span id="saldo-banco" class="saldo-valor">0.00</span>
+                        </div>
+                        <div class="saldo-tipo saldo-total">
+                            <span class="saldo-label">Total:</span>
+                            <span id="saldo-actual" class="saldo-monto">—</span>
+                        </div>
+                    </div>
+                    <p id="saldo-detalle" class="saldo-detalle"></p>
+                    <p id="sin-saldo" class="sin-datos">Registra tu saldo inicial en <a href="saldo.html">Saldo</a>.</p>
+                    <button type="button" id="btn-resetear" class="btn btn-resetear">Resetear saldo y gastos (poner en cero)</button>
+                    <button type="button" id="btn-resetear-completo" class="btn btn-resetear-completo">Resetear todo el proyecto (dejar en blanco)</button>
+                </div>
+                <div class="resumen-card resumen-presupuesto resumen-mensual">
+                    <h3>Presupuesto mensual</h3>
+                    <div id="presupuesto-admin-resumen" class="presupuesto-resumen" style="display:none;">
+                        <div class="presupuesto-barra-container">
+                            <div class="presupuesto-barra">
+                                <div id="presupuesto-admin-barra-gastado" class="presupuesto-barra-gastado" style="width: 0%"></div>
+                                <div id="presupuesto-admin-barra-disponible" class="presupuesto-barra-disponible" style="width: 100%"></div>
+                            </div>
+                            <div class="presupuesto-barra-leyenda">
+                                <span><strong id="presupuesto-admin-gastado" class="presupuesto-gastado">0.00</strong> gastado</span>
+                                <span><strong id="presupuesto-admin-disponible" class="presupuesto-monto">0.00</strong> disponible</span>
+                            </div>
+                        </div>
+                        <div class="presupuesto-fila">
+                            <span class="presupuesto-label">Presupuesto total:</span>
+                            <span id="presupuesto-admin-valor" class="presupuesto-monto">0.00</span>
+                        </div>
+                        <p class="presupuesto-acciones">
+                            <a href="index.html">Editar en Inicio</a>
+                            <span class="presupuesto-sep">·</span>
+                            <a href="#" id="link-eliminar-presupuesto-admin">Eliminar</a>
+                        </p>
+                    </div>
+                    <p id="sin-presupuesto-admin" class="sin-datos">Define tu presupuesto en <a href="saldo.html">Saldo</a> o <a href="index.html">Inicio</a>.</p>
+                </div>
+            </div>
+
+            <!-- Columna derecha: Gastos registrados -->
+            <div class="index-col">
+                <div class="resumen-card resumen-gastos">
+                    <h3>Gastos registrados</h3>
+                    <div class="filtros-gastos">
+                        <div class="filtro-item">
+                            <label for="filtro-categoria">Categoría</label>
+                            <select id="filtro-categoria">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div class="filtro-item">
+                            <label for="filtro-nombre">Nombre / Dónde gastó</label>
+                            <input type="text" id="filtro-nombre" placeholder="Ej: Supermercado, Uber...">
+                        </div>
+                        <div class="filtro-item">
+                            <label for="filtro-monto-min">Monto mín.</label>
+                            <input type="number" id="filtro-monto-min" placeholder="0" step="0.01" min="0">
+                        </div>
+                        <div class="filtro-item">
+                            <label for="filtro-monto-max">Monto máx.</label>
+                            <input type="number" id="filtro-monto-max" placeholder="Sin límite" step="0.01" min="0">
+                        </div>
+                        <button type="button" id="btn-limpiar-filtros" class="btn btn-filtro">Limpiar</button>
+                    </div>
+                    <p id="total-gastos" class="total-label"></p>
+                    <p class="accion-gastos"><a href="gastos.html" class="btn btn-registrar">Registrar gasto</a></p>
+                    <div id="lista-gastos"></div>
+                    <p id="sin-gastos" class="sin-datos">Aún no hay gastos. Registra uno en <a href="gastos.html">Gastos</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección inferior: Categorías y Metas -->
+        <div class="administrar-bottom">
+            <div class="administrar-bottom-grid">
+                <div class="resumen-card resumen-categorias">
+                    <h3>Categorías creadas</h3>
+                    <p class="accion-gastos"><a href="categoria.html" class="btn btn-registrar">Registrar categoría</a></p>
+                    <div class="categorias-lista">
+                        <ul id="lista-categorias-admin"></ul>
+                    </div>
+                    <p id="sin-categorias-admin" class="sin-datos">Aún no hay categorías. Crea una en <a href="categoria.html">Categorías</a>.</p>
+                </div>
+                <div class="resumen-card resumen-metas">
+                    <h3>Metas de ahorro</h3>
+                    <p class="accion-gastos"><a href="metas.html" class="btn btn-registrar">Ver metas</a></p>
+                    <ul id="lista-metas-admin"></ul>
+                    <p id="sin-metas-admin" class="sin-datos">Aún no tienes metas. Crea una en <a href="metas.html">Metas</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Editar Gasto -->
+        <div id="modal-editar-gasto" class="modal" style="display:none;">
+            <div class="modal-contenido">
+                <h3>Editar gasto</h3>
+                <form id="form-editar-gasto">
+                    <input type="hidden" id="edit-gasto-index">
+                    <div class="input-group">
+                        <label for="edit-nombre">Nombre</label>
+                        <input type="text" id="edit-nombre" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="edit-cantidad">Cantidad</label>
+                        <input type="number" id="edit-cantidad" step="0.01" min="0" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="edit-fecha">Fecha y hora</label>
+                        <input type="datetime-local" id="edit-fecha" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="edit-categoria">Categoría</label>
+                        <select id="edit-categoria" required></select>
+                    </div>
+                    <div class="input-group">
+                        <label for="edit-origen">Efectivo o Banco</label>
+                        <select id="edit-origen" required>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="banco">Banco</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="edit-nota">Nota (opcional)</label>
+                        <input type="text" id="edit-nota">
+                    </div>
+                    <div class="modal-botones">
+                        <button type="button" class="btn btn-cancelar" id="btn-cerrar-modal">Cancelar</button>
+                        <button type="submit" class="btn">Guardar cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>MoneyTrack - Control de gastos personales</p>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const moneda = localStorage.getItem('moneda') || '';
+        function formatearFechaHora(fechaStr) {
+            if (!fechaStr) return '—';
+            const d = new Date(fechaStr.includes('T') ? fechaStr : fechaStr + 'T12:00:00');
+            return d.toLocaleDateString('es') + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+        }
+        function obtenerDatetimeLocalActual() {
+            const n = new Date();
+            const p = x => x.toString().padStart(2, '0');
+            return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}T${p(n.getHours())}:${p(n.getMinutes())}`;
+        }
+        // Migrar datos antiguos (saldoInicial) si existen
+        let saldoEfectivo = parseFloat(localStorage.getItem('saldoEfectivo'));
+        let saldoBanco = parseFloat(localStorage.getItem('saldoBanco'));
+        if (isNaN(saldoEfectivo) || isNaN(saldoBanco)) {
+            const saldoInicial = parseFloat(localStorage.getItem('saldoInicial')) || 0;
+            const origen = localStorage.getItem('origenDinero');
+            if (saldoInicial > 0) {
+                saldoEfectivo = origen === 'efectivo' ? saldoInicial : 0;
+                saldoBanco = origen === 'banco' ? saldoInicial : 0;
+            } else {
+                saldoEfectivo = 0;
+                saldoBanco = 0;
+            }
+        }
+        let gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+        const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
+        let categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+
+        const ingresosEf = ingresos.filter(i => i.origen === 'efectivo').reduce((s, i) => s + i.cantidad, 0);
+        const ingresosBq = ingresos.filter(i => !i.origen || i.origen === 'banco').reduce((s, i) => s + i.cantidad, 0);
+        const gastosEfectivo = gastos.filter(g => g.origen === 'efectivo');
+        const gastosBanco = gastos.filter(g => !g.origen || g.origen === 'banco');
+        const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+        const contribEf = contribuciones.filter(c => c.origen === 'efectivo').reduce((s, c) => s + c.cantidad, 0);
+        const contribBq = contribuciones.filter(c => !c.origen || c.origen === 'banco').reduce((s, c) => s + c.cantidad, 0);
+        const totalGastosEfectivo = gastosEfectivo.reduce((sum, g) => sum + g.cantidad, 0);
+        const totalGastosBanco = gastosBanco.reduce((sum, g) => sum + g.cantidad, 0);
+        const totalGastos = totalGastosEfectivo + totalGastosBanco;
+
+        const saldoEfectivoActual = saldoEfectivo + ingresosEf - totalGastosEfectivo - contribEf;
+        const saldoBancoActual = saldoBanco + ingresosBq - totalGastosBanco - contribBq;
+        const saldoActual = saldoEfectivoActual + saldoBancoActual;
+
+        const ahora = new Date();
+        const mesActual = ahora.getMonth();
+        const añoActual = ahora.getFullYear();
+        const gastosMesActual = gastos
+            .filter(g => {
+                const d = new Date(g.fecha);
+                return d.getMonth() === mesActual && d.getFullYear() === añoActual;
+            })
+            .reduce((s, g) => s + g.cantidad, 0);
+        const presupuestoMensual = parseFloat(localStorage.getItem('presupuestoMensual')) || 0;
+
+        // Presupuesto mensual (admin)
+        const presupuestoAdminResumen = document.getElementById('presupuesto-admin-resumen');
+        const sinPresupuestoAdmin = document.getElementById('sin-presupuesto-admin');
+        if (presupuestoMensual > 0) {
+            sinPresupuestoAdmin.style.display = 'none';
+            presupuestoAdminResumen.style.display = 'block';
+            document.getElementById('presupuesto-admin-valor').textContent = formatearNumero(presupuestoMensual) + ' ' + moneda;
+            document.getElementById('presupuesto-admin-gastado').textContent = formatearNumero(gastosMesActual) + ' ' + moneda;
+            document.getElementById('presupuesto-admin-gastado').className = 'presupuesto-gastado negativo';
+            const disponible = presupuestoMensual - gastosMesActual;
+            document.getElementById('presupuesto-admin-disponible').textContent = formatearNumero(Math.max(0, disponible)) + ' ' + moneda;
+            document.getElementById('presupuesto-admin-disponible').className = 'presupuesto-monto ' + (disponible >= 0 ? 'positivo' : 'negativo');
+            const pctGastado = presupuestoMensual > 0 ? Math.min(100, (gastosMesActual / presupuestoMensual) * 100) : 0;
+            const pctDisponible = Math.max(0, 100 - pctGastado);
+            document.getElementById('presupuesto-admin-barra-gastado').style.width = pctGastado + '%';
+            document.getElementById('presupuesto-admin-barra-disponible').style.width = pctDisponible + '%';
+        } else {
+            presupuestoAdminResumen.style.display = 'none';
+            sinPresupuestoAdmin.style.display = 'block';
+        }
+
+        document.getElementById('link-eliminar-presupuesto-admin').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (confirm('¿Eliminar el presupuesto mensual?')) {
+                localStorage.removeItem('presupuestoMensual');
+                alert('Presupuesto eliminado.');
+                location.reload();
+            }
+        });
+
+        // Mostrar saldos
+        const saldoEfectivoEl = document.getElementById('saldo-efectivo');
+        const saldoBancoEl = document.getElementById('saldo-banco');
+        const saldoEl = document.getElementById('saldo-actual');
+        const saldoDetalle = document.getElementById('saldo-detalle');
+        const sinSaldo = document.getElementById('sin-saldo');
+
+        if (saldoEfectivo > 0 || saldoBanco > 0 || gastos.length > 0 || (contribuciones && contribuciones.length > 0)) {
+            sinSaldo.style.display = 'none';
+            saldoEfectivoEl.textContent = `${formatearNumero(saldoEfectivoActual)} ${moneda}`;
+            saldoEfectivoEl.className = 'saldo-valor ' + (saldoEfectivoActual >= 0 ? 'positivo' : 'negativo');
+            saldoBancoEl.textContent = `${formatearNumero(saldoBancoActual)} ${moneda}`;
+            saldoBancoEl.className = 'saldo-valor ' + (saldoBancoActual >= 0 ? 'positivo' : 'negativo');
+            saldoEl.textContent = `${formatearNumero(saldoActual)} ${moneda}`;
+            saldoEl.className = 'saldo-monto ' + (saldoActual >= 0 ? 'positivo' : 'negativo');
+            const totalContrib = contribuciones.reduce((s, c) => s + c.cantidad, 0);
+            saldoDetalle.textContent = `Inicial: Efectivo ${formatearNumero(saldoEfectivo)} + Banco ${formatearNumero(saldoBanco)} | + Ingresos | - Gastos: ${formatearNumero(totalGastos)} | - Metas: ${formatearNumero(totalContrib)} ${moneda}`;
+            saldoDetalle.style.display = 'block';
+        } else {
+            sinSaldo.style.display = 'block';
+        }
+
+        // Mostrar gastos con filtros
+        const listaGastos = document.getElementById('lista-gastos');
+        const totalGastosLabel = document.getElementById('total-gastos');
+        const sinGastos = document.getElementById('sin-gastos');
+        const filtroCategoria = document.getElementById('filtro-categoria');
+        const filtroNombre = document.getElementById('filtro-nombre');
+        const filtroMontoMin = document.getElementById('filtro-monto-min');
+        const filtroMontoMax = document.getElementById('filtro-monto-max');
+
+        function actualizarFiltroCategorias() {
+            const cats = JSON.parse(localStorage.getItem('categorias') || '[]');
+            filtroCategoria.innerHTML = '<option value="">Todas</option>';
+            cats.map(c => typeof c === 'string' ? c : c.nombre).forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                filtroCategoria.appendChild(opt);
+            });
+        }
+        actualizarFiltroCategorias();
+
+        function aplicarFiltros() {
+            gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+            const cat = filtroCategoria.value;
+            const nombreBusqueda = (filtroNombre.value || '').toLowerCase().trim();
+            const min = filtroMontoMin.value ? parseFloat(filtroMontoMin.value) : null;
+            const max = filtroMontoMax.value ? parseFloat(filtroMontoMax.value) : null;
+
+            const conIndices = gastos.map((g, idx) => ({ g, idx }));
+            const filtrados = conIndices.filter(({ g }) => {
+                if (cat && g.categoria !== cat) return false;
+                if (nombreBusqueda && !(g.nombre || '').toLowerCase().includes(nombreBusqueda)) return false;
+                if (min != null && g.cantidad < min) return false;
+                if (max != null && g.cantidad > max) return false;
+                return true;
+            });
+
+            listaGastos.innerHTML = '';
+            if (filtrados.length === 0) {
+                sinGastos.style.display = 'block';
+                sinGastos.textContent = gastos.length === 0 ? 'Aún no hay gastos. Registra uno en Gastos.' : 'Ningún gasto coincide con los filtros.';
+                totalGastosLabel.style.display = 'none';
+            } else {
+                sinGastos.style.display = 'none';
+                const totalFiltrado = filtrados.reduce((s, { g }) => s + g.cantidad, 0);
+                totalGastosLabel.textContent = `Total: ${formatearNumero(totalFiltrado)} ${moneda} (${filtrados.length} de ${gastos.length} gasto${gastos.length !== 1 ? 's' : ''})`;
+                totalGastosLabel.style.display = 'block';
+                const nombresMeses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                const porMes = {};
+                filtrados.forEach(({ g, idx }) => {
+                    const d = g.fecha ? new Date(g.fecha) : new Date();
+                    const clave = d.getFullYear() + '-' + d.getMonth();
+                    if (!porMes[clave]) porMes[clave] = [];
+                    porMes[clave].push({ g, idx });
+                });
+                const clavesOrdenadas = Object.keys(porMes).sort((a, b) => b.localeCompare(a));
+                clavesOrdenadas.forEach(clave => {
+                    const [año, mes] = clave.split('-').map(Number);
+                    const nombreMes = nombresMeses[mes] + ' ' + año;
+                    const seccion = document.createElement('div');
+                    seccion.className = 'gastos-por-mes';
+                    seccion.innerHTML = `<h4 class="gastos-mes-titulo">${nombreMes}</h4>`;
+                    const ul = document.createElement('ul');
+                    ul.className = 'lista-gastos-mes';
+                    porMes[clave].forEach(({ g, idx }) => {
+                        const li = document.createElement('li');
+                        const fechaFormato = formatearFechaHora(g.fecha);
+                        li.className = 'gasto-item';
+                        li.innerHTML = `
+                            <span class="gasto-info"><strong>${g.nombre}</strong> — ${formatearNumero(g.cantidad)} ${moneda} (${g.categoria}) — ${fechaFormato}</span>
+                            <span class="gasto-acciones">
+                                <button type="button" class="btn-accion btn-editar" data-index="${idx}" title="Editar">Editar</button>
+                                <button type="button" class="btn-accion btn-eliminar" data-index="${idx}" title="Eliminar">Eliminar</button>
+                            </span>`;
+                        ul.appendChild(li);
+                    });
+                    seccion.appendChild(ul);
+                    listaGastos.appendChild(seccion);
+                });
+            }
+        }
+
+        document.getElementById('lista-gastos').addEventListener('click', function(e) {
+            if (!e.target.classList.contains('btn-editar') && !e.target.classList.contains('btn-eliminar')) return;
+            const idx = parseInt(e.target.dataset.index);
+            if (isNaN(idx)) return;
+            if (e.target.classList.contains('btn-eliminar')) {
+                if (!confirm('¿Eliminar este gasto?')) return;
+                gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+                gastos.splice(idx, 1);
+                localStorage.setItem('gastos', JSON.stringify(gastos));
+                aplicarFiltros();
+            } else if (e.target.classList.contains('btn-editar')) {
+                const g = gastos[idx];
+                document.getElementById('edit-gasto-index').value = idx;
+                document.getElementById('edit-nombre').value = g.nombre;
+                document.getElementById('edit-cantidad').value = g.cantidad;
+                const fv = g.fecha || '';
+                document.getElementById('edit-fecha').value = fv.includes('T') ? fv.slice(0, 16) : (fv ? fv + 'T00:00' : obtenerDatetimeLocalActual());
+                document.getElementById('edit-origen').value = g.origen || 'banco';
+                document.getElementById('edit-nota').value = g.nota || '';
+                const selCat = document.getElementById('edit-categoria');
+                selCat.innerHTML = '';
+                const cats = JSON.parse(localStorage.getItem('categorias') || '[]');
+                cats.map(c => typeof c === 'string' ? c : c.nombre).forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    if (cat === g.categoria) opt.selected = true;
+                    selCat.appendChild(opt);
+                });
+                document.getElementById('modal-editar-gasto').style.display = 'flex';
+            }
+        });
+
+        [filtroCategoria, filtroNombre, filtroMontoMin, filtroMontoMax].forEach(el => {
+            el.addEventListener('change', aplicarFiltros);
+            if (el.tagName === 'INPUT') el.addEventListener('input', aplicarFiltros);
+        });
+
+        document.getElementById('btn-limpiar-filtros').addEventListener('click', function() {
+            filtroCategoria.value = '';
+            filtroNombre.value = '';
+            filtroMontoMin.value = '';
+            filtroMontoMax.value = '';
+            aplicarFiltros();
+        });
+
+        aplicarFiltros();
+
+        document.getElementById('btn-cerrar-modal').addEventListener('click', function() {
+            document.getElementById('modal-editar-gasto').style.display = 'none';
+        });
+        document.getElementById('modal-editar-gasto').addEventListener('click', function(e) {
+            if (e.target === this) document.getElementById('modal-editar-gasto').style.display = 'none';
+        });
+        document.getElementById('form-editar-gasto').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const idx = parseInt(document.getElementById('edit-gasto-index').value);
+            gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+            gastos[idx] = {
+                nombre: document.getElementById('edit-nombre').value,
+                cantidad: parseFloat(document.getElementById('edit-cantidad').value),
+                fecha: document.getElementById('edit-fecha').value,
+                categoria: document.getElementById('edit-categoria').value,
+                origen: document.getElementById('edit-origen').value,
+                nota: document.getElementById('edit-nota').value || null
+            };
+            localStorage.setItem('gastos', JSON.stringify(gastos));
+            document.getElementById('modal-editar-gasto').style.display = 'none';
+            aplicarFiltros();
+            alert('Gasto actualizado correctamente.');
+        });
+
+        // Mostrar categorías
+        function renderCategoriasAdmin() {
+            categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+            actualizarFiltroCategorias();
+            const listaCategoriasAdmin = document.getElementById('lista-categorias-admin');
+            const sinCategoriasAdmin = document.getElementById('sin-categorias-admin');
+            listaCategoriasAdmin.innerHTML = '';
+            if (categorias.length === 0) {
+                sinCategoriasAdmin.style.display = 'block';
+            } else {
+                sinCategoriasAdmin.style.display = 'none';
+                categorias.forEach((cat, idx) => {
+                    const nombre = typeof cat === 'string' ? cat : cat.nombre;
+                    const color = typeof cat === 'string' ? '#6b7280' : (cat.color || '#6b7280');
+                    const limite = typeof cat === 'object' && cat.limite ? parseFloat(cat.limite) : null;
+                    const limiteText = limite ? ` — Límite: ${formatearNumero(limite)}` : '';
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span class="categoria-badge" style="background-color: ${color}">${nombre}${limiteText}</span>
+                        <span class="categoria-acciones">
+                            <a href="categoria.html?editar=${encodeURIComponent(nombre)}" class="btn-accion btn-editar" title="Editar">Editar</a>
+                            <button type="button" class="btn-eliminar" data-index="${idx}" title="Eliminar">Eliminar</button>
+                        </span>`;
+                    listaCategoriasAdmin.appendChild(li);
+                });
+            }
+        }
+        renderCategoriasAdmin();
+
+        function renderMetasAdmin() {
+            const metas = JSON.parse(localStorage.getItem('metas') || '[]');
+            const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+            const lista = document.getElementById('lista-metas-admin');
+            const sinMetas = document.getElementById('sin-metas-admin');
+            lista.innerHTML = '';
+            if (metas.length === 0) {
+                sinMetas.style.display = 'block';
+            } else {
+                sinMetas.style.display = 'none';
+                metas.forEach(meta => {
+                    const acumulado = contribuciones.filter(c => c.metaId === meta.id).reduce((s, c) => s + c.cantidad, 0);
+                    const objetivo = parseFloat(meta.objetivo) || 0;
+                    const pct = objetivo > 0 ? Math.min(100, (acumulado / objetivo) * 100) : 0;
+                    const li = document.createElement('li');
+                    li.className = 'meta-item meta-item-admin';
+                    li.innerHTML = `
+                        <div class="meta-info">
+                            <strong>${meta.nombre}</strong>
+                            <span class="meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)</span>
+                            <div class="meta-barra"><div class="meta-barra-fill" style="width: ${pct}%"></div></div>
+                        </div>
+                    `;
+                    lista.appendChild(li);
+                });
+            }
+        }
+        renderMetasAdmin();
+
+        document.getElementById('lista-categorias-admin').addEventListener('click', function(e) {
+            if (e.target.classList.contains('btn-eliminar')) {
+                e.preventDefault();
+                const idx = parseInt(e.target.dataset.index);
+                if (isNaN(idx) || !confirm('¿Eliminar esta categoría? Los gastos que la usen quedarán sin categoría asignada.')) return;
+                categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+                categorias.splice(idx, 1);
+                localStorage.setItem('categorias', JSON.stringify(categorias));
+                renderCategoriasAdmin();
+            }
+        });
+
+        // Botón para resetear saldo y gastos
+        document.getElementById('btn-resetear').addEventListener('click', function() {
+            if (confirm('¿Estás seguro? Se borrará el saldo inicial y todos los gastos. El saldo quedará en cero.')) {
+                localStorage.removeItem('saldoInicial');
+                localStorage.removeItem('saldoEfectivo');
+                localStorage.removeItem('saldoBanco');
+                localStorage.removeItem('saldoInicialFecha');
+                localStorage.removeItem('saldoInicialNota');
+                localStorage.removeItem('origenDinero');
+                localStorage.setItem('gastos', '[]');
+                localStorage.setItem('ingresos', '[]');
+                localStorage.setItem('metas', '[]');
+                localStorage.setItem('contribucionesMetas', '[]');
+                localStorage.removeItem('presupuestoMensual');
+                alert('Datos reseteados. Saldo en cero.');
+                location.reload();
+            }
+        });
+
+        // Botón para resetear completamente el proyecto
+        document.getElementById('btn-resetear-completo').addEventListener('click', function() {
+            if (confirm('¿Resetear TODO el proyecto? Se eliminará:\n\n• Saldo inicial\n• Ingresos\n• Gastos\n• Categorías\n• Metas de ahorro\n• Presupuesto mensual\n\nEl proyecto quedará en blanco para empezar de nuevo.')) {
+                localStorage.removeItem('saldoInicial');
+                localStorage.removeItem('saldoEfectivo');
+                localStorage.removeItem('saldoBanco');
+                localStorage.removeItem('saldoInicialFecha');
+                localStorage.removeItem('saldoInicialNota');
+                localStorage.removeItem('origenDinero');
+                localStorage.removeItem('moneda');
+                localStorage.setItem('gastos', '[]');
+                localStorage.setItem('ingresos', '[]');
+                localStorage.setItem('categorias', '[]');
+                localStorage.setItem('metas', '[]');
+                localStorage.setItem('contribucionesMetas', '[]');
+                localStorage.removeItem('presupuestoMensual');
+                alert('Proyecto reseteado. Todo está en blanco. Puedes agregar nuevos valores desde Saldo, Ingresos, Categorías y Gastos.');
+                location.reload();
+            }
+        });
+    </script>
+</body>
+</html>

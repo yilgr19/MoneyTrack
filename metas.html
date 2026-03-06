@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metas de ahorro - MoneyTrack</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>MoneyTrack</h1>
+            <p>Control de gastos personales</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="saldo.html">Saldo</a></li>
+            <li><a href="ingresos.html">Ingresos</a></li>
+            <li><a href="categoria.html">Categorías</a></li>
+            <li><a href="gastos.html">Gastos</a></li>
+            <li><a href="metas.html">Metas</a></li>
+            <li><a href="administrar.html">Administrar</a></li>
+        </ul>
+    </nav>
+
+    <section class="section">
+        <div class="metas-intro">
+            <h2>Metas de ahorro</h2>
+            <p>Define tus objetivos de ahorro. El dinero que aportes se descontará de tu saldo disponible.</p>
+        </div>
+
+        <div class="metas-columna-derecha">
+            <div class="resumen-card metas-saldo-info">
+                <h3>Saldo disponible</h3>
+                <p id="saldo-disponible-info" class="saldo-disponible-texto"></p>
+                <p id="ahorro-reservado" class="ahorro-reservado"></p>
+            </div>
+            <div class="metas-lista-card">
+                <h3>Tus metas de ahorro</h3>
+                <ul id="lista-metas"></ul>
+                <p id="sin-metas" class="sin-datos">Aún no tienes metas. Crea una arriba.</p>
+            </div>
+            <div class="aportar-meta-card" id="form-aportar-meta" style="display:none;">
+                <h3>Aportar a una meta existente</h3>
+                <form id="form-aportar">
+                    <input type="hidden" id="aportar-meta-id">
+                    <div class="input-group">
+                        <label for="aportar-cantidad">Cantidad a aportar</label>
+                        <input type="number" id="aportar-cantidad" step="0.01" min="0" placeholder="0.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="aportar-origen">Origen (Efectivo o Banco)</label>
+                        <select id="aportar-origen" required></select>
+                    </div>
+                    <div class="input-group">
+                        <label for="aportar-fecha">Fecha</label>
+                        <input type="date" id="aportar-fecha" required>
+                    </div>
+                    <div class="modal-botones">
+                        <button type="submit" class="btn">Aportar</button>
+                        <button type="button" class="btn btn-cancelar" id="btn-cerrar-aportar">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <form id="metas-form" class="metas-form">
+            <h3>Nueva meta de ahorro</h3>
+            <div class="input-group">
+                <label for="nombre">¿Qué quieres ahorrar?</label>
+                <input 
+                    type="text" 
+                    id="nombre" 
+                    name="nombre" 
+                    placeholder="Ej: Vacaciones, Laptop, Emergencias..."
+                    required
+                >
+            </div>
+            <div class="input-group">
+                <label for="objetivo">Monto objetivo (meta total)</label>
+                <input 
+                    type="number" 
+                    id="objetivo" 
+                    name="objetivo" 
+                    placeholder="Ej: 5000" 
+                    step="0.01"
+                    min="0"
+                    required
+                >
+            </div>
+            <div class="input-group">
+                <label for="aporte">¿Cuánto aportar ahora?</label>
+                <input 
+                    type="number" 
+                    id="aporte" 
+                    name="aporte" 
+                    placeholder="Cantidad a descontar de tu saldo" 
+                    step="0.01"
+                    min="0"
+                    required
+                >
+                <span class="input-hint">Se descontará de tu saldo disponible</span>
+            </div>
+            <div class="input-group">
+                <label for="origen">¿De dónde sale el dinero? (Efectivo o Banco)</label>
+                <select id="origen" name="origen" required>
+                    <option value="">Selecciona el origen</option>
+                    <!-- Se llenan según saldo disponible -->
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="fecha">Fecha</label>
+                <input type="date" id="fecha" name="fecha" required>
+            </div>
+            <button type="submit" class="btn">Crear meta y aportar</button>
+        </form>
+    </section>
+
+    <footer class="footer">
+        <p>MoneyTrack - Control de gastos personales</p>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const moneda = localStorage.getItem('moneda') || '';
+
+        function calcularSaldos() {
+            let saldoEf = parseFloat(localStorage.getItem('saldoEfectivo')) || 0;
+            let saldoBq = parseFloat(localStorage.getItem('saldoBanco')) || 0;
+            const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
+            const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+            const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+            const ingresosEf = ingresos.filter(i => i.origen === 'efectivo').reduce((s, i) => s + i.cantidad, 0);
+            const ingresosBq = ingresos.filter(i => !i.origen || i.origen === 'banco').reduce((s, i) => s + i.cantidad, 0);
+            const gastosEf = gastos.filter(g => g.origen === 'efectivo').reduce((s, g) => s + g.cantidad, 0);
+            const gastosBq = gastos.filter(g => !g.origen || g.origen === 'banco').reduce((s, g) => s + g.cantidad, 0);
+            const contribEf = contribuciones.filter(c => c.origen === 'efectivo').reduce((s, c) => s + c.cantidad, 0);
+            const contribBq = contribuciones.filter(c => !c.origen || c.origen === 'banco').reduce((s, c) => s + c.cantidad, 0);
+            return {
+                efectivo: saldoEf + ingresosEf - gastosEf - contribEf,
+                banco: saldoBq + ingresosBq - gastosBq - contribBq,
+                total: (saldoEf + ingresosEf - gastosEf - contribEf) + (saldoBq + ingresosBq - gastosBq - contribBq),
+                totalReservado: contribuciones.reduce((s, c) => s + c.cantidad, 0)
+            };
+        }
+
+        function actualizarOpcionesOrigen(selectId, cantidad) {
+            const saldos = calcularSaldos();
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = '<option value="">Selecciona el origen</option>';
+            const puedeEf = saldos.efectivo > 0 && (cantidad === 0 || saldos.efectivo >= cantidad);
+            const puedeBq = saldos.banco > 0 && (cantidad === 0 || saldos.banco >= cantidad);
+            if (puedeEf) {
+                const opt = document.createElement('option');
+                opt.value = 'efectivo';
+                opt.textContent = `Efectivo (${formatearNumero(saldos.efectivo)} ${moneda})`;
+                select.appendChild(opt);
+            }
+            if (puedeBq) {
+                const opt = document.createElement('option');
+                opt.value = 'banco';
+                opt.textContent = `Banco (${formatearNumero(saldos.banco)} ${moneda})`;
+                select.appendChild(opt);
+            }
+        }
+
+        function mostrarSaldoDisponible() {
+            const saldos = calcularSaldos();
+            document.getElementById('saldo-disponible-info').textContent = 
+                `Tienes ${formatearNumero(saldos.total)} ${moneda} disponible (Efectivo: ${formatearNumero(saldos.efectivo)} | Banco: ${formatearNumero(saldos.banco)}).`;
+            const reservado = document.getElementById('ahorro-reservado');
+            if (saldos.totalReservado > 0) {
+                reservado.textContent = `Reservado en metas: ${formatearNumero(saldos.totalReservado)} ${moneda}`;
+                reservado.style.display = 'block';
+            } else {
+                reservado.style.display = 'none';
+            }
+        }
+
+        function generarId() {
+            return 'meta_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+        }
+
+        function cargarMetas() {
+            const metas = JSON.parse(localStorage.getItem('metas') || '[]');
+            const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+            const lista = document.getElementById('lista-metas');
+            const sinMetas = document.getElementById('sin-metas');
+            lista.innerHTML = '';
+            if (metas.length === 0) {
+                sinMetas.style.display = 'block';
+            } else {
+                sinMetas.style.display = 'none';
+                metas.forEach(meta => {
+                    const acumulado = contribuciones
+                        .filter(c => c.metaId === meta.id)
+                        .reduce((s, c) => s + c.cantidad, 0);
+                    const objetivo = parseFloat(meta.objetivo) || 0;
+                    const pct = objetivo > 0 ? Math.min(100, (acumulado / objetivo) * 100) : 0;
+                    const li = document.createElement('li');
+                    li.className = 'meta-item';
+                    li.innerHTML = `
+                        <div class="meta-info">
+                            <strong>${meta.nombre}</strong>
+                            <span class="meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)</span>
+                            <div class="meta-barra"><div class="meta-barra-fill" style="width: ${pct}%"></div></div>
+                        </div>
+                        <button type="button" class="btn-accion btn-editar" data-meta-id="${meta.id}" data-meta-nombre="${meta.nombre}">Aportar más</button>
+                    `;
+                    lista.appendChild(li);
+                });
+            }
+        }
+
+        document.getElementById('fecha').valueAsDate = new Date();
+
+        actualizarOpcionesOrigen('origen', 0);
+        mostrarSaldoDisponible();
+
+        document.getElementById('aporte').addEventListener('input', function() {
+            const cant = parseFloat(this.value) || 0;
+            actualizarOpcionesOrigen('origen', cant);
+        });
+
+        document.getElementById('metas-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nombre = document.getElementById('nombre').value.trim();
+            const objetivo = parseFloat(document.getElementById('objetivo').value) || 0;
+            const aporte = parseFloat(document.getElementById('aporte').value) || 0;
+            const origen = document.getElementById('origen').value;
+            const fecha = document.getElementById('fecha').value;
+
+            if (objetivo <= 0 || aporte <= 0) {
+                alert('El objetivo y el aporte deben ser mayores a cero.');
+                return;
+            }
+
+            const saldos = calcularSaldos();
+            if (aporte > saldos.total) {
+                alert('No tienes saldo suficiente. Disponible: ' + formatearNumero(saldos.total) + ' ' + moneda);
+                return;
+            }
+            if (origen === 'efectivo' && aporte > saldos.efectivo) {
+                alert('No tienes suficiente efectivo. Disponible: ' + formatearNumero(saldos.efectivo) + ' ' + moneda);
+                return;
+            }
+            if (origen === 'banco' && aporte > saldos.banco) {
+                alert('No tienes suficiente saldo en banco. Disponible: ' + formatearNumero(saldos.banco) + ' ' + moneda);
+                return;
+            }
+
+            const metaId = generarId();
+            let metas = JSON.parse(localStorage.getItem('metas') || '[]');
+            metas.push({ id: metaId, nombre, objetivo });
+            localStorage.setItem('metas', JSON.stringify(metas));
+
+            let contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+            contribuciones.push({ metaId, cantidad: aporte, fecha, origen });
+            localStorage.setItem('contribucionesMetas', JSON.stringify(contribuciones));
+
+            alert('¡Meta creada y aporte registrado! Se descontaron ' + formatearNumero(aporte) + ' ' + moneda + ' de tu saldo.');
+            document.getElementById('metas-form').reset();
+            document.getElementById('fecha').valueAsDate = new Date();
+            actualizarOpcionesOrigen('origen', 0);
+            mostrarSaldoDisponible();
+            cargarMetas();
+        });
+
+        document.getElementById('lista-metas').addEventListener('click', function(e) {
+            if (!e.target.classList.contains('btn-editar')) return;
+            const metaId = e.target.dataset.metaId;
+            const metaNombre = e.target.dataset.metaNombre;
+            document.getElementById('aportar-meta-id').value = metaId;
+            document.querySelector('#form-aportar-meta h3').textContent = 'Aportar a: ' + metaNombre;
+            actualizarOpcionesOrigen('aportar-origen', 0);
+            document.getElementById('aportar-cantidad').value = '';
+            document.getElementById('aportar-fecha').valueAsDate = new Date();
+            document.getElementById('form-aportar-meta').style.display = 'block';
+        });
+
+        document.getElementById('aportar-cantidad').addEventListener('input', function() {
+            const cant = parseFloat(this.value) || 0;
+            actualizarOpcionesOrigen('aportar-origen', cant);
+        });
+
+        document.getElementById('btn-cerrar-aportar').addEventListener('click', function() {
+            document.getElementById('form-aportar-meta').style.display = 'none';
+        });
+
+        document.getElementById('form-aportar').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const metaId = document.getElementById('aportar-meta-id').value;
+            const cantidad = parseFloat(document.getElementById('aportar-cantidad').value) || 0;
+            const origen = document.getElementById('aportar-origen').value;
+            const fecha = document.getElementById('aportar-fecha').value;
+
+            if (cantidad <= 0) return;
+
+            const saldos = calcularSaldos();
+            if (cantidad > saldos.total) {
+                alert('No tienes saldo suficiente. Disponible: ' + formatearNumero(saldos.total) + ' ' + moneda);
+                return;
+            }
+            if (origen === 'efectivo' && cantidad > saldos.efectivo) {
+                alert('No tienes suficiente efectivo.');
+                return;
+            }
+            if (origen === 'banco' && cantidad > saldos.banco) {
+                alert('No tienes suficiente saldo en banco.');
+                return;
+            }
+
+            let contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+            contribuciones.push({ metaId, cantidad, fecha, origen });
+            localStorage.setItem('contribucionesMetas', JSON.stringify(contribuciones));
+
+            alert('Aporte registrado. Se descontaron ' + formatearNumero(cantidad) + ' ' + moneda + ' de tu saldo.');
+            document.getElementById('form-aportar-meta').style.display = 'none';
+            actualizarOpcionesOrigen('origen', 0);
+            mostrarSaldoDisponible();
+            cargarMetas();
+        });
+
+        cargarMetas();
+    </script>
+</body>
+</html>

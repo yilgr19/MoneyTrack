@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saldo Inicial - MoneyTrack</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>MoneyTrack</h1>
+            <p>Control de gastos personales</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="saldo.html">Saldo</a></li>
+            <li><a href="ingresos.html">Ingresos</a></li>
+            <li><a href="categoria.html">Categorías</a></li>
+            <li><a href="gastos.html">Gastos</a></li>
+            <li><a href="metas.html">Metas</a></li>
+            <li><a href="administrar.html">Administrar</a></li>
+        </ul>
+    </nav>
+
+    <section class="section">
+        <div class="saldo-intro">
+            <h2>Saldo inicial</h2>
+            <p>Ingresa el dinero que tienes en efectivo y en banco por separado</p>
+        </div>
+
+        <form id="saldo-form" class="saldo-form">
+            <div class="input-group">
+                <label for="moneda">Tipo de moneda</label>
+                <select id="moneda" name="moneda" required>
+                    <option value="">Selecciona una moneda</option>
+                    <option value="USD">USD - Dólar estadounidense</option>
+                    <option value="EUR">EUR - Euro</option>
+                    <option value="MXN">MXN - Peso mexicano</option>
+                    <option value="COP">COP - Peso colombiano</option>
+                    <option value="ARS">ARS - Peso argentino</option>
+                    <option value="CLP">CLP - Peso chileno</option>
+                    <option value="PEN">PEN - Sol peruano</option>
+                    <option value="GBP">GBP - Libra esterlina</option>
+                    <option value="JPY">JPY - Yen japonés</option>
+                    <option value="BRL">BRL - Real brasileño</option>
+                    <option value="CAD">CAD - Dólar canadiense</option>
+                    <option value="GTQ">GTQ - Quetzal guatemalteco</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="efectivo">Monto en efectivo</label>
+                <input 
+                    type="number" 
+                    id="efectivo" 
+                    name="efectivo" 
+                    placeholder="0.00" 
+                    step="0.01"
+                    min="0"
+                    value="0"
+                >
+            </div>
+
+            <div class="input-group">
+                <label for="banco">Monto en banco</label>
+                <input 
+                    type="number" 
+                    id="banco" 
+                    name="banco" 
+                    placeholder="0.00" 
+                    step="0.01"
+                    min="0"
+                    value="0"
+                >
+            </div>
+
+            <div class="input-group">
+                <label for="presupuesto-mensual">Presupuesto mensual (opcional)</label>
+                <input 
+                    type="number" 
+                    id="presupuesto-mensual" 
+                    name="presupuesto-mensual" 
+                    placeholder="Ej: 2000 - Lo que planeas gastar al mes"
+                    step="0.01"
+                    min="0"
+                    value="0"
+                >
+                <span class="input-hint">Planifica cuánto quieres gastar cada mes para hacer seguimiento en Inicio</span>
+            </div>
+
+            <div class="input-group">
+                <label for="nota">Nota (opcional)</label>
+                <input 
+                    type="text" 
+                    id="nota" 
+                    name="nota" 
+                    placeholder="Ej: Billetera principal, Cuenta de ahorros..."
+                >
+            </div>
+
+            <button type="submit" class="btn">Guardar saldo inicial</button>
+        </form>
+    </section>
+
+    <footer class="footer">
+        <p>MoneyTrack - Control de gastos personales</p>
+    </footer>
+
+    <script>
+        // Precargar valores si ya existen
+        const efectivoGuardado = localStorage.getItem('saldoEfectivo');
+        const bancoGuardado = localStorage.getItem('saldoBanco');
+        if (efectivoGuardado !== null) document.getElementById('efectivo').value = efectivoGuardado;
+        if (bancoGuardado !== null) document.getElementById('banco').value = bancoGuardado;
+        const monedaGuardada = localStorage.getItem('moneda');
+        if (monedaGuardada) document.getElementById('moneda').value = monedaGuardada;
+        const presupuestoGuardado = localStorage.getItem('presupuestoMensual');
+        if (presupuestoGuardado !== null && parseFloat(presupuestoGuardado) > 0) {
+            document.getElementById('presupuesto-mensual').value = presupuestoGuardado;
+        }
+
+        document.getElementById('saldo-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const moneda = document.getElementById('moneda').value;
+            const efectivo = parseFloat(document.getElementById('efectivo').value) || 0;
+            const banco = parseFloat(document.getElementById('banco').value) || 0;
+            const presupuesto = parseFloat(document.getElementById('presupuesto-mensual').value) || 0;
+            const nota = document.getElementById('nota').value || null;
+
+            if (efectivo === 0 && banco === 0) {
+                alert('Ingresa al menos un monto en efectivo o en banco.');
+                return;
+            }
+            
+            localStorage.setItem('moneda', moneda);
+            localStorage.setItem('saldoEfectivo', efectivo);
+            localStorage.setItem('saldoBanco', banco);
+            if (presupuesto > 0) localStorage.setItem('presupuestoMensual', presupuesto.toString());
+            else localStorage.removeItem('presupuestoMensual');
+            localStorage.setItem('saldoInicialFecha', new Date().toISOString());
+            if (nota) localStorage.setItem('saldoInicialNota', nota);
+            
+            alert('¡Saldo inicial guardado correctamente!');
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>

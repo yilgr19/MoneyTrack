@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio - MoneyTrack</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>MoneyTrack</h1>
+            <p>Control de gastos personales</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="saldo.html">Saldo</a></li>
+            <li><a href="ingresos.html">Ingresos</a></li>
+            <li><a href="categoria.html">Categorías</a></li>
+            <li><a href="gastos.html">Gastos</a></li>
+            <li><a href="metas.html">Metas</a></li>
+            <li><a href="administrar.html">Administrar</a></li>
+        </ul>
+    </nav>
+
+    <section class="section">
+        <div class="index-intro">
+            <h2>Inicio</h2>
+            <p>Resumen de tu saldo, ingresos y gastos</p>
+            <p id="inicio-saldos-titulo" class="inicio-saldos-resumen"></p>
+        </div>
+
+        <!-- Mensaje de bienvenida para usuarios nuevos -->
+        <div id="bienvenida-nuevo" class="bienvenida-card" style="display:none;">
+            <h2 class="bienvenida-titulo">Bienvenido 👋</h2>
+            <p class="bienvenida-texto">Comienza a controlar tus finanzas en pocos pasos:</p>
+            <ol class="bienvenida-pasos">
+                <li><strong>Agrega tu saldo o ingresos.</strong> Define cuánto dinero tienes disponible en Saldo o registra tu primer ingreso en Ingresos
+                <li><strong>Crea categorías de gastos.</strong> Organiza tus gastos por tipo (comida, transporte, etc.) en Categorías
+                <li><strong>Registra tus gastos diarios.</strong> Lleva el control de cada gasto en Gastos
+                <li><strong>Revisa tus estadísticas en el inicio.</strong> Una vez tengas datos, verás aquí tu saldo, presupuesto y gráficas.</li>
+            </ol>
+            <p class="bienvenida-cta">¡Empieza ahora! <a href="saldo.html" class="btn btn-registrar">Configurar saldo</a></p>
+        </div>
+
+        <div id="contenido-principal" class="index-grid-cards">
+            <!-- 1. Saldo actual -->
+            <div class="resumen-card resumen-saldo">
+                <h3>Saldo actual</h3>
+                <p class="saldo-descripcion">Dinero disponible en efectivo y en banco:</p>
+                <div class="saldos-divididos">
+                    <div class="saldo-tipo">
+                        <span class="saldo-label">Efectivo:</span>
+                        <span id="saldo-efectivo" class="saldo-valor">0.00</span>
+                    </div>
+                    <div class="saldo-tipo">
+                        <span class="saldo-label">Banco:</span>
+                        <span id="saldo-banco" class="saldo-valor">0.00</span>
+                    </div>
+                    <div class="saldo-tipo saldo-total">
+                        <span class="saldo-label">Total:</span>
+                        <span id="saldo-actual" class="saldo-monto">—</span>
+                    </div>
+                    <div class="saldo-tipo saldo-ingresos">
+                        <span class="saldo-label">Ingresos del mes:</span>
+                        <span id="saldo-ingresos-mes" class="saldo-valor">0.00</span>
+                    </div>
+                </div>
+                <p id="saldo-detalle" class="saldo-detalle"></p>
+                <p id="sin-saldo" class="sin-datos">Registra tu saldo inicial en <a href="saldo.html">Saldo</a>.</p>
+            </div>
+
+            <!-- 2. Presupuesto mensual -->
+            <div class="resumen-card resumen-presupuesto">
+                <h3>Presupuesto mensual</h3>
+                <p class="presupuesto-descripcion">Lo que planeas gastar este mes:</p>
+                <div id="presupuesto-form" class="presupuesto-form-inline">
+                    <input type="number" id="presupuesto-input" placeholder="Ej: 2000" step="0.01" min="0">
+                    <button type="button" id="btn-guardar-presupuesto" class="btn btn-presupuesto">Guardar</button>
+                </div>
+                <div id="presupuesto-resumen" class="presupuesto-resumen" style="display:none;">
+                    <div class="presupuesto-layout">
+                        <div class="presupuesto-texto">
+                            <div class="presupuesto-fila">
+                                <span class="presupuesto-label">Presupuesto total:</span>
+                                <span id="presupuesto-valor" class="presupuesto-monto">0.00</span>
+                            </div>
+                            <div class="presupuesto-leyenda-texto">
+                                <span><strong id="presupuesto-gastado" class="presupuesto-gastado">0.00</strong> gastado</span>
+                                <span><strong id="presupuesto-disponible" class="presupuesto-monto">0.00</strong> disponible</span>
+                            </div>
+                            <p class="presupuesto-acciones">
+                                <a href="#" id="link-editar-presupuesto">Editar</a>
+                                <span class="presupuesto-sep">·</span>
+                                <a href="#" id="link-eliminar-presupuesto">Eliminar</a>
+                            </p>
+                        </div>
+                        <div class="presupuesto-grafico">
+                            <div class="presupuesto-barra-container">
+                                <div class="presupuesto-barra">
+                                    <div id="presupuesto-barra-gastado" class="presupuesto-barra-gastado" style="width: 0%"></div>
+                                    <div id="presupuesto-barra-disponible" class="presupuesto-barra-disponible" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p id="sin-presupuesto" class="sin-datos">Define tu presupuesto mensual arriba o en <a href="saldo.html">Saldo</a>.</p>
+            </div>
+
+            <!-- 3. Análisis del mes -->
+            <div id="analisis-contenedor" class="analisis-mes">
+                <h3>Análisis del mes</h3>
+                <p id="analisis-subtitulo" class="analisis-subtitulo">Resumen de tu situación financiera</p>
+                <div id="analisis-content" class="analisis-grid">
+                    <div class="analisis-card analisis-mayor-gasto">
+                        <h4>Mayor gasto del mes</h4>
+                        <div id="analisis-mayor-gasto">
+                            <p id="sin-mayor-gasto" class="sin-datos">Sin gastos este mes.</p>
+                            <div id="mayor-gasto-datos" style="display:none;">
+                                <p class="analisis-monto"><strong id="mayor-gasto-nombre"></strong></p>
+                                <p class="analisis-detalle"><span id="mayor-gasto-cantidad"></span> (<span id="mayor-gasto-porcentaje"></span> del total)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="analisis-card analisis-presupuesto">
+                        <h4>Presupuesto mensual</h4>
+                        <div id="analisis-presupuesto">
+                            <p id="sin-analisis-presupuesto" class="sin-datos">Define un presupuesto en <a href="saldo.html">Saldo</a> para ver el análisis.</p>
+                            <div id="presupuesto-analisis-datos" class="analisis-card-layout" style="display:none;">
+                                <div class="analisis-texto">
+                                    <p class="analisis-detalle">Gastado: <strong id="analisis-gastado"></strong> de <span id="analisis-presupuesto-total"></span></p>
+                                </div>
+                                <div class="analisis-grafico">
+                                    <div class="analisis-barra-mini">
+                                        <div id="analisis-barra-fill" class="analisis-barra-fill" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="analisis-card analisis-estado">
+                        <h4>¿Cómo vas?</h4>
+                        <div id="analisis-estado-contenido">
+                            <p id="estado-mensaje" class="estado-mensaje"></p>
+                            <p id="estado-detalle" class="estado-detalle"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Gastos por categoría -->
+            <div id="grafica-contenedor" class="grafica-categorias resumen-card">
+                <h3>Gastos por categoría</h3>
+                <p class="accion-gastos"><a href="categoria.html" class="btn btn-registrar">Ver categorías</a></p>
+                <div id="grafica-barras" class="grafica-barras"></div>
+                <p id="sin-grafica" class="sin-datos">Crea categorías en Categorías para ver el gráfico.</p>
+            </div>
+
+            <!-- 5. Últimos gastos -->
+            <div class="resumen-card resumen-gastos">
+                <h3>Últimos gastos</h3>
+                <p id="total-gastos" class="total-label"></p>
+                <ul id="lista-gastos"></ul>
+                <p id="sin-gastos" class="sin-datos">Aún no hay gastos. Registra uno en <a href="gastos.html">Gastos</a>.</p>
+                <a href="gastos.html" class="btn btn-secundario">Registrar nuevo gasto</a>
+            </div>
+
+            <!-- 6. Metas de ahorro -->
+            <div id="grafica-metas-contenedor" class="grafica-categorias resumen-card">
+                <h3>Metas de ahorro</h3>
+                <p class="accion-gastos"><a href="metas.html" class="btn btn-registrar">Ver metas</a></p>
+                <div id="grafica-metas-barras" class="grafica-barras"></div>
+                <p id="sin-metas-grafica" class="sin-datos">Aún no tienes metas. Crea una en <a href="metas.html">Metas</a>.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>MoneyTrack - Control de gastos personales</p>
+    </footer>
+
+    <a href="gastos.html" class="fab" title="Registrar gasto">
+        <span class="fab-icon">+</span>
+    </a>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const moneda = localStorage.getItem('moneda') || '';
+        let saldoEfectivo = parseFloat(localStorage.getItem('saldoEfectivo'));
+        let saldoBanco = parseFloat(localStorage.getItem('saldoBanco'));
+        if (isNaN(saldoEfectivo) || isNaN(saldoBanco)) {
+            const saldoInicial = parseFloat(localStorage.getItem('saldoInicial')) || 0;
+            const origen = localStorage.getItem('origenDinero');
+            saldoEfectivo = origen === 'efectivo' ? saldoInicial : 0;
+            saldoBanco = origen === 'banco' ? saldoInicial : 0;
+        }
+        const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+        const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
+
+        const ahora = new Date();
+        const mesActual = ahora.getMonth();
+        const añoActual = ahora.getFullYear();
+
+        function obtenerMesAño(fechaStr) {
+            const d = new Date(fechaStr);
+            return { mes: d.getMonth(), año: d.getFullYear() };
+        }
+        function formatearFechaHora(fechaStr) {
+            if (!fechaStr) return '—';
+            const d = new Date(fechaStr.includes('T') ? fechaStr : fechaStr + 'T12:00:00');
+            return d.toLocaleDateString('es') + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        const ingresosEf = ingresos.filter(i => i.origen === 'efectivo');
+        const ingresosBq = ingresos.filter(i => !i.origen || i.origen === 'banco');
+        const gastosEfectivo = gastos.filter(g => g.origen === 'efectivo');
+        const gastosBanco = gastos.filter(g => !g.origen || g.origen === 'banco');
+        const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+        const contribEf = contribuciones.filter(c => c.origen === 'efectivo').reduce((s, c) => s + c.cantidad, 0);
+        const contribBq = contribuciones.filter(c => !c.origen || c.origen === 'banco').reduce((s, c) => s + c.cantidad, 0);
+
+        const totalIngresosEf = ingresosEf.reduce((s, i) => s + i.cantidad, 0);
+        const totalIngresosBq = ingresosBq.reduce((s, i) => s + i.cantidad, 0);
+        const totalGastosEfectivo = gastosEfectivo.reduce((s, g) => s + g.cantidad, 0);
+        const totalGastosBanco = gastosBanco.reduce((s, g) => s + g.cantidad, 0);
+
+        const saldoEfectivoActual = saldoEfectivo + totalIngresosEf - totalGastosEfectivo - contribEf;
+        const saldoBancoActual = saldoBanco + totalIngresosBq - totalGastosBanco - contribBq;
+        const saldoActual = saldoEfectivoActual + saldoBancoActual;
+
+        const ingresosMesActual = ingresos
+            .filter(i => {
+                const { mes, año } = obtenerMesAño(i.fecha);
+                return mes === mesActual && año === añoActual;
+            })
+            .reduce((s, i) => s + i.cantidad, 0);
+
+        const gastosMesActual = gastos
+            .filter(g => {
+                const { mes, año } = obtenerMesAño(g.fecha);
+                return mes === mesActual && año === añoActual;
+            })
+            .reduce((s, g) => s + g.cantidad, 0);
+
+        const totalGastos = totalGastosEfectivo + totalGastosBanco;
+
+        const nombreMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mesActual];
+
+        const esUsuarioNuevo = ((saldoEfectivo || 0) + (saldoBanco || 0)) === 0 && ingresos.length === 0;
+        const bienvenidaEl = document.getElementById('bienvenida-nuevo');
+        const contenidoPrincipal = document.getElementById('contenido-principal');
+        const graficaContenedor = document.getElementById('grafica-contenedor');
+        const analisisContenedor = document.getElementById('analisis-contenedor');
+        const indexIntro = document.querySelector('.index-intro');
+        if (esUsuarioNuevo) {
+            indexIntro.style.display = 'none';
+            bienvenidaEl.style.display = 'block';
+            contenidoPrincipal.style.display = 'none';
+            graficaContenedor.style.display = 'none';
+            if (analisisContenedor) analisisContenedor.style.display = 'none';
+        } else {
+            indexIntro.style.display = 'block';
+            bienvenidaEl.style.display = 'none';
+            contenidoPrincipal.style.display = '';
+            graficaContenedor.style.display = 'block';
+            if (analisisContenedor) analisisContenedor.style.display = 'block';
+        }
+
+        let presupuestoMensual = parseFloat(localStorage.getItem('presupuestoMensual')) || 0;
+
+        function actualizarPresupuestoCard() {
+            presupuestoMensual = parseFloat(localStorage.getItem('presupuestoMensual')) || 0;
+            const form = document.getElementById('presupuesto-form');
+            const resumen = document.getElementById('presupuesto-resumen');
+            const sinPresupuesto = document.getElementById('sin-presupuesto');
+            const presupuestoInput = document.getElementById('presupuesto-input');
+
+            if (presupuestoMensual > 0) {
+                form.style.display = 'none';
+                sinPresupuesto.style.display = 'none';
+                resumen.style.display = 'block';
+                document.getElementById('presupuesto-valor').textContent = formatearNumero(presupuestoMensual) + ' ' + moneda;
+                document.getElementById('presupuesto-gastado').textContent = formatearNumero(gastosMesActual) + ' ' + moneda;
+                document.getElementById('presupuesto-gastado').className = 'presupuesto-gastado negativo';
+                const disponible = presupuestoMensual - gastosMesActual;
+                document.getElementById('presupuesto-disponible').textContent = formatearNumero(Math.max(0, disponible)) + ' ' + moneda;
+                document.getElementById('presupuesto-disponible').className = 'presupuesto-monto ' + (disponible >= 0 ? 'positivo' : 'negativo');
+                const pctGastado = presupuestoMensual > 0 ? Math.min(100, (gastosMesActual / presupuestoMensual) * 100) : 0;
+                const pctDisponible = Math.max(0, 100 - pctGastado);
+                document.getElementById('presupuesto-barra-gastado').style.width = pctGastado + '%';
+                document.getElementById('presupuesto-barra-disponible').style.width = pctDisponible + '%';
+            } else {
+                resumen.style.display = 'none';
+                form.style.display = 'flex';
+                sinPresupuesto.style.display = 'block';
+            }
+        }
+
+        actualizarPresupuestoCard();
+
+        document.getElementById('btn-guardar-presupuesto').addEventListener('click', function() {
+            const val = parseFloat(document.getElementById('presupuesto-input').value) || 0;
+            if (val <= 0) {
+                localStorage.removeItem('presupuestoMensual');
+                presupuestoMensual = 0;
+            } else {
+                localStorage.setItem('presupuestoMensual', val.toString());
+                presupuestoMensual = val;
+            }
+            actualizarPresupuestoCard();
+            document.getElementById('presupuesto-input').value = '';
+        });
+
+        document.getElementById('link-editar-presupuesto').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('presupuesto-form').style.display = 'flex';
+            document.getElementById('presupuesto-resumen').style.display = 'none';
+            document.getElementById('presupuesto-input').value = presupuestoMensual > 0 ? presupuestoMensual : '';
+            document.getElementById('presupuesto-input').focus();
+        });
+
+        document.getElementById('link-eliminar-presupuesto').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (confirm('¿Eliminar el presupuesto mensual?')) {
+                localStorage.removeItem('presupuestoMensual');
+                presupuestoMensual = 0;
+                actualizarPresupuestoCard();
+                document.getElementById('presupuesto-input').value = '';
+            }
+        });
+
+        document.getElementById('presupuesto-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') document.getElementById('btn-guardar-presupuesto').click();
+        });
+
+        // Mostrar saldos
+        const saldoEfectivoEl = document.getElementById('saldo-efectivo');
+        const saldoBancoEl = document.getElementById('saldo-banco');
+        const saldoEl = document.getElementById('saldo-actual');
+        const saldoDetalle = document.getElementById('saldo-detalle');
+        const sinSaldo = document.getElementById('sin-saldo');
+
+        const saldoIngresosMesEl = document.getElementById('saldo-ingresos-mes');
+        const inicioSaldosTitulo = document.getElementById('inicio-saldos-titulo');
+        if (saldoEfectivo > 0 || saldoBanco > 0 || ingresos.length > 0 || gastos.length > 0 || contribuciones.length > 0) {
+            sinSaldo.style.display = 'none';
+            if (inicioSaldosTitulo) {
+                inicioSaldosTitulo.textContent = `Efectivo: ${formatearNumero(saldoEfectivoActual)} ${moneda} | Banco: ${formatearNumero(saldoBancoActual)} ${moneda}`;
+                inicioSaldosTitulo.style.display = 'block';
+            }
+            saldoEfectivoEl.textContent = `${formatearNumero(saldoEfectivoActual)} ${moneda}`;
+            saldoEfectivoEl.className = 'saldo-valor ' + (saldoEfectivoActual >= 0 ? 'positivo' : 'negativo');
+            saldoBancoEl.textContent = `${formatearNumero(saldoBancoActual)} ${moneda}`;
+            saldoBancoEl.className = 'saldo-valor ' + (saldoBancoActual >= 0 ? 'positivo' : 'negativo');
+            saldoEl.textContent = `${formatearNumero(saldoActual)} ${moneda}`;
+            saldoEl.className = 'saldo-monto ' + (saldoActual >= 0 ? 'positivo' : 'negativo');
+            if (saldoIngresosMesEl) {
+                saldoIngresosMesEl.textContent = `${formatearNumero(ingresosMesActual)} ${moneda}`;
+                saldoIngresosMesEl.className = 'saldo-valor ' + (ingresosMesActual > 0 ? 'positivo' : '');
+            }
+            const totalReservado = contribuciones.reduce((s, c) => s + c.cantidad, 0);
+            saldoDetalle.textContent = `${nombreMes}: Gastos ${formatearNumero(gastosMesActual)}${totalReservado > 0 ? ' | Reservado en metas: ' + formatearNumero(totalReservado) : ''} ${moneda}`;
+            saldoDetalle.style.display = 'block';
+        } else {
+            sinSaldo.style.display = 'block';
+            if (inicioSaldosTitulo) inicioSaldosTitulo.style.display = 'none';
+            if (saldoIngresosMesEl) saldoIngresosMesEl.textContent = `${formatearNumero(0)} ${moneda}`;
+        }
+
+        // Análisis del mes
+        const gastosDelMes = gastos.filter(g => {
+            const { mes, año } = obtenerMesAño(g.fecha);
+            return mes === mesActual && año === añoActual;
+        });
+        const mayorGasto = gastosDelMes.length ? gastosDelMes.reduce((max, g) => g.cantidad > max.cantidad ? g : max, gastosDelMes[0]) : null;
+        const analisisSub = document.getElementById('analisis-subtitulo');
+        if (analisisSub) analisisSub.textContent = `Resumen de tu situación financiera en ${nombreMes} ${añoActual}`;
+
+        const sinMayorGasto = document.getElementById('sin-mayor-gasto');
+        const mayorGastoDatos = document.getElementById('mayor-gasto-datos');
+        if (mayorGasto) {
+            if (sinMayorGasto) sinMayorGasto.style.display = 'none';
+            if (mayorGastoDatos) {
+                mayorGastoDatos.style.display = 'block';
+                const pct = gastosMesActual > 0 ? formatearNumero((mayorGasto.cantidad / gastosMesActual) * 100, 1) : 0;
+                document.getElementById('mayor-gasto-nombre').textContent = mayorGasto.nombre;
+                document.getElementById('mayor-gasto-cantidad').textContent = formatearNumero(mayorGasto.cantidad) + ' ' + moneda;
+                document.getElementById('mayor-gasto-porcentaje').textContent = pct + '%';
+            }
+        } else {
+            if (sinMayorGasto) sinMayorGasto.style.display = 'block';
+            if (mayorGastoDatos) mayorGastoDatos.style.display = 'none';
+        }
+
+        const sinAnalisisPresupuesto = document.getElementById('sin-analisis-presupuesto');
+        const presupuestoAnalisisDatos = document.getElementById('presupuesto-analisis-datos');
+        if (presupuestoMensual > 0) {
+            if (sinAnalisisPresupuesto) sinAnalisisPresupuesto.style.display = 'none';
+            if (presupuestoAnalisisDatos) {
+                presupuestoAnalisisDatos.style.display = 'block';
+                const pctPresupuesto = Math.min(100, (gastosMesActual / presupuestoMensual) * 100);
+                document.getElementById('analisis-gastado').textContent = formatearNumero(gastosMesActual) + ' ' + moneda;
+                document.getElementById('analisis-presupuesto-total').textContent = formatearNumero(presupuestoMensual) + ' ' + moneda;
+                document.getElementById('analisis-barra-fill').style.width = pctPresupuesto + '%';
+                document.getElementById('analisis-barra-fill').className = 'analisis-barra-fill ' + (pctPresupuesto >= 100 ? 'superado' : pctPresupuesto >= 80 ? 'cuidado' : 'ok');
+            }
+        } else {
+            if (sinAnalisisPresupuesto) sinAnalisisPresupuesto.style.display = 'block';
+            if (presupuestoAnalisisDatos) presupuestoAnalisisDatos.style.display = 'none';
+        }
+
+        const estadoMensaje = document.getElementById('estado-mensaje');
+        const estadoDetalle = document.getElementById('estado-detalle');
+        if (estadoMensaje && estadoDetalle) {
+            if (presupuestoMensual <= 0) {
+                estadoMensaje.textContent = 'Define un presupuesto mensual para saber si vas bien o mal.';
+                estadoMensaje.className = 'estado-mensaje estado-info';
+                estadoDetalle.textContent = '';
+            } else {
+                const disponible = presupuestoMensual - gastosMesActual;
+                const pctUsado = (gastosMesActual / presupuestoMensual) * 100;
+                if (disponible > 0 && pctUsado < 80) {
+                    estadoMensaje.textContent = '¡Vas bien!';
+                    estadoMensaje.className = 'estado-mensaje estado-ok';
+                    estadoDetalle.textContent = `Te quedan ${formatearNumero(disponible)} ${moneda} disponibles de tu presupuesto.`;
+                } else if (disponible > 0 && pctUsado >= 80) {
+                    estadoMensaje.textContent = 'Cuidado, te acercas al límite';
+                    estadoMensaje.className = 'estado-mensaje estado-cuidado';
+                    estadoDetalle.textContent = `Te quedan ${formatearNumero(disponible)} ${moneda}. Intenta no superar tu presupuesto.`;
+                } else if (disponible === 0) {
+                    estadoMensaje.textContent = 'Has agotado tu presupuesto mensual';
+                    estadoMensaje.className = 'estado-mensaje estado-alerta';
+                    estadoDetalle.textContent = `Gastaste exactamente ${formatearNumero(presupuestoMensual)} ${moneda} este mes.`;
+                } else {
+                    estadoMensaje.textContent = 'Has superado tu presupuesto';
+                    estadoMensaje.className = 'estado-mensaje estado-superado';
+                    estadoDetalle.textContent = `Te has pasado en ${formatearNumero(Math.abs(disponible))} ${moneda}.`;
+                }
+            }
+        }
+
+        // Últimos gastos (los 8 más recientes)
+        const listaGastos = document.getElementById('lista-gastos');
+        const totalGastosLabel = document.getElementById('total-gastos');
+        const sinGastos = document.getElementById('sin-gastos');
+        const ultimosGastos = gastos.slice().reverse().slice(0, 8);
+
+        if (gastos.length === 0) {
+            sinGastos.style.display = 'block';
+        } else {
+            sinGastos.style.display = 'none';
+            totalGastosLabel.textContent = `Total: ${formatearNumero(totalGastos)} ${moneda} (${gastos.length} gasto${gastos.length !== 1 ? 's' : ''})`;
+            totalGastosLabel.style.display = 'block';
+            ultimosGastos.forEach((g) => {
+                const li = document.createElement('li');
+                const fechaFormato = formatearFechaHora(g.fecha);
+                const origenLabel = g.origen === 'efectivo' ? 'Efectivo' : 'Banco';
+                li.innerHTML = `<span><strong>${g.nombre}</strong> — ${formatearNumero(g.cantidad)} ${moneda} (${g.categoria}) — ${origenLabel} — ${fechaFormato}</span>`;
+                listaGastos.appendChild(li);
+            });
+        }
+
+        // Gráfica de gastos por categoría - muestra TODAS las categorías creadas
+        const categoriasData = JSON.parse(localStorage.getItem('categorias') || '[]');
+        const gastosPorCategoria = {};
+        gastos.forEach(g => {
+            const cat = g.categoria || 'Otros';
+            gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + g.cantidad;
+        });
+        const graficaBarras = document.getElementById('grafica-barras');
+        const sinGrafica = document.getElementById('sin-grafica');
+
+        function getColorCategoria(nombre) {
+            const cat = categoriasData.find(c => (typeof c === 'object' ? c.nombre : c) === nombre);
+            return (cat && cat.color) ? cat.color : '#8b5cf6';
+        }
+
+        function normalizarCat(c) {
+            if (typeof c === 'string') return { nombre: c, color: '#6b7280', limite: null };
+            return { nombre: c.nombre || c, color: c.color || '#6b7280', limite: c.limite || null };
+        }
+
+        const categoriasLista = categoriasData.map(normalizarCat);
+        const gastosMesPorCategoria = {};
+        gastos.filter(g => {
+            const { mes, año } = obtenerMesAño(g.fecha);
+            return mes === mesActual && año === añoActual;
+        }).forEach(g => {
+            const cat = g.categoria || 'Otros';
+            gastosMesPorCategoria[cat] = (gastosMesPorCategoria[cat] || 0) + g.cantidad;
+        });
+        const totalGastosMes = Object.values(gastosMesPorCategoria).reduce((s, v) => s + v, 0) || 1;
+
+        if (categoriasLista.length === 0) {
+            sinGrafica.textContent = 'Crea categorías en Categorías para ver el gráfico.';
+            sinGrafica.style.display = 'block';
+        } else {
+            sinGrafica.style.display = 'none';
+            categoriasLista.sort((a, b) => (gastosMesPorCategoria[b.nombre] || 0) - (gastosMesPorCategoria[a.nombre] || 0));
+            categoriasLista.forEach(cat => {
+                const monto = gastosMesPorCategoria[cat.nombre] || 0;
+                const limite = cat.limite ? parseFloat(cat.limite) : null;
+                let pct, textoProgreso;
+                if (limite && limite > 0) {
+                    const pctReal = (monto / limite) * 100;
+                    pct = Math.min(100, pctReal);
+                    textoProgreso = `${formatearNumero(monto)} / ${formatearNumero(limite)} ${moneda} (${formatearNumero(pctReal, 0)}%)`;
+                } else {
+                    pct = totalGastosMes > 0 ? (monto / totalGastosMes) * 100 : 0;
+                    const totalTexto = totalGastosMes > 0 ? formatearNumero(totalGastosMes) : '0';
+                    textoProgreso = `${formatearNumero(monto)} / ${totalTexto} ${moneda} (${formatearNumero(pct, 0)}%)`;
+                }
+                const item = document.createElement('div');
+                item.className = 'grafica-item grafica-item-meta';
+                item.innerHTML = `
+                    <div class="grafica-meta-info">
+                        <strong>${cat.nombre}</strong>
+                        <span class="grafica-meta-progreso">${textoProgreso}</span>
+                        <div class="grafica-meta-barra">
+                            <div class="grafica-meta-barra-fill" style="width: ${Math.max(pct, 0)}%"></div>
+                        </div>
+                    </div>
+                `;
+                graficaBarras.appendChild(item);
+            });
+        }
+
+        // Gráfica de metas de ahorro
+        const metasData = JSON.parse(localStorage.getItem('metas') || '[]');
+        const contribucionesMetas = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+        const graficaMetasBarras = document.getElementById('grafica-metas-barras');
+        const sinMetasGrafica = document.getElementById('sin-metas-grafica');
+
+        if (metasData.length === 0) {
+            sinMetasGrafica.style.display = 'block';
+        } else {
+            sinMetasGrafica.style.display = 'none';
+            const coloresMetas = ['#8b5cf6', '#22c55e', '#f59e0b', '#06b6d4', '#ec4899'];
+            metasData.forEach((meta, i) => {
+                const acumulado = contribucionesMetas
+                    .filter(c => c.metaId === meta.id)
+                    .reduce((s, c) => s + c.cantidad, 0);
+                const objetivo = parseFloat(meta.objetivo) || 0;
+                const pct = objetivo > 0 ? Math.min(100, (acumulado / objetivo) * 100) : 0;
+                const color = coloresMetas[i % coloresMetas.length];
+                const item = document.createElement('div');
+                item.className = 'grafica-item grafica-item-meta';
+                item.innerHTML = `
+                    <div class="grafica-meta-info">
+                        <strong>${meta.nombre}</strong>
+                        <span class="grafica-meta-progreso">${formatearNumero(acumulado)} / ${formatearNumero(objetivo)} ${moneda} (${formatearNumero(pct, 0)}%)</span>
+                        <div class="grafica-meta-barra">
+                            <div class="grafica-meta-barra-fill" style="width: ${Math.max(pct, 0)}%; background: ${color}"></div>
+                        </div>
+                    </div>
+                `;
+                graficaMetasBarras.appendChild(item);
+            });
+        }
+    </script>
+</body>
+</html>

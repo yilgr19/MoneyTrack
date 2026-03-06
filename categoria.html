@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categorías - MoneyTrack</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>MoneyTrack</h1>
+            <p>Control de gastos personales</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="saldo.html">Saldo</a></li>
+            <li><a href="ingresos.html">Ingresos</a></li>
+            <li><a href="categoria.html">Categorías</a></li>
+            <li><a href="gastos.html">Gastos</a></li>
+            <li><a href="metas.html">Metas</a></li>
+            <li><a href="administrar.html">Administrar</a></li>
+        </ul>
+    </nav>
+
+    <section class="section">
+        <div class="categoria-intro">
+            <h2>Categorías</h2>
+            <p>Crea las categorías que usarás para clasificar tus gastos</p>
+        </div>
+
+        <form id="categoria-form" class="categoria-form">
+            <input type="hidden" id="editar-nombre-original" value="">
+            <div class="input-group">
+                <label for="nombre">Nueva categoría</label>
+                <input 
+                    type="text" 
+                    id="nombre" 
+                    name="nombre" 
+                    placeholder="Ej: Supermercado, Transporte, Entretenimiento..."
+                    required
+                >
+            </div>
+            <div class="input-group input-group-color">
+                <label for="color">Color de la categoría</label>
+                <div class="color-picker-wrapper">
+                    <input 
+                        type="color" 
+                        id="color" 
+                        name="color" 
+                        value="#22c55e"
+                        title="Elige el color"
+                    >
+                    <span id="color-preview" class="color-preview"></span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="limite">Límite de gasto mensual (opcional)</label>
+                <input 
+                    type="number" 
+                    id="limite" 
+                    name="limite" 
+                    placeholder="Ej: 500"
+                    step="0.01"
+                    min="0"
+                >
+                <span class="input-hint">Máximo que quieres gastar en esta categoría al mes</span>
+            </div>
+            <button type="submit" class="btn" id="btn-submit-categoria">Agregar categoría</button>
+        </form>
+
+        <div class="categorias-lista">
+            <h3>Tus categorías</h3>
+            <ul id="lista-categorias"></ul>
+            <p id="sin-categorias" class="sin-categorias">Aún no hay categorías. Agrega la primera arriba.</p>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>MoneyTrack - Control de gastos personales</p>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script>
+        function normalizarCategoria(cat) {
+            if (typeof cat === 'string') return { nombre: cat, color: '#6b7280', limite: null };
+            return { nombre: cat.nombre || cat, color: cat.color || '#6b7280', limite: cat.limite || null };
+        }
+
+        function cargarCategorias() {
+            let categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+            categorias = categorias.map(normalizarCategoria);
+            localStorage.setItem('categorias', JSON.stringify(categorias));
+
+            const lista = document.getElementById('lista-categorias');
+            const sinCategorias = document.getElementById('sin-categorias');
+
+            lista.innerHTML = '';
+            if (categorias.length === 0) {
+                sinCategorias.style.display = 'block';
+            } else {
+                sinCategorias.style.display = 'none';
+                categorias.forEach((cat, index) => {
+                    const li = document.createElement('li');
+                    const colorStyle = `background-color: ${cat.color};`;
+                    const limiteText = cat.limite ? ` — Límite: ${formatearNumero(parseFloat(cat.limite))}` : '';
+                    li.innerHTML = `<span class="categoria-badge" style="${colorStyle}">${cat.nombre}${limiteText}</span> <span class="categoria-acciones"><a href="?editar=${encodeURIComponent(cat.nombre)}" class="btn-accion btn-editar">Editar</a> <button type="button" class="btn-eliminar" data-index="${index}">Eliminar</button></span>`;
+                    lista.appendChild(li);
+                });
+            }
+        }
+
+        document.getElementById('color').addEventListener('input', function() {
+            document.getElementById('color-preview').style.backgroundColor = this.value;
+        });
+
+        document.getElementById('lista-categorias').addEventListener('click', function(e) {
+            if (e.target.classList.contains('btn-eliminar')) {
+                const index = parseInt(e.target.dataset.index);
+                let categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+                categorias = categorias.map(normalizarCategoria);
+                categorias.splice(index, 1);
+                localStorage.setItem('categorias', JSON.stringify(categorias));
+                cargarCategorias();
+            }
+        });
+
+        document.getElementById('color-preview').style.backgroundColor = document.getElementById('color').value;
+
+        // Modo edición: ?editar=NombreCategoria
+        const params = new URLSearchParams(window.location.search);
+        const editarNombre = params.get('editar');
+        if (editarNombre) {
+            let categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+            categorias = categorias.map(normalizarCategoria);
+            const cat = categorias.find(c => c.nombre === editarNombre);
+            if (cat) {
+                document.getElementById('editar-nombre-original').value = cat.nombre;
+                document.getElementById('nombre').value = cat.nombre;
+                document.getElementById('color').value = cat.color || '#22c55e';
+                document.getElementById('limite').value = cat.limite || '';
+                document.getElementById('color-preview').style.backgroundColor = cat.color || '#22c55e';
+                document.getElementById('btn-submit-categoria').textContent = 'Guardar cambios';
+            }
+        }
+
+        document.getElementById('categoria-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nombreOriginal = document.getElementById('editar-nombre-original').value;
+            const nombre = document.getElementById('nombre').value.trim();
+            const color = document.getElementById('color').value;
+            const limiteVal = document.getElementById('limite').value;
+            const limite = limiteVal ? parseFloat(limiteVal) : null;
+            if (!nombre) return;
+
+            let categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+            categorias = categorias.map(normalizarCategoria);
+
+            if (nombreOriginal) {
+                // Modo edición
+                const idx = categorias.findIndex(c => c.nombre === nombreOriginal);
+                if (idx === -1) return;
+                if (nombre !== nombreOriginal && categorias.some(c => c.nombre === nombre)) {
+                    alert('Ya existe una categoría con ese nombre.');
+                    return;
+                }
+                categorias[idx] = { nombre, color, limite };
+                localStorage.setItem('categorias', JSON.stringify(categorias));
+                // Actualizar gastos que usaban el nombre antiguo
+                const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+                gastos.forEach(g => { if (g.categoria === nombreOriginal) g.categoria = nombre; });
+                localStorage.setItem('gastos', JSON.stringify(gastos));
+                document.getElementById('editar-nombre-original').value = '';
+                document.getElementById('btn-submit-categoria').textContent = 'Agregar categoría';
+                window.history.replaceState({}, '', 'categoria.html');
+            } else {
+                // Modo agregar
+                if (categorias.some(c => c.nombre === nombre)) {
+                    alert('Esta categoría ya existe.');
+                    return;
+                }
+                categorias.push({ nombre, color, limite });
+                localStorage.setItem('categorias', JSON.stringify(categorias));
+            }
+
+            document.getElementById('nombre').value = '';
+            document.getElementById('color').value = '#22c55e';
+            document.getElementById('limite').value = '';
+            document.getElementById('color-preview').style.backgroundColor = '#22c55e';
+            cargarCategorias();
+        });
+
+        cargarCategorias();
+    </script>
+</body>
+</html>

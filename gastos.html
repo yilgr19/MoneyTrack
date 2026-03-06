@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Gasto - MoneyTrack</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>MoneyTrack</h1>
+            <p>Control de gastos personales</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="saldo.html">Saldo</a></li>
+            <li><a href="ingresos.html">Ingresos</a></li>
+            <li><a href="categoria.html">Categorías</a></li>
+            <li><a href="gastos.html">Gastos</a></li>
+            <li><a href="metas.html">Metas</a></li>
+            <li><a href="administrar.html">Administrar</a></li>
+        </ul>
+    </nav>
+
+    <section class="section">
+        <div class="gastos-intro">
+            <h2>Registrar gasto</h2>
+            <p>Ingresa los datos del gasto que deseas registrar</p>
+        </div>
+
+        <form id="gastos-form" class="gastos-form">
+            <div class="input-group">
+                <label for="nombre">Nombre</label>
+                <input 
+                    type="text" 
+                    id="nombre" 
+                    name="nombre" 
+                    placeholder="Ej: Supermercado, Uber, Cine..."
+                    required
+                >
+            </div>
+
+            <div class="input-group">
+                <label for="cantidad">Cantidad</label>
+                <input 
+                    type="number" 
+                    id="cantidad" 
+                    name="cantidad" 
+                    placeholder="0.00" 
+                    step="0.01"
+                    min="0"
+                    required
+                >
+            </div>
+
+            <div class="input-group">
+                <label for="fecha">Fecha y hora</label>
+                <input 
+                    type="datetime-local" 
+                    id="fecha" 
+                    name="fecha" 
+                    required
+                >
+            </div>
+
+            <div class="input-group">
+                <label for="categoria">Categoría</label>
+                <select id="categoria" name="categoria" required>
+                    <option value="">Selecciona una categoría</option>
+                    <!-- Las opciones se cargan desde las categorías creadas por el usuario -->
+                </select>
+                <p id="aviso-categorias" class="aviso-categorias">Crea categorías en <a href="categoria.html">Categorías</a> para poder registrar gastos.</p>
+            </div>
+
+            <div class="input-group">
+                <label for="origen">Efectivo o Banco</label>
+                <select id="origen" name="origen" required>
+                    <option value="">Selecciona cómo pagaste</option>
+                    <!-- Las opciones se actualizan según el saldo disponible -->
+                </select>
+                <p id="aviso-origen" class="aviso-origen" style="display:none;">No tienes dinero disponible. Registra saldo en <a href="saldo.html">Saldo</a> o <a href="ingresos.html">Ingresos</a>.</p>
+            </div>
+
+            <div class="input-group">
+                <label for="nota">Nota (opcional)</label>
+                <input 
+                    type="text" 
+                    id="nota" 
+                    name="nota" 
+                    placeholder="Ej: Supermercado La Central, Uber a casa..."
+                >
+            </div>
+
+            <button type="submit" class="btn">Guardar gasto</button>
+        </form>
+    </section>
+
+    <footer class="footer">
+        <p>MoneyTrack - Control de gastos personales</p>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script>
+        function normalizarCat(cat) {
+            if (typeof cat === 'string') return { nombre: cat, color: '#6b7280', limite: null };
+            return { nombre: cat.nombre || cat, color: cat.color || '#6b7280', limite: cat.limite || null };
+        }
+
+        function cargarCategorias() {
+            let categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+            categorias = categorias.map(normalizarCat);
+            const select = document.getElementById('categoria');
+            const aviso = document.getElementById('aviso-categorias');
+
+            select.innerHTML = '<option value="">Selecciona una categoría</option>';
+            if (categorias.length === 0) {
+                aviso.style.display = 'block';
+                select.disabled = true;
+            } else {
+                aviso.style.display = 'none';
+                select.disabled = false;
+                categorias.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat.nombre;
+                    opt.textContent = cat.nombre;
+                    select.appendChild(opt);
+                });
+            }
+        }
+        cargarCategorias();
+
+        function calcularSaldosDisponibles() {
+            let saldoEfectivo = parseFloat(localStorage.getItem('saldoEfectivo')) || 0;
+            let saldoBanco = parseFloat(localStorage.getItem('saldoBanco')) || 0;
+            const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
+            const gastosActuales = JSON.parse(localStorage.getItem('gastos') || '[]');
+            const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+            const ingresosEf = ingresos.filter(i => i.origen === 'efectivo').reduce((s, i) => s + i.cantidad, 0);
+            const ingresosBq = ingresos.filter(i => !i.origen || i.origen === 'banco').reduce((s, i) => s + i.cantidad, 0);
+            const gastosEf = gastosActuales.filter(g => g.origen === 'efectivo').reduce((s, g) => s + g.cantidad, 0);
+            const gastosBq = gastosActuales.filter(g => !g.origen || g.origen === 'banco').reduce((s, g) => s + g.cantidad, 0);
+            const contribEf = contribuciones.filter(c => c.origen === 'efectivo').reduce((s, c) => s + c.cantidad, 0);
+            const contribBq = contribuciones.filter(c => !c.origen || c.origen === 'banco').reduce((s, c) => s + c.cantidad, 0);
+            return {
+                efectivo: saldoEfectivo + ingresosEf - gastosEf - contribEf,
+                banco: saldoBanco + ingresosBq - gastosBq - contribBq
+            };
+        }
+
+        function actualizarOpcionesOrigen() {
+            const saldos = calcularSaldosDisponibles();
+            const moneda = localStorage.getItem('moneda') || '';
+            const select = document.getElementById('origen');
+            const aviso = document.getElementById('aviso-origen');
+            const valorAnterior = select.value;
+            const cantidad = parseFloat(document.getElementById('cantidad').value) || 0;
+
+            select.innerHTML = '<option value="">Selecciona cómo pagaste</option>';
+            let hayOpciones = false;
+            const puedeEfectivo = saldos.efectivo > 0 && (cantidad === 0 || saldos.efectivo >= cantidad);
+            const puedeBanco = saldos.banco > 0 && (cantidad === 0 || saldos.banco >= cantidad);
+            if (puedeEfectivo) {
+                const opt = document.createElement('option');
+                opt.value = 'efectivo';
+                opt.textContent = `Efectivo (${formatearNumero(saldos.efectivo)} ${moneda})`;
+                select.appendChild(opt);
+                hayOpciones = true;
+            }
+            if (puedeBanco) {
+                const opt = document.createElement('option');
+                opt.value = 'banco';
+                opt.textContent = `Banco (${formatearNumero(saldos.banco)} ${moneda})`;
+                select.appendChild(opt);
+                hayOpciones = true;
+            }
+            if (!hayOpciones) {
+                aviso.style.display = 'block';
+                select.disabled = true;
+                if (cantidad > 0 && (saldos.efectivo + saldos.banco) >= cantidad) {
+                    aviso.textContent = 'El monto supera el saldo disponible en una sola cuenta. Tienes efectivo y banco, pero ninguno cubre el monto solo.';
+                } else {
+                    aviso.innerHTML = 'No tienes dinero disponible. Registra saldo en <a href="saldo.html">Saldo</a> o <a href="ingresos.html">Ingresos</a>.';
+                }
+            } else {
+                aviso.style.display = 'none';
+                select.disabled = false;
+                if (select.options.length === 2) {
+                    select.selectedIndex = 1;
+                } else if (valorAnterior && select.querySelector('option[value="' + valorAnterior + '"]')) {
+                    select.value = valorAnterior;
+                }
+            }
+        }
+
+        actualizarOpcionesOrigen();
+
+        document.getElementById('cantidad').addEventListener('input', actualizarOpcionesOrigen);
+
+        // Recargar categorías y opciones de origen al volver a la pestaña
+        function recargarAlVolver() {
+            cargarCategorias();
+            actualizarOpcionesOrigen();
+        }
+        window.addEventListener('focus', recargarAlVolver);
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') recargarAlVolver();
+        });
+
+        // Fecha y hora por defecto: momento actual
+        const ahora = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        document.getElementById('fecha').value = `${ahora.getFullYear()}-${pad(ahora.getMonth()+1)}-${pad(ahora.getDate())}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
+
+        document.getElementById('gastos-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+            if (categorias.length === 0) {
+                alert('Primero crea al menos una categoría en Categorías.');
+                return;
+            }
+            const nombre = document.getElementById('nombre').value;
+            const cantidad = parseFloat(document.getElementById('cantidad').value);
+            const fecha = document.getElementById('fecha').value;
+            const categoria = document.getElementById('categoria').value;
+            const origen = document.getElementById('origen').value;
+            const nota = document.getElementById('nota').value || null;
+
+            // Calcular saldos actuales (incluyendo ingresos y restando metas) antes de agregar el gasto
+            let saldoEfectivo = parseFloat(localStorage.getItem('saldoEfectivo')) || 0;
+            let saldoBanco = parseFloat(localStorage.getItem('saldoBanco')) || 0;
+            const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
+            const gastosActuales = JSON.parse(localStorage.getItem('gastos') || '[]');
+            const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+            const ingresosEf = ingresos.filter(i => i.origen === 'efectivo').reduce((s, i) => s + i.cantidad, 0);
+            const ingresosBq = ingresos.filter(i => !i.origen || i.origen === 'banco').reduce((s, i) => s + i.cantidad, 0);
+            const gastosEf = gastosActuales.filter(g => g.origen === 'efectivo').reduce((s, g) => s + g.cantidad, 0);
+            const gastosBq = gastosActuales.filter(g => !g.origen || g.origen === 'banco').reduce((s, g) => s + g.cantidad, 0);
+            const contribEf = contribuciones.filter(c => c.origen === 'efectivo').reduce((s, c) => s + c.cantidad, 0);
+            const contribBq = contribuciones.filter(c => !c.origen || c.origen === 'banco').reduce((s, c) => s + c.cantidad, 0);
+            const saldoEfectivoActual = saldoEfectivo + ingresosEf - gastosEf - contribEf;
+            const saldoBancoActual = saldoBanco + ingresosBq - gastosBq - contribBq;
+            const saldoTotal = saldoEfectivoActual + saldoBancoActual;
+
+            // Validar: el gasto no puede ser mayor al saldo disponible
+            if (cantidad > saldoTotal) {
+                alert('No hay saldo suficiente. El gasto (' + formatearNumero(cantidad) + ') es mayor al saldo total disponible (' + formatearNumero(saldoTotal) + ').');
+                return;
+            }
+            if (origen === 'efectivo' && cantidad > saldoEfectivoActual) {
+                alert('No hay suficiente efectivo. Saldo en efectivo: ' + formatearNumero(saldoEfectivoActual) + '. Elige pagar desde Banco si tienes saldo ahí.');
+                return;
+            }
+            if (origen === 'banco' && cantidad > saldoBancoActual) {
+                alert('No hay suficiente saldo en banco. Saldo disponible: ' + formatearNumero(saldoBancoActual) + '.');
+                return;
+            }
+
+            // Validar límite de categoría (si existe, se define en Categorías)
+            const categoriasData = JSON.parse(localStorage.getItem('categorias') || '[]');
+            const catObj = categoriasData.map(normalizarCat).find(c => c.nombre === categoria);
+            if (catObj && catObj.limite) {
+                const gastosParaLimite = JSON.parse(localStorage.getItem('gastos') || '[]');
+                const gastosCategoria = gastosParaLimite.filter(g => {
+                    const d = new Date(g.fecha);
+                    const ah = new Date();
+                    return g.categoria === categoria && d.getMonth() === ah.getMonth() && d.getFullYear() === ah.getFullYear();
+                });
+                const gastadoMes = gastosCategoria.reduce((s, g) => s + g.cantidad, 0);
+                if (gastadoMes + cantidad > catObj.limite) {
+                    if (!confirm('¡Atención! Este gasto excede el límite de ' + categoria + ' (' + formatearNumero(catObj.limite) + '). ¿Deseas registrar el gasto de todos modos?')) {
+                        return;
+                    }
+                }
+            }
+
+            // Guardar gastos en localStorage (array)
+            let gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+
+            gastos.push({
+                nombre,
+                cantidad,
+                fecha,
+                categoria,
+                origen,
+                nota
+            });
+            localStorage.setItem('gastos', JSON.stringify(gastos));
+
+            alert('¡Gasto registrado correctamente!');
+            document.getElementById('gastos-form').reset();
+            const nh = new Date();
+            document.getElementById('fecha').value = `${nh.getFullYear()}-${pad(nh.getMonth()+1)}-${pad(nh.getDate())}T${pad(nh.getHours())}:${pad(nh.getMinutes())}`;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1714 @@
+@charset "utf-8";
+
+/* ========================================
+   ESTILOS GLOBALES (header, nav, footer, fab)
+   ======================================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif; /* Fuente principal*/
+    line-height: 1.6; /* espacio entre lineas*/
+}
+
+.header {
+    width: 100%; /*Ocupa todo el ancho*/
+    min-height: 100px; /*altura minima flexible*/
+    background: linear-gradient(135deg, blue, violet);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    text-align: center;
+}
+
+.nav {
+    background-color: blueviolet;
+}
+
+.nav ul {
+    display: flex;
+    justify-content: center;
+    list-style: none; /*Quita puntos*/
+}
+
+.nav li {
+    margin: 0 20px; /*espacio entre opciones*/
+}
+
+.nav a {
+    display: block;
+    padding: 15px;
+    color: white;
+    text-decoration: none;
+    transition: 0.3s;
+}
+
+.nav a:hover {
+    background-color: blue;
+    border-radius: 5px;
+}
+
+.section {
+    padding: 48px 20px;
+}
+
+.row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.article {
+    flex: 1 1 30px;
+    min-height: 200px;
+    border-radius: 10px;
+    transition: transform 0.3s ease;
+}
+
+.article:hover {
+    transform: scale(1.05);
+}
+
+.naranja {
+    background-color: orangered;
+}
+
+.verde {
+    background-color: green;
+}
+
+.footer {
+    background-color: black;
+    color: white;
+    text-align: center;
+    padding: 40px 20px;
+}
+
+/* Botón flotante para registrar gastos */
+.fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    background: blueviolet;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(138, 43, 226, 0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+    z-index: 999;
+}
+
+.fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(138, 43, 226, 0.5);
+}
+
+.fab:active {
+    transform: scale(0.98);
+}
+
+.fab-icon {
+    font-size: 28px;
+    font-weight: 300;
+    line-height: 1;
+}
+
+/* ========================================
+   INTERFAZ: SALDO (saldo.html)
+   ======================================== */
+
+.saldo-intro {
+    text-align: center;
+    margin-bottom: 2rem;
+    margin-top: -24px;
+}
+
+.saldo-intro h2,
+.saldo-intro h1,
+.saldo-intro p {
+    text-align: center;
+}
+
+.saldo-intro h2 {
+    color: purple;
+}
+
+/* Estilos para formularios - MoneyTrack */
+.saldo-form {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.saldo-form .input-group {
+    margin-bottom: 1rem;
+}
+
+.saldo-form label {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.saldo-form input,
+.saldo-form select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.saldo-form .btn {
+    padding: 15px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    width: 100%;
+}
+
+.saldo-form .btn:hover {
+    background: blue;
+}
+
+/* ========================================
+   INTERFAZ: GASTOS (gastos.html)
+   ======================================== */
+
+.gastos-intro {
+    text-align: center;
+    margin-bottom: 2rem;
+    margin-top: -24px;
+}
+
+.gastos-intro h2 {
+    color: purple;
+}
+
+.gastos-form {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.gastos-form .input-group {
+    margin-bottom: 1rem;
+    
+}
+
+.gastos-form label {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.gastos-form input,
+.gastos-form select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.gastos-form .btn {
+    padding: 15px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    width: 100%;
+}
+
+.gastos-form .btn:hover {
+    background: blue;
+}
+
+/* ========================================
+   INTERFAZ: INGRESOS (ingresos.html)
+   ======================================== */
+
+.ingresos-intro {
+    text-align: center;
+    margin-bottom: 2rem;
+    margin-top: -24px;
+}
+
+.ingresos-intro h2 {
+    color: purple;
+}
+
+.ingresos-form {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.ingresos-form .input-group {
+    margin-bottom: 1rem;
+}
+
+.ingresos-form label {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.ingresos-form input,
+.ingresos-form select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.ingresos-form .btn {
+    padding: 15px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    width: 100%;
+}
+
+.ingresos-form .btn:hover {
+    background: blue;
+}
+
+/* Avisos compartidos (gastos, categorías) */
+.aviso-categorias {
+    display: none;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+}
+
+.aviso-categorias a,
+.aviso-origen a {
+    color: blueviolet;
+}
+
+.aviso-origen {
+    display: none;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    color: #666;
+}
+
+.input-hint {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+/* ========================================
+   INTERFAZ: METAS DE AHORRO (metas.html)
+   ======================================== */
+
+.metas-intro {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.metas-intro h2 {
+    color: purple;
+}
+
+/* Grid: bloque centrado, formulario izquierda, saldo + lista + aportar derecha */
+.section:has(.metas-form) {
+    display: grid;
+    grid-template-areas:
+        "intro intro"
+        "form derecha";
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.section:has(.metas-form) .metas-intro { grid-area: intro; }
+.section:has(.metas-form) .metas-form { grid-area: form; margin: 0; max-width: 100%; justify-self: start; }
+.section:has(.metas-form) .metas-columna-derecha {
+    grid-area: derecha;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 280px;
+    max-width: 450px;
+    justify-self: end;
+}
+
+@media (max-width: 720px) {
+    .section:has(.metas-form) {
+        grid-template-areas:
+            "intro"
+            "form"
+            "derecha";
+        grid-template-columns: 1fr;
+    }
+    .section:has(.metas-form) .metas-columna-derecha { justify-self: stretch; max-width: none; }
+}
+
+.saldo-disponible-texto {
+    font-size: 1rem;
+    margin: 0.5rem 0;
+}
+
+.ahorro-reservado {
+    font-size: 0.9rem;
+    color: #059669;
+    font-weight: 600;
+}
+
+.metas-form {
+    max-width: 450px;
+    padding: 1.5rem;
+    background: #f5f5f5;
+    border-radius: 10px;
+}
+
+.metas-form h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: purple;
+}
+
+.metas-form .input-group {
+    margin-bottom: 1rem;
+}
+
+.metas-form .input-group label {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.metas-form input,
+.metas-form select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.metas-form .btn {
+    padding: 12px 24px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-top: 0.5rem;
+}
+
+.metas-form .btn:hover {
+    background: #5a1a9e;
+}
+
+.metas-lista-card {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    padding: 1.5rem;
+    background: #f5f5f5;
+    border-radius: 10px;
+}
+
+/* Sin tarjeta en página Metas: lista integrada debajo de Saldo disponible */
+.section:has(.metas-form) .metas-columna-derecha .metas-lista-card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    margin: 0;
+    max-width: none;
+}
+
+.metas-lista-card h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: purple;
+}
+
+.meta-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.meta-item:last-child {
+    border-bottom: none;
+}
+
+.meta-info {
+    flex: 1;
+    min-width: 180px;
+}
+
+.meta-info strong {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.meta-progreso {
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.meta-barra {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    overflow: hidden;
+}
+
+.meta-barra-fill {
+    height: 100%;
+    background: linear-gradient(90deg, blueviolet, #8b5cf6);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.aportar-meta-card {
+    max-width: 450px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background: #f5f5f5;
+    border-radius: 10px;
+}
+
+.metas-columna-derecha .aportar-meta-card {
+    margin: 0.5rem 0 0;
+    max-width: none;
+}
+
+.aportar-meta-card h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: purple;
+}
+
+.aportar-meta-card .input-group {
+    margin-bottom: 1rem;
+}
+
+.aportar-meta-card .btn {
+    margin-right: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+/* ========================================
+   INTERFAZ: CATEGORÍAS (categoria.html)
+   ======================================== */
+
+.categoria-intro {
+    text-align: center;
+    margin-bottom: 2rem;
+    margin-top: -24px;
+}
+
+.categoria-intro h2 {
+    color: purple;
+}
+
+.categoria-form {
+    max-width: 400px;
+    margin: 0 auto 2rem;
+}
+
+.categoria-form .input-group {
+    margin-bottom: 1rem;
+}
+
+.categoria-form label {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.categoria-form input[type="text"],
+.categoria-form input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.input-group-color label {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.color-picker-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.color-picker-wrapper input[type="color"] {
+    width: 50px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.color-preview {
+    display: inline-block;
+    width: 40px;
+    height: 24px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+.categoria-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 5px;
+    color: white;
+    font-weight: 500;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+}
+
+.categoria-form .btn {
+    padding: 15px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    width: 100%;
+}
+
+.categoria-form .btn:hover {
+    background: blue;
+}
+
+.categorias-lista {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.categorias-lista h3 {
+    color: purple;
+    margin-bottom: 1rem;
+}
+
+.categorias-lista ul {
+    list-style: none;
+}
+
+.categorias-lista li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: #f5f5f5;
+    border-radius: 5px;
+}
+
+.resumen-categorias .categorias-lista ul li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: #f5f5f5;
+    border-radius: 5px;
+}
+
+.resumen-categorias .categorias-lista ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.resumen-categorias .categoria-badge {
+    display: inline-block;
+}
+
+.btn-eliminar {
+    padding: 5px 12px;
+    background: #ccc;
+    color: #333;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-eliminar:hover {
+    background: #999;
+}
+
+.sin-categorias {
+    color: #666;
+    font-style: italic;
+}
+
+/* ========================================
+   INTERFAZ: INICIO (index.html)
+   ======================================== */
+
+.index-intro {
+    text-align: left;
+    margin-bottom: 2rem;
+    margin-top: -24px;
+}
+
+.index-intro h2 {
+    color: purple;
+}
+
+.inicio-saldos-resumen {
+    font-weight: 600;
+    color: #374151;
+    margin-top: 0.5rem;
+    font-size: 1rem;
+}
+
+.inicio-saldos-resumen .positivo {
+    color: green;
+}
+
+.bienvenida-card {
+    max-width: 560px;
+    margin: 0 0 2rem 0;
+    text-align: left;
+    padding: 2rem;
+    background: linear-gradient(135deg, #f8f5ff 0%, #f0ebff 100%);
+    border-radius: 12px;
+    border-left: 4px solid blueviolet;
+}
+
+.bienvenida-titulo {
+    color: purple;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.75rem;
+}
+
+.bienvenida-texto {
+    color: #555;
+    margin-bottom: 1.25rem;
+}
+
+.bienvenida-pasos {
+    text-align: left;
+    padding-left: 1.25rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.8;
+}
+
+.bienvenida-pasos li {
+    margin-bottom: 0.75rem;
+}
+
+.bienvenida-pasos a {
+    color: blueviolet;
+}
+
+.bienvenida-cta {
+    margin-bottom: 0;
+}
+
+.bienvenida-cta .btn-registrar {
+    margin-top: 0.5rem;
+    display: inline-block;
+}
+
+.btn-secundario {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 12px 20px;
+    background: blueviolet;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+.btn-secundario:hover {
+    background: blue;
+}
+
+.saldo-descripcion {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.75rem;
+}
+
+/* Layout Index: grid 2x2, tarjetas distribuidas en todo el ancho */
+.index-grid-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+}
+
+.index-grid-cards .resumen-card,
+.index-grid-cards .analisis-mes,
+.index-grid-cards .grafica-categorias {
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    text-align: left;
+}
+
+.index-grid-cards .grafica-categorias {
+    position: static;
+}
+
+/* Stack del Index (legacy) */
+.index-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.index-stack .resumen-card {
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    text-align: left;
+}
+
+/* Grid del Index (legacy/otros usos) */
+.index-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+.index-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+}
+
+.index-col .resumen-card:first-child {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.index-grid .resumen-card {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+}
+
+.index-grid .index-col .resumen-card:last-child {
+    margin-bottom: 0;
+}
+
+.resumen-mensual {
+    max-width: none;
+}
+
+@media (max-width: 768px) {
+    .index-grid {
+        grid-template-columns: 1fr;
+    }
+    .index-grid-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+.monto-mensual {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.monto-mensual.positivo {
+    color: green;
+}
+
+.monto-mensual.negativo {
+    color: red;
+}
+
+/* Presupuesto mensual */
+.presupuesto-descripcion {
+    font-size: 0.9rem;
+    color: #555;
+    margin-bottom: 0.75rem;
+}
+
+.presupuesto-form-inline {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.presupuesto-form-inline input {
+    flex: 1;
+    min-width: 100px;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.btn-presupuesto {
+    padding: 8px 16px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-presupuesto:hover {
+    background: #5a1a9e;
+}
+
+.presupuesto-resumen .presupuesto-fila {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.presupuesto-resumen .presupuesto-fila:last-of-type {
+    border-bottom: none;
+}
+
+.presupuesto-resumen .presupuesto-fila.presupuesto-disponible {
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 2px solid blueviolet;
+    font-weight: bold;
+}
+
+.presupuesto-label {
+    font-size: 0.95rem;
+}
+
+.presupuesto-monto {
+    font-weight: bold;
+}
+
+.presupuesto-monto.positivo {
+    color: green;
+}
+
+.presupuesto-monto.negativo {
+    color: red;
+}
+
+.presupuesto-gastado {
+    font-weight: bold;
+}
+
+.presupuesto-gastado.negativo {
+    color: red;
+}
+
+.presupuesto-acciones {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.presupuesto-acciones a {
+    color: blueviolet;
+}
+
+.presupuesto-sep {
+    margin: 0 0.35rem;
+    color: #999;
+}
+
+/* Presupuesto: texto izquierda, gráfico derecha */
+.presupuesto-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.presupuesto-texto {
+    flex: 1;
+    min-width: 180px;
+}
+
+.presupuesto-grafico {
+    flex: 1;
+    min-width: 180px;
+}
+
+.presupuesto-leyenda-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: #555;
+    margin: 0.5rem 0;
+}
+
+.presupuesto-barra-container {
+    margin-bottom: 0;
+}
+
+.presupuesto-barra {
+    display: flex;
+    height: 24px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #e5e7eb;
+}
+
+.presupuesto-barra-gastado {
+    background: #ef4444;
+    transition: width 0.3s ease;
+}
+
+.presupuesto-barra-disponible {
+    background: #22c55e;
+    transition: width 0.3s ease;
+}
+
+.presupuesto-barra-leyenda {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-top: 0.35rem;
+    color: #555;
+}
+
+/* Análisis del mes (justo debajo del Saldo actual) */
+.analisis-mes {
+    margin: 0;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f8f4ff 0%, #f0ebff 100%);
+    border-radius: 12px;
+    border-left: 4px solid blueviolet;
+    max-width: 100%;
+    text-align: left;
+}
+
+.analisis-mes h3 {
+    color: purple;
+    margin-bottom: 0.25rem;
+}
+
+.analisis-subtitulo {
+    font-size: 0.9rem;
+    color: #555;
+    margin-bottom: 1.25rem;
+}
+
+.analisis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+.analisis-card {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Análisis: texto izquierda, gráfico derecha */
+.analisis-card-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    align-items: center;
+}
+
+.analisis-card-layout .analisis-texto {
+    flex: 1;
+    min-width: 0;
+}
+
+.analisis-card-layout .analisis-grafico {
+    flex: 1;
+    min-width: 80px;
+}
+
+.analisis-card h4 {
+    color: #4a5568;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.analisis-monto {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.analisis-detalle {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.analisis-barra-mini {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    margin-top: 0.5rem;
+    overflow: hidden;
+}
+
+.analisis-barra-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.analisis-barra-fill.ok {
+    background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.analisis-barra-fill.cuidado {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.analisis-barra-fill.superado {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.estado-mensaje {
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.estado-mensaje.estado-ok {
+    color: #16a34a;
+}
+
+.estado-mensaje.estado-cuidado {
+    color: #d97706;
+}
+
+.estado-mensaje.estado-alerta,
+.estado-mensaje.estado-superado {
+    color: #dc2626;
+}
+
+.estado-mensaje.estado-info {
+    color: #6366f1;
+}
+
+.estado-detalle {
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.analisis-mes .sin-datos {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+@media (max-width: 680px) {
+    .analisis-grid {
+        grid-template-columns: 1fr;
+    }
+    .presupuesto-layout {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .analisis-card-layout {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Gráfica de gastos por categoría */
+.grafica-categorias {
+    margin: 0;
+    padding: 1.5rem;
+    background: #f5f5f5;
+    border-radius: 10px;
+    border-left: 4px solid blueviolet;
+    width: 100%;
+    text-align: left;
+}
+
+.grafica-categorias h3 {
+    color: purple;
+    margin-bottom: 0.5rem;
+}
+
+.grafica-categorias .accion-gastos {
+    margin-bottom: 1rem;
+}
+
+.grafica-barras {
+    display: flex;
+    flex-direction: column;
+}
+
+.grafica-item {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+}
+
+.grafica-item-meta {
+    display: block;
+    padding: 1rem 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.grafica-item-meta:last-child {
+    border-bottom: none;
+}
+
+.grafica-meta-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.grafica-meta-info strong {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 1rem;
+}
+
+.grafica-meta-progreso {
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.grafica-meta-barra {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    overflow: hidden;
+}
+
+.grafica-meta-barra-fill {
+    height: 100%;
+    background: linear-gradient(90deg, blueviolet, #8b5cf6);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.grafica-item:not(.grafica-item-meta) {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    align-items: center;
+    gap: 1rem;
+}
+
+.grafica-etiqueta {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.grafica-barra-container {
+    position: relative;
+    height: 28px;
+    background: #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+
+.grafica-barra {
+    height: 100%;
+    border-radius: 6px;
+    min-width: 4px;
+    transition: width 0.5s ease;
+}
+
+.grafica-valor {
+    position: absolute;
+    right: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    text-shadow: 0 0 2px white;
+}
+
+@media (max-width: 500px) {
+    .grafica-item {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ========================================
+   INTERFAZ: ADMINISTRAR (administrar.html)
+   ======================================== */
+
+.administrar-intro {
+    text-align: center;
+    margin-bottom: 2rem;
+    margin-top: -24px;
+}
+
+.administrar-intro h2 {
+    color: purple;
+}
+
+.administrar-grid {
+    margin-bottom: 2rem;
+}
+
+.administrar-bottom {
+    margin-top: 2.5rem;
+    padding: 1.5rem;
+    background: #f5f5f5;
+    border-radius: 10px;
+    border-left: 4px solid blueviolet;
+}
+
+.administrar-bottom h3 {
+    color: purple;
+    margin-bottom: 1rem;
+}
+
+.administrar-bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.administrar-bottom-grid .resumen-card {
+    margin: 0;
+}
+
+.meta-item-admin {
+    border-bottom: 1px solid #ddd;
+}
+
+.meta-item-admin:last-child {
+    border-bottom: none;
+}
+
+@media (max-width: 768px) {
+    .administrar-bottom-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Tarjetas de resumen (compartidas: Inicio, Administrar) */
+.resumen-card {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    padding: 1.5rem;
+    background: #f5f5f5;
+    border-radius: 10px;
+    border-left: 4px solid blueviolet;
+}
+
+.resumen-card h3 {
+    color: purple;
+    margin-bottom: 1rem;
+}
+
+.saldo-monto {
+    font-size: 1.75rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.saldo-monto.positivo {
+    color: green;
+}
+
+.saldo-monto.negativo {
+    color: red;
+}
+
+.saldo-detalle {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.saldos-divididos {
+    margin-bottom: 1rem;
+}
+
+.saldo-tipo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.saldo-tipo:last-of-type {
+    border-bottom: none;
+}
+
+.saldo-tipo.saldo-total {
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 2px solid blueviolet;
+}
+
+.saldo-tipo.saldo-ingresos {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid #ddd;
+    font-weight: bold;
+}
+
+.saldo-label {
+    font-size: 1rem;
+}
+
+.saldo-valor {
+    font-weight: bold;
+}
+
+.saldo-valor.positivo {
+    color: green;
+}
+
+.saldo-valor.negativo {
+    color: red;
+}
+
+.total-label {
+    font-weight: bold;
+    margin-bottom: 0.75rem;
+}
+
+.resumen-card ul {
+    list-style: none;
+}
+
+.resumen-card ul li {
+    padding: 8px 0;
+    border-bottom: 1px solid #ddd;
+    font-size: 0.9rem;
+}
+
+.resumen-card ul li:last-child {
+    border-bottom: none;
+}
+
+.sin-datos {
+    color: #666;
+    font-style: italic;
+}
+
+.sin-datos a {
+    color: blueviolet;
+}
+
+.btn-resetear {
+    margin-top: 1rem;
+    padding: 12px;
+    background: #999;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.btn-resetear:hover {
+    background: #666;
+}
+
+.btn-resetear-completo {
+    margin-top: 0.75rem;
+    padding: 12px;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.btn-resetear-completo:hover {
+    background: #b91c1c;
+}
+
+.filtros-gastos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.filtro-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filtro-item label {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.filtro-item select,
+.filtro-item input[type="text"],
+.filtro-item input[type="number"] {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    min-width: 100px;
+}
+
+.filtro-item input[type="number"] {
+    min-width: 80px;
+}
+
+.btn-filtro {
+    padding: 6px 14px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-filtro:hover {
+    background: #5a1a9e;
+}
+
+.accion-gastos {
+    margin-bottom: 1rem;
+}
+
+.btn-registrar {
+    display: inline-block;
+    padding: 8px 16px;
+    background: blueviolet;
+    color: white !important;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+.btn-registrar:hover {
+    background: #5a1a9e;
+}
+
+.gastos-por-mes {
+    margin-bottom: 1.25rem;
+}
+
+.gastos-por-mes:last-child {
+    margin-bottom: 0;
+}
+
+.gastos-mes-titulo {
+    font-size: 0.95rem;
+    color: blueviolet;
+    margin: 0 0 0.5rem 0;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.lista-gastos-mes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.lista-gastos-mes li {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
+}
+
+.lista-gastos-mes li:last-child {
+    border-bottom: none;
+}
+
+.gasto-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.gasto-info {
+    flex: 1;
+    min-width: 150px;
+}
+
+.gasto-acciones,
+.categoria-acciones {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-accion {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+}
+
+.btn-accion.btn-editar {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-accion.btn-editar:hover {
+    background: #2563eb;
+}
+
+.btn-accion.btn-eliminar {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-accion.btn-eliminar:hover {
+    background: #dc2626;
+}
+
+a.btn-accion {
+    display: inline-block;
+}
+
+.categoria-item-admin {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* ========================================
+   COMPONENTES COMPARTIDOS (modal, botones, etc.)
+   ======================================== */
+
+/* Modal */
+.modal {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-contenido {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    max-width: 400px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-contenido h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: purple;
+}
+
+.modal-contenido .input-group {
+    margin-bottom: 1rem;
+}
+
+.modal-contenido .input-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.modal-contenido input,
+.modal-contenido select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.modal-botones {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.btn-cancelar {
+    background: #6b7280;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.btn-cancelar:hover {
+    background: #4b5563;
+}
+
+/* ========================================
+   RESPONSIVE (media queries globales)
+   ======================================== */
+
+@media (max-width: 768px) {
+    .nav ul {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .row {
+        flex-direction: column;
+    }
+
+    .article {
+        width: 100%;
+        min-height: 150px;
+    }
+}
