@@ -22,6 +22,7 @@
             <li><a href="categoria.html">Categorías</a></li>
             <li><a href="gastos.html">Gastos</a></li>
             <li><a href="metas.html">Metas</a></li>
+            <li><a href="reportes.html">Reportes</a></li>
             <li><a href="administrar.html">Administrar</a></li>
         </ul>
     </nav>
@@ -31,6 +32,16 @@
             <h2>Inicio</h2>
             <p>Resumen de tu saldo, ingresos y gastos</p>
             <p id="inicio-saldos-titulo" class="inicio-saldos-resumen"></p>
+        </div>
+
+        <!-- Alerta tarjeta de crédito al 50% -->
+        <div id="alerta-tarjeta-credito" class="alerta-tarjeta-credito" style="display:none;">
+            <span class="alerta-icono">⚠️</span>
+            <div class="alerta-texto">
+                <strong>Recuerda pagar tu tarjeta de crédito</strong>
+                <p id="alerta-tarjeta-mensaje">Tu tarjeta ha superado el 50% del límite. Programa tu pago para evitar intereses.</p>
+            </div>
+            <a href="saldo.html" class="alerta-link">Configurar límite</a>
         </div>
 
         <!-- Mensaje de bienvenida para usuarios nuevos -->
@@ -221,6 +232,14 @@
         const nombreMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mesActual];
 
         const esUsuarioNuevo = saldoActual === 0 && ingresos.length === 0;
+
+        const alertaTc = verificarAlertaTarjetaCredito();
+        const alertaTcEl = document.getElementById('alerta-tarjeta-credito');
+        if (alertaTc.mostrar && alertaTcEl) {
+            alertaTcEl.style.display = 'flex';
+            const msg = document.getElementById('alerta-tarjeta-mensaje');
+            if (msg) msg.textContent = `Has gastado ${formatearNumero(alertaTc.gastado)} ${moneda} (${formatearNumero(alertaTc.porcentaje, 1)}% del límite de ${formatearNumero(alertaTc.limite)} ${moneda}). Programa tu pago para evitar intereses.`;
+        }
         const bienvenidaEl = document.getElementById('bienvenida-nuevo');
         const contenidoPrincipal = document.getElementById('contenido-principal');
         const graficaContenedor = document.getElementById('grafica-contenedor');

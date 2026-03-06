@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes - MoneyTrack</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>MoneyTrack</h1>
+            <p>Control de gastos personales</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="saldo.html">Saldo</a></li>
+            <li><a href="ingresos.html">Ingresos</a></li>
+            <li><a href="categoria.html">Categorías</a></li>
+            <li><a href="gastos.html">Gastos</a></li>
+            <li><a href="metas.html">Metas</a></li>
+            <li><a href="reportes.html">Reportes</a></li>
+            <li><a href="administrar.html">Administrar</a></li>
+        </ul>
+    </nav>
+
+    <section class="section">
+        <div class="reportes-intro">
+            <h2>Reportes financieros mensuales</h2>
+            <p>Resumen detallado de ingresos, gastos y metas de ahorro por mes</p>
+        </div>
+
+        <div id="contenedor-reportes"></div>
+        <p id="sin-reportes" class="sin-datos">Aún no hay datos para mostrar reportes. Registra ingresos, gastos o metas en sus respectivas secciones.</p>
+    </section>
+
+    <footer class="footer">
+        <p>MoneyTrack - Control de gastos personales</p>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const moneda = localStorage.getItem('moneda') || '';
+        const NOMBRES_MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+        function obtenerMesAño(fechaStr) {
+            const d = new Date(fechaStr && fechaStr.includes('T') ? fechaStr : (fechaStr || '') + 'T12:00:00');
+            return { mes: d.getMonth(), año: d.getFullYear(), key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` };
+        }
+
+        function formatearFechaReporte(fechaStr) {
+            if (!fechaStr) return '—';
+            const d = new Date(fechaStr.includes('T') ? fechaStr : fechaStr + 'T12:00:00');
+            return d.toLocaleDateString('es') + (fechaStr.includes('T') ? ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '');
+        }
+
+        /** Saldo total (todas las cuentas) al inicio del mes indicado (antes de cualquier transacción de ese mes) */
+        function calcularSaldoAlInicioDelMes(mes, año, ingresos, gastos, contribuciones) {
+            const saldosIni = obtenerSaldosIniciales();
+            const limite = new Date(año, mes, 1, 0, 0, 0, 0);
+            let total = 0;
+            CUENTAS.forEach(c => {
+                let s = saldosIni[c.id] || 0;
+                ingresos.filter(i => i.origen === c.id && new Date(i.fecha) < limite).forEach(i => { s += i.cantidad; });
+                gastos.filter(g => g.origen === c.id && new Date(g.fecha) < limite).forEach(g => { s -= g.cantidad; });
+                contribuciones.filter(x => x.origen === c.id && new Date(x.fecha) < limite).forEach(x => { s -= x.cantidad; });
+                total += s;
+            });
+            return total;
+        }
+
+        function generarReportes() {
+            const ingresos = JSON.parse(localStorage.getItem('ingresos') || '[]');
+            const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+            const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
+            const metas = JSON.parse(localStorage.getItem('metas') || '[]');
+
+            const mesesSet = new Set();
+            ingresos.forEach(i => { const k = obtenerMesAño(i.fecha); mesesSet.add(JSON.stringify({ mes: k.mes, año: k.año })); });
+            gastos.forEach(g => { const k = obtenerMesAño(g.fecha); mesesSet.add(JSON.stringify({ mes: k.mes, año: k.año })); });
+            contribuciones.forEach(c => { const k = obtenerMesAño(c.fecha); mesesSet.add(JSON.stringify({ mes: k.mes, año: k.año })); });
+
+            const mesesOrdenados = Array.from(mesesSet)
+                .map(s => JSON.parse(s))
+                .sort((a, b) => a.año !== b.año ? b.año - a.año : b.mes - a.mes);
+
+            const contenedor = document.getElementById('contenedor-reportes');
+            const sinReportes = document.getElementById('sin-reportes');
+            contenedor.innerHTML = '';
+
+            if (mesesOrdenados.length === 0) {
+                sinReportes.style.display = 'block';
+                return;
+            }
+            sinReportes.style.display = 'none';
+
+            mesesOrdenados.forEach(({ mes, año }) => {
+                const nombreMes = NOMBRES_MES[mes];
+                const ingMes = ingresos.filter(i => {
+                    const k = obtenerMesAño(i.fecha);
+                    return k.mes === mes && k.año === año;
+                });
+                const gastMes = gastos.filter(g => {
+                    const k = obtenerMesAño(g.fecha);
+                    return k.mes === mes && k.año === año;
+                });
+                const contribMes = contribuciones.filter(c => {
+                    const k = obtenerMesAño(c.fecha);
+                    return k.mes === mes && k.año === año;
+                });
+
+                const totalIngresos = ingMes.reduce((s, i) => s + i.cantidad, 0);
+                const totalGastos = gastMes.reduce((s, g) => s + g.cantidad, 0);
+                const totalMetas = contribMes.reduce((s, c) => s + c.cantidad, 0);
+                const saldoInicio = calcularSaldoAlInicioDelMes(mes, año, ingresos, gastos, contribuciones);
+                const saldoFinal = saldoInicio + totalIngresos - totalGastos - totalMetas;
+                const resultadoMes = totalIngresos - totalGastos - totalMetas;
+
+                const maxBar = Math.max(totalIngresos, totalGastos, totalMetas, saldoInicio, 1);
+                const wIng = totalIngresos > 0 ? (totalIngresos / maxBar) * 100 : 0;
+                const wGast = totalGastos > 0 ? (totalGastos / maxBar) * 100 : 0;
+                const wMetas = totalMetas > 0 ? (totalMetas / maxBar) * 100 : 0;
+
+                let tablaGastos = '';
+                if (gastMes.length > 0) {
+                    const porCat = {};
+                    gastMes.forEach(g => {
+                        porCat[g.categoria || 'Sin categoría'] = (porCat[g.categoria || 'Sin categoría'] || 0) + g.cantidad;
+                    });
+                    tablaGastos = `
+                        <h4>Gastos por categoría</h4>
+                        <table class="tabla-reporte">
+                            <thead><tr><th>Categoría</th><th>Total</th></tr></thead>
+                            <tbody>
+                                ${Object.entries(porCat).map(([cat, tot]) => `<tr><td>${cat}</td><td>${formatearNumero(tot)} ${moneda}</td></tr>`).join('')}
+                            </tbody>
+                        </table>
+                        <h4>Detalle de gastos</h4>
+                        <table class="tabla-reporte">
+                            <thead><tr><th>Fecha</th><th>Nombre</th><th>Categoría</th><th>Cuenta</th><th>Monto</th></tr></thead>
+                            <tbody>
+                                ${gastMes.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(g => {
+                                    const nomCuenta = CUENTAS.find(x => x.id === g.origen)?.nombre || g.origen || '—';
+                                    return `<tr><td>${formatearFechaReporte(g.fecha)}</td><td>${g.nombre || '—'}</td><td>${g.categoria || '—'}</td><td>${nomCuenta}</td><td>${formatearNumero(g.cantidad)} ${moneda}</td></tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>`;
+                } else {
+                    tablaGastos = '<p class="sin-datos">No hay gastos registrados en este mes.</p>';
+                }
+
+                let tablaIngresos = '';
+                if (ingMes.length > 0) {
+                    tablaIngresos = `
+                        <h4>Detalle de ingresos</h4>
+                        <table class="tabla-reporte">
+                            <thead><tr><th>Fecha</th><th>Cuenta</th><th>Monto</th><th>Nota</th></tr></thead>
+                            <tbody>
+                                ${ingMes.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(i => {
+                                    const nomCuenta = CUENTAS.find(x => x.id === i.origen)?.nombre || i.origen || '—';
+                                    return `<tr><td>${formatearFechaReporte(i.fecha)}</td><td>${nomCuenta}</td><td>${formatearNumero(i.cantidad)} ${moneda}</td><td>${i.nota || '—'}</td></tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>`;
+                } else {
+                    tablaIngresos = '<p class="sin-datos">No hay ingresos registrados en este mes.</p>';
+                }
+
+                let tablaMetas = '';
+                if (contribMes.length > 0) {
+                    const porMeta = {};
+                    contribMes.forEach(c => {
+                        const meta = metas.find(m => m.id === c.metaId);
+                        const key = c.metaId || 'eliminada';
+                        if (!porMeta[key]) {
+                            porMeta[key] = { nombre: meta ? meta.nombre : 'Meta eliminada', objetivo: meta ? (meta.objetivo || 0) : null, total: 0 };
+                        }
+                        porMeta[key].total += c.cantidad;
+                    });
+                    tablaMetas = `
+                        <h4>Aportes a metas de ahorro</h4>
+                        <table class="tabla-reporte">
+                            <thead><tr><th>Meta</th><th>Fecha</th><th>Cuenta</th><th>Monto</th></tr></thead>
+                            <tbody>
+                                ${contribMes.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(c => {
+                                    const meta = metas.find(m => m.id === c.metaId);
+                                    const nomMeta = meta ? meta.nombre : 'Meta eliminada';
+                                    const nomCuenta = CUENTAS.find(x => x.id === c.origen)?.nombre || c.origen || '—';
+                                    return `<tr><td>${nomMeta}</td><td>${formatearFechaReporte(c.fecha)}</td><td>${nomCuenta}</td><td>${formatearNumero(c.cantidad)} ${moneda}</td></tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                        <h4>Resumen por meta</h4>
+                        <table class="tabla-reporte">
+                            <thead><tr><th>Meta</th><th>Objetivo</th><th>Total aportado (mes)</th></tr></thead>
+                            <tbody>
+                                ${Object.values(porMeta).map(m => `<tr><td>${m.nombre}</td><td>${m.objetivo != null ? formatearNumero(m.objetivo) + ' ' + moneda : '—'}</td><td>${formatearNumero(m.total)} ${moneda}</td></tr>`).join('')}
+                            </tbody>
+                        </table>`;
+                } else {
+                    tablaMetas = '<p class="sin-datos">No hay aportes a metas en este mes.</p>';
+                }
+
+                const card = document.createElement('div');
+                card.className = 'reporte-mensual resumen-card';
+                card.innerHTML = `
+                    <h3>Reporte ${nombreMes} ${año}</h3>
+                    <div class="reporte-resumen-numeros">
+                        <div class="reporte-fila reporte-saldo">
+                            <span class="reporte-label">Saldo al inicio del mes:</span>
+                            <span class="reporte-valor">${formatearNumero(saldoInicio)} ${moneda}</span>
+                        </div>
+                        <div class="reporte-fila reporte-ingresos">
+                            <span class="reporte-label">+ Ingresos:</span>
+                            <span class="reporte-valor">${formatearNumero(totalIngresos)} ${moneda}</span>
+                        </div>
+                        <div class="reporte-fila reporte-gastos">
+                            <span class="reporte-label">− Gastos:</span>
+                            <span class="reporte-valor">${formatearNumero(totalGastos)} ${moneda}</span>
+                        </div>
+                        <div class="reporte-fila reporte-metas">
+                            <span class="reporte-label">− Aportes a metas:</span>
+                            <span class="reporte-valor">${formatearNumero(totalMetas)} ${moneda}</span>
+                        </div>
+                        <div class="reporte-fila reporte-saldo-final">
+                            <span class="reporte-label">Saldo al final del mes:</span>
+                            <span class="reporte-valor ${saldoFinal >= 0 ? 'positivo' : 'negativo'}">${formatearNumero(saldoFinal)} ${moneda}</span>
+                        </div>
+                        <div class="reporte-fila reporte-ahorro">
+                            <span class="reporte-label">${resultadoMes >= 0 ? 'Ahorro del mes:' : 'Uso del saldo previo:'}</span>
+                            <span class="reporte-valor ${resultadoMes >= 0 ? 'positivo' : 'negativo'}">${formatearNumero(Math.abs(resultadoMes))} ${moneda}</span>
+                        </div>
+                    </div>
+                    <div class="reporte-graficas-mini">
+                        <div class="reporte-barra-wrap">
+                            <span>Ingresos</span>
+                            <div class="reporte-barra"><div class="reporte-barra-fill barra-verde" style="width:${wIng}%"></div></div>
+                            <span>${formatearNumero(totalIngresos)}</span>
+                        </div>
+                        <div class="reporte-barra-wrap">
+                            <span>Gastos</span>
+                            <div class="reporte-barra"><div class="reporte-barra-fill barra-roja" style="width:${wGast}%"></div></div>
+                            <span>${formatearNumero(totalGastos)}</span>
+                        </div>
+                        <div class="reporte-barra-wrap">
+                            <span>Metas</span>
+                            <div class="reporte-barra"><div class="reporte-barra-fill barra-morada" style="width:${wMetas}%"></div></div>
+                            <span>${formatearNumero(totalMetas)}</span>
+                        </div>
+                    </div>
+                    <div class="reporte-tablas">
+                        <div class="reporte-seccion">
+                            ${tablaIngresos}
+                        </div>
+                        <div class="reporte-seccion">
+                            ${tablaGastos}
+                        </div>
+                        <div class="reporte-seccion">
+                            ${tablaMetas}
+                        </div>
+                    </div>
+                `;
+                contenedor.appendChild(card);
+            });
+        }
+
+        generarReportes();
+    </script>
+</body>
+</html>

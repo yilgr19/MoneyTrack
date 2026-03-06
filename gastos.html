@@ -22,6 +22,7 @@
             <li><a href="categoria.html">Categorías</a></li>
             <li><a href="gastos.html">Gastos</a></li>
             <li><a href="metas.html">Metas</a></li>
+            <li><a href="reportes.html">Reportes</a></li>
             <li><a href="administrar.html">Administrar</a></li>
         </ul>
     </nav>
@@ -140,12 +141,21 @@
             const aviso = document.getElementById('aviso-origen');
             const valorAnterior = select.value;
             const cantidad = parseFloat(document.getElementById('cantidad').value) || 0;
+            const limiteTc = parseFloat(localStorage.getItem('limiteTarjetaCredito')) || 0;
+            const gastadoTc = limiteTc > 0 ? obtenerGastadoTarjetaCredito() : 0;
+            const disponibleTc = limiteTc > 0 ? Math.max(0, limiteTc - gastadoTc) : 0;
 
             select.innerHTML = '<option value="">Selecciona la cuenta</option>';
             let hayOpciones = false;
             CUENTAS.forEach(c => {
-                const saldo = saldos[c.id] || 0;
-                const puede = saldo > 0 && (cantidad === 0 || saldo >= cantidad);
+                let saldo = saldos[c.id] || 0;
+                let puede = false;
+                if (c.id === 'tarjetaCredito' && limiteTc > 0) {
+                    saldo = disponibleTc;
+                    puede = disponibleTc > 0 && (cantidad === 0 || disponibleTc >= cantidad);
+                } else {
+                    puede = saldo > 0 && (cantidad === 0 || saldo >= cantidad);
+                }
                 if (puede) {
                     const opt = document.createElement('option');
                     opt.value = c.id;

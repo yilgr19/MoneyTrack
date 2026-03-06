@@ -58,3 +58,18 @@ function calcularSaldosPorCuenta() {
     saldos.totalReservado = contribuciones.reduce((s, c) => s + c.cantidad, 0);
     return saldos;
 }
+
+/** Gastos totales pagados con tarjeta de crédito */
+function obtenerGastadoTarjetaCredito() {
+    const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+    return gastos.filter(g => (g.origen === 'tarjetaCredito' || g.origen === 'Tarjeta de crédito')).reduce((s, g) => s + g.cantidad, 0);
+}
+
+/** Verifica si debe mostrarse alerta de tarjeta al 50% o más. Retorna { mostrar, gastado, limite, porcentaje } */
+function verificarAlertaTarjetaCredito() {
+    const limite = parseFloat(localStorage.getItem('limiteTarjetaCredito')) || 0;
+    if (limite <= 0) return { mostrar: false, gastado: 0, limite: 0, porcentaje: 0 };
+    const gastado = obtenerGastadoTarjetaCredito();
+    const porcentaje = limite > 0 ? (gastado / limite) * 100 : 0;
+    return { mostrar: porcentaje >= 50, gastado, limite, porcentaje };
+}

@@ -22,6 +22,7 @@
             <li><a href="categoria.html">Categorías</a></li>
             <li><a href="gastos.html">Gastos</a></li>
             <li><a href="metas.html">Metas</a></li>
+            <li><a href="reportes.html">Reportes</a></li>
             <li><a href="administrar.html">Administrar</a></li>
         </ul>
     </nav>
@@ -64,6 +65,8 @@
                 <div class="input-group">
                     <label for="tarjetaCredito">Tarjeta de crédito</label>
                     <input type="number" id="tarjetaCredito" name="tarjetaCredito" placeholder="0.00" step="0.01" min="0" value="0">
+                    <span class="input-hint label-limite-tarjeta">Límite de crédito (opcional, para alertas al 50%)</span>
+                    <input type="number" id="limiteTarjetaCredito" name="limiteTarjetaCredito" placeholder="Ej: 5000000" step="0.01" min="0" value="0">
                 </div>
                 <div class="input-group">
                     <label for="nequi">Nequi</label>
@@ -118,6 +121,8 @@
         });
         const monedaGuardada = localStorage.getItem('moneda');
         if (monedaGuardada) document.getElementById('moneda').value = monedaGuardada;
+        const limiteTc = localStorage.getItem('limiteTarjetaCredito');
+        if (limiteTc && parseFloat(limiteTc) > 0) document.getElementById('limiteTarjetaCredito').value = limiteTc;
         const presupuestoGuardado = localStorage.getItem('presupuestoMensual');
         if (presupuestoGuardado !== null && parseFloat(presupuestoGuardado) > 0) {
             document.getElementById('presupuesto-mensual').value = presupuestoGuardado;
@@ -134,14 +139,17 @@
             const total = Object.values(saldosCuentas).reduce((a, b) => a + b, 0);
             const presupuesto = parseFloat(document.getElementById('presupuesto-mensual').value) || 0;
             const nota = document.getElementById('nota').value || null;
+            const limiteTcVal = parseFloat(document.getElementById('limiteTarjetaCredito').value) || 0;
 
-            if (total === 0) {
-                alert('Ingresa al menos un monto en alguna cuenta.');
+            if (total === 0 && limiteTcVal <= 0) {
+                alert('Ingresa al menos un monto en alguna cuenta o un límite de tarjeta de crédito.');
                 return;
             }
-            
+
             localStorage.setItem('moneda', moneda);
             localStorage.setItem('saldosCuentas', JSON.stringify(saldosCuentas));
+            if (limiteTcVal > 0) localStorage.setItem('limiteTarjetaCredito', limiteTcVal.toString());
+            else localStorage.removeItem('limiteTarjetaCredito');
             if (presupuesto > 0) localStorage.setItem('presupuestoMensual', presupuesto.toString());
             else localStorage.removeItem('presupuestoMensual');
             localStorage.setItem('saldoInicialFecha', new Date().toISOString());

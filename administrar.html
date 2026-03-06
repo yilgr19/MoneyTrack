@@ -22,6 +22,7 @@
             <li><a href="categoria.html">Categorías</a></li>
             <li><a href="gastos.html">Gastos</a></li>
             <li><a href="metas.html">Metas</a></li>
+            <li><a href="reportes.html">Reportes</a></li>
             <li><a href="administrar.html">Administrar</a></li>
         </ul>
     </nav>
@@ -30,6 +31,16 @@
         <div class="administrar-intro">
             <h2>Administrar</h2>
             <p>Resumen de toda tu información</p>
+        </div>
+
+        <!-- Alerta tarjeta de crédito al 50% -->
+        <div id="alerta-tarjeta-credito" class="alerta-tarjeta-credito" style="display:none;">
+            <span class="alerta-icono">⚠️</span>
+            <div class="alerta-texto">
+                <strong>Recuerda pagar tu tarjeta de crédito</strong>
+                <p id="alerta-tarjeta-mensaje">Tu tarjeta ha superado el 50% del límite. Programa tu pago para evitar intereses.</p>
+            </div>
+            <a href="saldo.html" class="alerta-link">Configurar límite</a>
         </div>
 
         <div class="index-grid administrar-grid">
@@ -194,6 +205,14 @@
         const saldosPorCuenta = calcularSaldosPorCuenta();
         const saldoActual = saldosPorCuenta.total || 0;
         const totalGastos = JSON.parse(localStorage.getItem('gastos') || '[]').reduce((s, g) => s + g.cantidad, 0);
+
+        const alertaTc = verificarAlertaTarjetaCredito();
+        const alertaTcEl = document.getElementById('alerta-tarjeta-credito');
+        if (alertaTc.mostrar && alertaTcEl) {
+            alertaTcEl.style.display = 'flex';
+            const msg = document.getElementById('alerta-tarjeta-mensaje');
+            if (msg) msg.textContent = `Has gastado ${formatearNumero(alertaTc.gastado)} ${moneda} (${formatearNumero(alertaTc.porcentaje, 1)}% del límite de ${formatearNumero(alertaTc.limite)} ${moneda}). Programa tu pago para evitar intereses.`;
+        }
         const contribuciones = JSON.parse(localStorage.getItem('contribucionesMetas') || '[]');
         const totalContrib = contribuciones.reduce((s, c) => s + c.cantidad, 0);
         const saldosIni = obtenerSaldosIniciales();
@@ -542,6 +561,7 @@
                 localStorage.removeItem('saldoEfectivo');
                 localStorage.removeItem('saldoBanco');
                 localStorage.removeItem('saldosCuentas');
+                localStorage.removeItem('limiteTarjetaCredito');
                 localStorage.removeItem('saldoInicialFecha');
                 localStorage.removeItem('saldoInicialNota');
                 localStorage.removeItem('origenDinero');
@@ -561,6 +581,8 @@
                 localStorage.removeItem('saldoInicial');
                 localStorage.removeItem('saldoEfectivo');
                 localStorage.removeItem('saldoBanco');
+                localStorage.removeItem('saldosCuentas');
+                localStorage.removeItem('limiteTarjetaCredito');
                 localStorage.removeItem('saldoInicialFecha');
                 localStorage.removeItem('saldoInicialNota');
                 localStorage.removeItem('origenDinero');
