@@ -263,12 +263,15 @@
             });
         }
 
+        let pagoProgramadoEnUso = null; // ID del pago usado al hacer clic en "Pagar"
+
         document.getElementById('lista-pagos-gastos').addEventListener('click', function(e) {
             if (!e.target.classList.contains('btn-pagar-programado')) return;
             const id = e.target.dataset.pagoId;
             const pagos = obtenerPagosProgramados();
             const p = pagos.find(x => x.id === id);
             if (!p) return;
+            pagoProgramadoEnUso = id;
             document.getElementById('nombre').value = p.concepto;
             document.getElementById('cantidad').value = p.monto;
             document.getElementById('categoria').value = p.categoria || '';
@@ -381,6 +384,14 @@
                 cuotaMensual: origen === 'tarjetaCredito' ? cuotaMensual : cantidad
             });
             localStorage.setItem('gastos', JSON.stringify(gastos));
+
+            // Si el gasto vino de un pago programado, eliminarlo
+            if (pagoProgramadoEnUso) {
+                let pagos = obtenerPagosProgramados().filter(p => p.id !== pagoProgramadoEnUso);
+                guardarPagosProgramados(pagos);
+                pagoProgramadoEnUso = null;
+                renderPagosProgramados();
+            }
 
             alert('¡Gasto registrado correctamente!');
             document.getElementById('gastos-form').reset();
