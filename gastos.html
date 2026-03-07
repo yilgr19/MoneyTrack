@@ -22,18 +22,20 @@
             <li><a href="categoria.html">Categorías</a></li>
             <li><a href="gastos.html">Gastos</a></li>
             <li><a href="metas.html">Metas</a></li>
+            <li><a href="pagosProgramados.html">Pagos programados</a></li>
             <li><a href="reportes.html">Reportes</a></li>
             <li><a href="administrar.html">Administrar</a></li>
         </ul>
     </nav>
 
-    <section class="section">
+    <section class="section section-gastos">
         <div class="gastos-intro">
             <h2>Registrar gasto</h2>
             <p>Ingresa los datos del gasto que deseas registrar</p>
         </div>
 
-        <form id="gastos-form" class="gastos-form">
+        <div class="gastos-layout">
+            <form id="gastos-form" class="gastos-form">
             <div class="input-group">
                 <label for="nombre">Nombre</label>
                 <input 
@@ -111,6 +113,16 @@
 
             <button type="submit" class="btn">Guardar gasto</button>
         </form>
+
+            <div class="gastos-columna-derecha">
+                <div class="gastos-pagos-card resumen-card">
+                    <h3>Pagos programados</h3>
+                    <p class="gastos-pagos-hint">Haz clic en "Pagar" para llenar el formulario y registrar el gasto.</p>
+                    <ul id="lista-pagos-gastos" class="lista-pagos-gastos"></ul>
+                    <p id="sin-pagos-gastos" class="sin-datos">No tienes pagos programados. Crea uno en <a href="pagosProgramados.html">Pagos programados</a>.</p>
+                </div>
+            </div>
+        </div>
     </section>
 
     <footer class="footer">
@@ -223,6 +235,54 @@
 
         actualizarOpcionesOrigen();
         actualizarGrupoCuotas();
+
+        function renderPagosProgramados() {
+            const pagos = obtenerPagosProgramados().filter(p => p.activo !== false);
+            const ul = document.getElementById('lista-pagos-gastos');
+            const sinPagos = document.getElementById('sin-pagos-gastos');
+            const moneda = localStorage.getItem('moneda') || '';
+            ul.innerHTML = '';
+            if (pagos.length === 0) {
+                sinPagos.style.display = 'block';
+                return;
+            }
+            sinPagos.style.display = 'none';
+            const freqLabel = { mensual: 'mensual', quincenal: 'quincenal', semanal: 'semanal' };
+            pagos.forEach(p => {
+                const li = document.createElement('li');
+                const diaTexto = (p.frecuencia === 'mensual' || p.frecuencia === 'quincenal') ? ` día ${p.diaPago}` : '';
+                li.className = 'pago-gasto-item';
+                li.innerHTML = `
+                    <div class="pago-gasto-info">
+                        <strong>${p.concepto}</strong> — ${formatearNumero(p.monto)} ${moneda}
+                        <span class="pago-gasto-detalle">${freqLabel[p.frecuencia] || p.frecuencia}${diaTexto} · ${CUENTAS.find(c => c.id === p.cuenta)?.nombre || p.cuenta}</span>
+                    </div>
+                    <button type="button" class="btn btn-pagar-programado" data-pago-id="${p.id}" title="Usar para registrar gasto">Pagar</button>
+                `;
+                ul.appendChild(li);
+            });
+        }
+
+        document.getElementById('lista-pagos-gastos').addEventListener('click', function(e) {
+            if (!e.target.classList.contains('btn-pagar-programado')) return;
+            const id = e.target.dataset.pagoId;
+            const pagos = obtenerPagosProgramados();
+            const p = pagos.find(x => x.id === id);
+            if (!p) return;
+            document.getElementById('nombre').value = p.concepto;
+            document.getElementById('cantidad').value = p.monto;
+            document.getElementById('categoria').value = p.categoria || '';
+            document.getElementById('origen').value = p.cuenta || '';
+            document.getElementById('nota').value = p.nota || '';
+            const ahora = new Date();
+            const pad = n => n.toString().padStart(2, '0');
+            document.getElementById('fecha').value = `${ahora.getFullYear()}-${pad(ahora.getMonth()+1)}-${pad(ahora.getDate())}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
+            actualizarOpcionesOrigen();
+            actualizarGrupoCuotas();
+            document.getElementById('nombre').focus();
+        });
+
+        renderPagosProgramados();
 
         document.getElementById('origen').addEventListener('change', actualizarGrupoCuotas);
         document.getElementById('cantidad').addEventListener('input', function() {

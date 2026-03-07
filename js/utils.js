@@ -94,3 +94,99 @@ function verificarAlertaTarjetaCredito() {
     const porcentaje = limite > 0 ? (gastado / limite) * 100 : 0;
     return { mostrar: porcentaje >= 50, gastado, limite, porcentaje };
 }
+
+/** Obtiene pagos programados desde localStorage */
+function obtenerPagosProgramados() {
+    return JSON.parse(localStorage.getItem('pagosProgramados') || '[]');
+}
+
+/** Guarda pagos programados en localStorage */
+function guardarPagosProgramados(pagos) {
+    localStorage.setItem('pagosProgramados', JSON.stringify(pagos));
+}
+
+/** Indica si un pago programado vence hoy según su frecuencia y última ejecución */
+function pagoVenceHoy(pago, hoy) {
+    if (!pago.activo) return false;
+    if (!pago.fechaInicio) return false;
+    const [yIni, mIni, dIni] = (pago.fechaInicio + '').slice(0, 10).split('-').map(Number);
+    const añoIni = yIni || 0;
+    const mesIni = (mIni || 1) - 1;
+    const diaIni = dIni || 1;
+    if (hoy.getFullYear() < añoIni) return false;
+    if (hoy.getFullYear() === añoIni && hoy.getMonth() < mesIni) return false;
+    if (hoy.getFullYear() === añoIni && hoy.getMonth() === mesIni && hoy.getDate() < diaIni) return false;
+
+    const ultima = pago.ultimaEjecucion ? new Date(pago.ultimaEjecucion + 'T12:00:00') : null;
+    const diaHoy = hoy.getDate();
+    const mesHoy = hoy.getMonth();
+    const añoHoy = hoy.getFullYear();
+
+    if (pago.frecuencia === 'mensual') {
+        const diaPago = Math.min(28, parseInt(pago.diaPago, 10) || 1);
+        if (diaHoy !== diaPago) return false;
+        if (ultima && ultima.getFullYear() === añoHoy && ultima.getMonth() === mesHoy) return false;
+        return true;
+    }
+    if (pago.frecuencia === 'quincenal') {
+        const diaPago = parseInt(pago.diaPago, 10);
+        const diasValidos = [1, 15];
+        if (!diasValidos.includes(diaPago)) return false;
+        if (diaHoy !== diaPago) return false;
+        if (ultima) {
+            const diff = (hoy - ultima) / (1000 * 60 * 60 * 24);
+            if (diff < 14) return false;
+        }
+        return true;
+    }
+    if (pago.frecuencia === 'semanal') {
+        const fechaInicio = new Date(pago.fechaInicio + 'T12:00:00');
+        const diaSemanaInicio = fechaInicio.getDay();
+        if (hoy.getDay() !== diaSemanaInicio) return false;
+        if (ultima) {
+            const diff = (hoy - ultima) / (1000 * 60 * 60 * 24);
+            if (diff < 6) return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+/** Ejecuta pagos programados del día: crea gastos automáticamente. Se ejecuta al cargar cualquier página. */
+function ejecutarPagosDelDia() {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const pagos = obtenerPagosProgramados();
+    const categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+    const categoriasNombres = categorias.map(c => typeof c === 'string' ? c : c.nombre);
+    let gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+    let modificado = false;
+    const pad = n => String(n).padStart(2, '0');
+
+    pagos.forEach(p => {
+        if (!pagoVenceHoy(p, hoy)) return;
+        const catValida = categoriasNombres.includes(p.categoria) ? p.categoria : (categoriasNombres[0] || 'Otros');
+        const fechaStr = `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}T12:00:00`;
+        gastos.push({
+            nombre: p.concepto,
+            cantidad: p.monto,
+            fecha: fechaStr,
+            categoria: catValida,
+            origen: p.cuenta,
+            nota: 'Pago programado automático',
+            cuotas: 1,
+            cuotaMensual: p.monto,
+            pagoProgramadoId: p.id
+        });
+        p.ultimaEjecucion = hoy.toISOString().slice(0, 10);
+        modificado = true;
+    });
+
+    if (modificado) {
+        guardarPagosProgramados(pagos);
+        localStorage.setItem('gastos', JSON.stringify(gastos));
+    }
+}
+
+// Ejecución automática desactivada: los pagos se registran desde Gastos con el botón "Pagar"
+// ejecutarPagosDelDia();

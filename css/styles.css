@@ -203,6 +203,112 @@ body {
     color: purple;
 }
 
+/* Layout: formulario izquierda, pagos programados derecha */
+.gastos-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.gastos-layout .gastos-form {
+    margin: 0;
+    max-width: 100%;
+}
+
+.gastos-layout .gastos-columna-derecha {
+    min-width: 280px;
+    max-width: 400px;
+}
+
+@media (max-width: 768px) {
+    .gastos-layout {
+        grid-template-columns: 1fr;
+    }
+    .gastos-layout .gastos-columna-derecha {
+        max-width: none;
+    }
+}
+
+.gastos-pagos-card {
+    background: #f5f5f5;
+    border-radius: 10px;
+    border-left: 4px solid blueviolet;
+    padding: 1.25rem;
+}
+
+.gastos-pagos-card h3 {
+    color: purple;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.lista-pagos-gastos {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+}
+
+.gastos-pagos-card .pago-gasto-item,
+.gastos-pagos-card .pago-item-gasto {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #ddd;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.gastos-pagos-card .pago-gasto-item:last-child,
+.gastos-pagos-card .pago-item-gasto:last-child {
+    border-bottom: none;
+}
+
+.gastos-pagos-card .pago-gasto-info,
+.gastos-pagos-card .pago-item-info {
+    flex: 1;
+    min-width: 120px;
+}
+
+.gastos-pagos-card .pago-gasto-info strong,
+.gastos-pagos-card .pago-item-info strong {
+    display: block;
+    font-size: 0.95rem;
+}
+
+.gastos-pagos-card .pago-gasto-detalle,
+.gastos-pagos-card .pago-item-detalle {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.2rem;
+    display: block;
+}
+
+.gastos-pagos-hint {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.btn-pagar-programado {
+    padding: 8px 14px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.btn-pagar-programado:hover {
+    background: #5a1a9e;
+}
+
 .gastos-form {
     max-width: 400px;
     margin: 0 auto;
@@ -1937,6 +2043,151 @@ a.btn-accion {
 
 .btn-cancelar:hover {
     background: #4b5563;
+}
+
+/* ========================================
+   PAGOS PROGRAMADOS (pagosProgramados.html)
+   ======================================== */
+
+.pagos-programados-intro {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.pagos-programados-intro h2 {
+    color: purple;
+}
+
+.pago-programado-form {
+    max-width: 700px;
+    margin: 0 auto 2rem;
+    padding: 1.5rem;
+    background: #f5f5f5;
+    border-radius: 10px;
+    border-left: 4px solid blueviolet;
+}
+
+.pago-programado-form h3 {
+    color: purple;
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+}
+
+.pago-programado-form .pago-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem 1.5rem;
+}
+
+.pago-programado-form .input-group {
+    margin-bottom: 0;
+}
+
+.pago-programado-form .input-group-full,
+.pago-programado-form .pago-nota-full {
+    grid-column: 1 / -1;
+}
+
+.pago-programado-form label {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.pago-programado-form input,
+.pago-programado-form select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.pago-programado-form .modal-botones {
+    grid-column: 1 / -1;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #ddd;
+}
+
+.pago-programado-form .btn {
+    padding: 12px 24px;
+    background: blueviolet;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.pago-programado-form .btn:hover {
+    background: #5a1a9e;
+}
+
+@media (max-width: 600px) {
+    .pago-programado-form .pago-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pagos-programados-lista {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.pagos-programados-lista h3 {
+    color: purple;
+    margin-bottom: 1rem;
+}
+
+.pago-programado-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #ddd;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.pago-programado-item:last-child {
+    border-bottom: none;
+}
+
+.pago-programado-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.pago-programado-detalle {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.pago-programado-acciones {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.pago-pausado {
+    color: #999;
+    font-weight: normal;
+    font-size: 0.85em;
+}
+
+.pago-inactivo {
+    opacity: 0.7;
+}
+
+.input-group-checkbox label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.input-group-checkbox input[type="checkbox"] {
+    width: auto;
 }
 
 /* ========================================

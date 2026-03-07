@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagos programados - MoneyTrack</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>MoneyTrack</h1>
+            <p>Control de gastos personales</p>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="saldo.html">Saldo</a></li>
+            <li><a href="ingresos.html">Ingresos</a></li>
+            <li><a href="categoria.html">Categorías</a></li>
+            <li><a href="gastos.html">Gastos</a></li>
+            <li><a href="metas.html">Metas</a></li>
+            <li><a href="pagosProgramados.html">Pagos programados</a></li>
+            <li><a href="reportes.html">Reportes</a></li>
+            <li><a href="administrar.html">Administrar</a></li>
+        </ul>
+    </nav>
+
+    <section class="section">
+        <div class="pagos-programados-intro">
+            <h2>Pagos programados</h2>
+            <p>Configura pagos recurrentes. Al abrir la app cada día, los pagos vencidos se registrarán automáticamente como gastos.</p>
+        </div>
+
+        <form id="pago-programado-form" class="pago-programado-form resumen-card">
+            <h3>Nuevo pago programado</h3>
+            <input type="hidden" id="pago-id" value="">
+            <div class="pago-form-grid">
+                <div class="input-group">
+                    <label for="pago-concepto">Concepto</label>
+                    <input type="text" id="pago-concepto" placeholder="Ej: Netflix, Arriendo, Cuota tarjeta..." required>
+                </div>
+                <div class="input-group">
+                    <label for="pago-monto">Monto</label>
+                    <input type="number" id="pago-monto" step="0.01" min="0" placeholder="0.00" required>
+                </div>
+                <div class="input-group">
+                    <label for="pago-frecuencia">Frecuencia</label>
+                    <select id="pago-frecuencia" required>
+                        <option value="mensual">Mensual</option>
+                        <option value="quincenal">Quincenal</option>
+                        <option value="semanal">Semanal</option>
+                    </select>
+                </div>
+                <div class="input-group" id="grupo-dia-pago">
+                    <label for="pago-dia">Día de pago</label>
+                    <select id="pago-dia">
+                        <!-- 1-28 para mensual -->
+                    </select>
+                    <span class="input-hint" id="hint-dia">Día del mes en que se ejecutará el pago</span>
+                </div>
+                <div class="input-group">
+                    <label for="pago-cuenta">Cuenta de origen</label>
+                    <select id="pago-cuenta" required></select>
+                </div>
+                <div class="input-group">
+                    <label for="pago-categoria">Categoría</label>
+                    <select id="pago-categoria" required>
+                        <option value="">Selecciona categoría</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="pago-fecha-inicio">Fecha de inicio</label>
+                    <input type="date" id="pago-fecha-inicio" required>
+                </div>
+                <div class="input-group input-group-checkbox">
+                    <label>
+                        <input type="checkbox" id="pago-activo" checked>
+                        Activo (se ejecutará automáticamente)
+                    </label>
+                </div>
+                <div class="input-group pago-nota-full">
+                    <label for="pago-nota">Nota (opcional)</label>
+                    <input type="text" id="pago-nota" placeholder="Ej: Suscripción mensual...">
+                </div>
+            </div>
+            <div class="modal-botones">
+                <button type="submit" class="btn" id="btn-guardar-pago">Guardar pago</button>
+                <button type="button" class="btn btn-cancelar" id="btn-cancelar-editar" style="display:none;">Cancelar</button>
+            </div>
+        </form>
+
+        <div class="pagos-programados-lista resumen-card">
+            <h3>Tus pagos programados</h3>
+            <ul id="lista-pagos-programados"></ul>
+            <p id="sin-pagos" class="sin-datos">Aún no tienes pagos programados. Crea uno arriba.</p>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>MoneyTrack - Control de gastos personales</p>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script>
+        const moneda = localStorage.getItem('moneda') || '';
+
+        function cargarCategoriasSelect() {
+            const cats = JSON.parse(localStorage.getItem('categorias') || '[]');
+            const sel = document.getElementById('pago-categoria');
+            sel.innerHTML = '<option value="">Selecciona categoría</option>';
+            cats.forEach(c => {
+                const nom = typeof c === 'object' ? c.nombre : c;
+                const opt = document.createElement('option');
+                opt.value = nom;
+                opt.textContent = nom;
+                sel.appendChild(opt);
+            });
+        }
+
+        function cargarCuentasSelect() {
+            const sel = document.getElementById('pago-cuenta');
+            sel.innerHTML = '<option value="">Selecciona cuenta</option>';
+            CUENTAS.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nombre;
+                sel.appendChild(opt);
+            });
+        }
+
+        function actualizarOpcionesDia() {
+            const freq = document.getElementById('pago-frecuencia').value;
+            const grupo = document.getElementById('grupo-dia-pago');
+            const sel = document.getElementById('pago-dia');
+            const hint = document.getElementById('hint-dia');
+            sel.innerHTML = '';
+            if (freq === 'mensual') {
+                grupo.style.display = 'block';
+                hint.textContent = 'Día del mes (1-28) en que se ejecutará el pago';
+                for (let i = 1; i <= 28; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = i;
+                    sel.appendChild(opt);
+                }
+            } else if (freq === 'quincenal') {
+                grupo.style.display = 'block';
+                hint.textContent = 'Día del mes: 1 o 15 (cada quincena)';
+                sel.innerHTML = '<option value="1">Día 1</option><option value="15">Día 15</option>';
+            } else {
+                grupo.style.display = 'none';
+                hint.textContent = 'Se usará el día de la semana de la fecha de inicio';
+            }
+        }
+
+        function renderLista() {
+            const pagos = obtenerPagosProgramados();
+            const ul = document.getElementById('lista-pagos-programados');
+            const sinPagos = document.getElementById('sin-pagos');
+            ul.innerHTML = '';
+            if (pagos.length === 0) {
+                sinPagos.style.display = 'block';
+                return;
+            }
+            sinPagos.style.display = 'none';
+            const freqLabel = { mensual: 'mensual', quincenal: 'quincenal', semanal: 'semanal' };
+            pagos.forEach(p => {
+                const li = document.createElement('li');
+                const diaTexto = p.frecuencia === 'mensual' || p.frecuencia === 'quincenal' ? ` día ${p.diaPago}` : '';
+                const pausado = p.activo === false ? ' <span class="pago-pausado">(Pausado)</span>' : '';
+                li.className = 'pago-programado-item' + (p.activo === false ? ' pago-inactivo' : '');
+                li.innerHTML = `
+                    <div class="pago-programado-info">
+                        <strong>${p.concepto}</strong>${pausado} — ${formatearNumero(p.monto)} ${moneda} (${freqLabel[p.frecuencia] || p.frecuencia}${diaTexto})
+                        <span class="pago-programado-detalle">${CUENTAS.find(c => c.id === p.cuenta)?.nombre || p.cuenta} · ${p.categoria}</span>
+                    </div>
+                    <span class="pago-programado-acciones">
+                        <button type="button" class="btn-accion btn-editar-pago" data-id="${p.id}" title="Editar">Editar</button>
+                        <button type="button" class="btn-accion btn-eliminar-pago" data-id="${p.id}" title="Eliminar">Eliminar</button>
+                    </span>
+                `;
+                ul.appendChild(li);
+            });
+        }
+
+        document.getElementById('pago-frecuencia').addEventListener('change', actualizarOpcionesDia);
+
+        document.getElementById('pago-programado-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('pago-id').value;
+            const concepto = document.getElementById('pago-concepto').value.trim();
+            const monto = parseFloat(document.getElementById('pago-monto').value);
+            const frecuencia = document.getElementById('pago-frecuencia').value;
+            const diaPago = parseInt(document.getElementById('pago-dia').value) || 1;
+            const cuenta = document.getElementById('pago-cuenta').value;
+            const categoria = document.getElementById('pago-categoria').value;
+            const fechaInicio = document.getElementById('pago-fecha-inicio').value;
+            const activo = document.getElementById('pago-activo').checked;
+            const nota = document.getElementById('pago-nota').value.trim() || null;
+
+            if (!concepto || monto <= 0 || !cuenta || !categoria || !fechaInicio) {
+                alert('Completa todos los campos obligatorios.');
+                return;
+            }
+
+            let pagos = obtenerPagosProgramados();
+            const diaSemana = frecuencia === 'semanal' ? new Date(fechaInicio).getDay() : null;
+            if (id) {
+                const idx = pagos.findIndex(p => p.id === id);
+                if (idx >= 0) {
+                    pagos[idx] = { ...pagos[idx], concepto, monto, frecuencia, diaPago, diaSemana, cuenta, categoria, fechaInicio, activo, nota };
+                }
+            } else {
+                pagos.push({
+                    id: 'pp-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                    concepto, monto, frecuencia, diaPago, diaSemana, cuenta, categoria, fechaInicio, activo, nota,
+                    ultimaEjecucion: null
+                });
+            }
+            guardarPagosProgramados(pagos);
+            alert(id ? 'Pago actualizado.' : 'Pago programado guardado. Se ejecutará automáticamente cuando corresponda.');
+            document.getElementById('pago-id').value = '';
+            document.getElementById('pago-programado-form').reset();
+            document.getElementById('pago-activo').checked = true;
+            document.getElementById('btn-cancelar-editar').style.display = 'none';
+            document.getElementById('btn-guardar-pago').textContent = 'Guardar pago';
+            actualizarOpcionesDia();
+            const hoy = new Date();
+            document.getElementById('pago-fecha-inicio').value = hoy.toISOString().slice(0, 10);
+            renderLista();
+        });
+
+        document.getElementById('lista-pagos-programados').addEventListener('click', function(e) {
+            const id = e.target.dataset?.id;
+            if (!id) return;
+            const pagos = obtenerPagosProgramados();
+            const p = pagos.find(x => x.id === id);
+            if (!p) return;
+            if (e.target.classList.contains('btn-eliminar-pago')) {
+                if (!confirm(`¿Eliminar el pago programado "${p.concepto}"?`)) return;
+                guardarPagosProgramados(pagos.filter(x => x.id !== id));
+                renderLista();
+                return;
+            }
+            if (e.target.classList.contains('btn-editar-pago')) {
+                document.getElementById('pago-id').value = p.id;
+                document.getElementById('pago-concepto').value = p.concepto;
+                document.getElementById('pago-monto').value = p.monto;
+                document.getElementById('pago-frecuencia').value = p.frecuencia || 'mensual';
+                actualizarOpcionesDia();
+                document.getElementById('pago-dia').value = p.diaPago || 1;
+                document.getElementById('pago-cuenta').value = p.cuenta || 'banco';
+                document.getElementById('pago-categoria').value = p.categoria || '';
+                document.getElementById('pago-fecha-inicio').value = (p.fechaInicio || '').slice(0, 10);
+                document.getElementById('pago-activo').checked = p.activo !== false;
+                document.getElementById('pago-nota').value = p.nota || '';
+                document.getElementById('btn-cancelar-editar').style.display = 'inline-block';
+                document.getElementById('btn-guardar-pago').textContent = 'Actualizar';
+            }
+        });
+
+        document.getElementById('btn-cancelar-editar').addEventListener('click', function() {
+            document.getElementById('pago-id').value = '';
+            document.getElementById('pago-programado-form').reset();
+            document.getElementById('pago-activo').checked = true;
+            this.style.display = 'none';
+            document.getElementById('btn-guardar-pago').textContent = 'Guardar pago';
+            actualizarOpcionesDia();
+            const hoy = new Date();
+            document.getElementById('pago-fecha-inicio').value = hoy.toISOString().slice(0, 10);
+        });
+
+        cargarCategoriasSelect();
+        cargarCuentasSelect();
+        actualizarOpcionesDia();
+        const hoy = new Date();
+        document.getElementById('pago-fecha-inicio').value = hoy.toISOString().slice(0, 10);
+        renderLista();
+    </script>
+</body>
+</html>
