@@ -65,7 +65,7 @@
             CUENTAS.forEach(c => {
                 let s = saldosIni[c.id] || 0;
                 ingresos.filter(i => i.origen === c.id && new Date(i.fecha) < limite).forEach(i => { s += i.cantidad; });
-                gastos.filter(g => g.origen === c.id && new Date(g.fecha) < limite).forEach(g => { s -= g.cantidad; });
+                gastos.filter(g => g.origen === c.id && new Date(g.fecha) < limite).forEach(g => { s -= montoGastoAfectaSaldo(g); });
                 contribuciones.filter(x => x.origen === c.id && new Date(x.fecha) < limite).forEach(x => { s -= x.cantidad; });
                 total += s;
             });
@@ -113,7 +113,7 @@
                 });
 
                 const totalIngresos = ingMes.reduce((s, i) => s + i.cantidad, 0);
-                const totalGastos = gastMes.reduce((s, g) => s + g.cantidad, 0);
+                const totalGastos = gastMes.reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
                 const totalMetas = contribMes.reduce((s, c) => s + c.cantidad, 0);
                 const saldoInicio = calcularSaldoAlInicioDelMes(mes, año, ingresos, gastos, contribuciones);
                 const saldoFinal = saldoInicio + totalIngresos - totalGastos - totalMetas;
@@ -128,7 +128,8 @@
                 if (gastMes.length > 0) {
                     const porCat = {};
                     gastMes.forEach(g => {
-                        porCat[g.categoria || 'Sin categoría'] = (porCat[g.categoria || 'Sin categoría'] || 0) + g.cantidad;
+                        const monto = montoGastoAfectaSaldo(g);
+                        porCat[g.categoria || 'Sin categoría'] = (porCat[g.categoria || 'Sin categoría'] || 0) + monto;
                     });
                     tablaGastos = `
                         <h4>Gastos por categoría</h4>
@@ -140,11 +141,12 @@
                         </table>
                         <h4>Detalle de gastos</h4>
                         <table class="tabla-reporte">
-                            <thead><tr><th>Fecha</th><th>Nombre</th><th>Categoría</th><th>Cuenta</th><th>Monto</th></tr></thead>
+                            <thead><tr><th>Fecha</th><th>Nombre</th><th>Categoría</th><th>Cuenta</th><th>Monto</th><th>Cuotas</th></tr></thead>
                             <tbody>
                                 ${gastMes.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(g => {
                                     const nomCuenta = CUENTAS.find(x => x.id === g.origen)?.nombre || g.origen || '—';
-                                    return `<tr><td>${formatearFechaReporte(g.fecha)}</td><td>${g.nombre || '—'}</td><td>${g.categoria || '—'}</td><td>${nomCuenta}</td><td>${formatearNumero(g.cantidad)} ${moneda}</td></tr>`;
+                                    const cuotasCell = (g.origen === 'tarjetaCredito' && g.cuotas > 1) ? `${g.cuotas} (${formatearNumero(g.cuotaMensual || g.cantidad/g.cuotas)} ${moneda}/mes)` : '—';
+                                    return `<tr><td>${formatearFechaReporte(g.fecha)}</td><td>${g.nombre || '—'}</td><td>${g.categoria || '—'}</td><td>${nomCuenta}</td><td>${formatearNumero(g.cantidad)} ${moneda}</td><td>${cuotasCell}</td></tr>`;
                                 }).join('')}
                             </tbody>
                         </table>`;

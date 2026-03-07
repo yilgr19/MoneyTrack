@@ -86,6 +86,19 @@
                 <p id="aviso-origen" class="aviso-origen" style="display:none;">No tienes dinero disponible. Registra saldo en <a href="saldo.html">Saldo</a> o <a href="ingresos.html">Ingresos</a>.</p>
             </div>
 
+            <div class="input-group grupo-cuotas-oculto" id="grupo-cuotas">
+                <label for="cuotas">¿En cuántas cuotas pagas?</label>
+                <select id="cuotas" name="cuotas">
+                    <option value="1">1 cuota (contado)</option>
+                    <option value="2">2 cuotas</option>
+                    <option value="3">3 cuotas</option>
+                    <option value="6">6 cuotas</option>
+                    <option value="12">12 cuotas</option>
+                    <option value="24">24 cuotas</option>
+                </select>
+                <p id="info-cuota-mensual" class="input-hint"></p>
+            </div>
+
             <div class="input-group">
                 <label for="nota">Nota (opcional)</label>
                 <input 
@@ -141,6 +154,8 @@
             const aviso = document.getElementById('aviso-origen');
             const valorAnterior = select.value;
             const cantidad = parseFloat(document.getElementById('cantidad').value) || 0;
+            const numCuotas = parseInt(document.getElementById('cuotas')?.value) || 1;
+            const cuotaMensualTc = cantidad > 0 && numCuotas > 0 ? cantidad / numCuotas : cantidad;
             const limiteTc = parseFloat(localStorage.getItem('limiteTarjetaCredito')) || 0;
             const gastadoTc = limiteTc > 0 ? obtenerGastadoTarjetaCredito() : 0;
             const disponibleTc = limiteTc > 0 ? Math.max(0, limiteTc - gastadoTc) : 0;
@@ -152,7 +167,7 @@
                 let puede = false;
                 if (c.id === 'tarjetaCredito' && limiteTc > 0) {
                     saldo = disponibleTc;
-                    puede = disponibleTc > 0 && (cantidad === 0 || disponibleTc >= cantidad);
+                    puede = disponibleTc > 0 && (cantidad === 0 || disponibleTc >= cuotaMensualTc);
                 } else {
                     puede = saldo > 0 && (cantidad === 0 || saldo >= cantidad);
                 }
@@ -181,16 +196,46 @@
                     select.value = valorAnterior;
                 }
             }
+            actualizarGrupoCuotas();
+        }
+
+        function actualizarGrupoCuotas() {
+            const origen = document.getElementById('origen').value;
+            const grupoCuotas = document.getElementById('grupo-cuotas');
+            const infoCuota = document.getElementById('info-cuota-mensual');
+            const cantidad = parseFloat(document.getElementById('cantidad').value) || 0;
+            const numCuotas = parseInt(document.getElementById('cuotas').value) || 1;
+            if (origen === 'tarjetaCredito') {
+                grupoCuotas.classList.remove('grupo-cuotas-oculto');
+                grupoCuotas.classList.add('grupo-cuotas-visible');
+                if (cantidad > 0 && numCuotas > 0) {
+                    const cuotaMensual = cantidad / numCuotas;
+                    const mon = localStorage.getItem('moneda') || '';
+                    infoCuota.textContent = `Solo se descontará ${formatearNumero(cuotaMensual)} ${mon}/mes del crédito (total ${formatearNumero(cantidad)} ${mon} en ${numCuotas} cuotas).`;
+                } else {
+                    infoCuota.textContent = cantidad > 0 ? `Se descontará ${formatearNumero(cantidad)} ${localStorage.getItem('moneda') || ''} del crédito (1 cuota).` : '';
+                }
+            } else {
+                grupoCuotas.classList.add('grupo-cuotas-oculto');
+                grupoCuotas.classList.remove('grupo-cuotas-visible');
+            }
         }
 
         actualizarOpcionesOrigen();
+        actualizarGrupoCuotas();
 
-        document.getElementById('cantidad').addEventListener('input', actualizarOpcionesOrigen);
+        document.getElementById('origen').addEventListener('change', actualizarGrupoCuotas);
+        document.getElementById('cantidad').addEventListener('input', function() {
+            actualizarOpcionesOrigen();
+            actualizarGrupoCuotas();
+        });
+        document.getElementById('cuotas').addEventListener('change', actualizarGrupoCuotas);
 
         // Recargar categorías y opciones de origen al volver a la pestaña
         function recargarAlVolver() {
             cargarCategorias();
             actualizarOpcionesOrigen();
+            actualizarGrupoCuotas();
         }
         window.addEventListener('focus', recargarAlVolver);
         document.addEventListener('visibilitychange', function() {
@@ -218,17 +263,26 @@
 
             // Calcular saldos actuales (incluyendo ingresos y restando metas) antes de agregar el gasto
             const saldos = calcularSaldosPorCuenta();
-            const saldoOrigen = saldos[origen] || 0;
+            const cuotasVal = origen === 'tarjetaCredito' ? (parseInt(document.getElementById('cuotas').value) || 1) : 1;
+            const cuotaMensualVal = origen === 'tarjetaCredito' ? (cantidad / cuotasVal) : cantidad;
+            const limiteTc = parseFloat(localStorage.getItem('limiteTarjetaCredito')) || 0;
+            const gastadoTc = limiteTc > 0 ? obtenerGastadoTarjetaCredito() : 0;
+            const disponibleTc = limiteTc > 0 ? Math.max(0, limiteTc - gastadoTc) : 0;
+            const saldoOrigen = origen === 'tarjetaCredito' ? disponibleTc : (saldos[origen] || 0);
+            const montoAValidar = origen === 'tarjetaCredito' ? cuotaMensualVal : cantidad;
             const saldoTotal = saldos.total || 0;
 
-            // Validar: el gasto no puede ser mayor al saldo disponible
-            if (cantidad > saldoTotal) {
+            // Validar: el gasto no puede ser mayor al saldo/crédito disponible
+            if (origen !== 'tarjetaCredito' && cantidad > saldoTotal) {
                 alert('No hay saldo suficiente. El gasto (' + formatearNumero(cantidad) + ') es mayor al saldo total disponible (' + formatearNumero(saldoTotal) + ').');
                 return;
             }
-            if (cantidad > saldoOrigen) {
+            if (montoAValidar > saldoOrigen) {
                 const nomCuenta = CUENTAS.find(c => c.id === origen)?.nombre || origen;
-                alert('No hay suficiente saldo en ' + nomCuenta + '. Saldo disponible: ' + formatearNumero(saldoOrigen) + '.');
+                const msg = origen === 'tarjetaCredito' && cuotasVal > 1
+                    ? 'Crédito insuficiente. La cuota mensual (' + formatearNumero(cuotaMensualVal) + ') supera el crédito disponible (' + formatearNumero(saldoOrigen) + ').'
+                    : 'No hay suficiente saldo en ' + nomCuenta + '. Disponible: ' + formatearNumero(saldoOrigen) + '.';
+                alert(msg);
                 return;
             }
 
@@ -242,8 +296,8 @@
                     const ah = new Date();
                     return g.categoria === categoria && d.getMonth() === ah.getMonth() && d.getFullYear() === ah.getFullYear();
                 });
-                const gastadoMes = gastosCategoria.reduce((s, g) => s + g.cantidad, 0);
-                if (gastadoMes + cantidad > catObj.limite) {
+                const gastadoMes = gastosCategoria.reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
+                if (gastadoMes + montoAValidar > catObj.limite) {
                     if (!confirm('¡Atención! Este gasto excede el límite de ' + categoria + ' (' + formatearNumero(catObj.limite) + '). ¿Deseas registrar el gasto de todos modos?')) {
                         return;
                     }
@@ -253,13 +307,18 @@
             // Guardar gastos en localStorage (array)
             let gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
 
+            const cuotas = origen === 'tarjetaCredito' ? (parseInt(document.getElementById('cuotas').value) || 1) : 1;
+            const cuotaMensual = origen === 'tarjetaCredito' ? (cantidad / cuotas) : cantidad;
+
             gastos.push({
                 nombre,
                 cantidad,
                 fecha,
                 categoria,
                 origen,
-                nota
+                nota,
+                cuotas: origen === 'tarjetaCredito' ? cuotas : 1,
+                cuotaMensual: origen === 'tarjetaCredito' ? cuotaMensual : cantidad
             });
             localStorage.setItem('gastos', JSON.stringify(gastos));
 

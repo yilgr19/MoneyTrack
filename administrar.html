@@ -172,6 +172,17 @@
                             <option value="daviplata">Daviplata</option>
                         </select>
                     </div>
+                    <div class="input-group" id="edit-grupo-cuotas" style="display:none;">
+                        <label for="edit-cuotas">Cuotas</label>
+                        <select id="edit-cuotas">
+                            <option value="1">1 cuota</option>
+                            <option value="2">2 cuotas</option>
+                            <option value="3">3 cuotas</option>
+                            <option value="6">6 cuotas</option>
+                            <option value="12">12 cuotas</option>
+                            <option value="24">24 cuotas</option>
+                        </select>
+                    </div>
                     <div class="input-group">
                         <label for="edit-nota">Nota (opcional)</label>
                         <input type="text" id="edit-nota">
@@ -204,7 +215,7 @@
         }
         const saldosPorCuenta = calcularSaldosPorCuenta();
         const saldoActual = saldosPorCuenta.total || 0;
-        const totalGastos = JSON.parse(localStorage.getItem('gastos') || '[]').reduce((s, g) => s + g.cantidad, 0);
+        const totalGastos = JSON.parse(localStorage.getItem('gastos') || '[]').reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
 
         const alertaTc = verificarAlertaTarjetaCredito();
         const alertaTcEl = document.getElementById('alerta-tarjeta-credito');
@@ -229,7 +240,7 @@
                 const d = new Date(g.fecha);
                 return d.getMonth() === mesActual && d.getFullYear() === añoActual;
             })
-            .reduce((s, g) => s + g.cantidad, 0);
+            .reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
         const presupuestoMensual = parseFloat(localStorage.getItem('presupuestoMensual')) || 0;
 
         // Presupuesto mensual (admin)
@@ -357,9 +368,11 @@
                     porMes[clave].forEach(({ g, idx }) => {
                         const li = document.createElement('li');
                         const fechaFormato = formatearFechaHora(g.fecha);
+                        const nomCuenta = CUENTAS.find(c => c.id === g.origen)?.nombre || g.origen || '';
+                        const cuotasTexto = (g.origen === 'tarjetaCredito' && g.cuotas > 1) ? ` — ${g.cuotas} cuotas (${formatearNumero(g.cuotaMensual || g.cantidad/g.cuotas)} ${moneda}/mes)` : '';
                         li.className = 'gasto-item';
                         li.innerHTML = `
-                            <span class="gasto-info"><strong>${g.nombre}</strong> — ${formatearNumero(g.cantidad)} ${moneda} (${g.categoria}) — ${fechaFormato}</span>
+                            <span class="gasto-info"><strong>${g.nombre}</strong> — ${formatearNumero(g.cantidad)} ${moneda} (${g.categoria}) — ${nomCuenta}${cuotasTexto} — ${fechaFormato}</span>
                             <span class="gasto-acciones">
                                 <button type="button" class="btn-accion btn-editar" data-index="${idx}" title="Editar">Editar</button>
                                 <button type="button" class="btn-accion btn-eliminar" data-index="${idx}" title="Eliminar">Eliminar</button>
@@ -390,6 +403,8 @@
                 const fv = g.fecha || '';
                 document.getElementById('edit-fecha').value = fv.includes('T') ? fv.slice(0, 16) : (fv ? fv + 'T00:00' : obtenerDatetimeLocalActual());
                 document.getElementById('edit-origen').value = g.origen || 'banco';
+                document.getElementById('edit-cuotas').value = (g.origen === 'tarjetaCredito' && g.cuotas) ? g.cuotas : 1;
+                document.getElementById('edit-grupo-cuotas').style.display = (g.origen === 'tarjetaCredito') ? 'block' : 'none';
                 document.getElementById('edit-nota').value = g.nota || '';
                 const selCat = document.getElementById('edit-categoria');
                 selCat.innerHTML = '';
@@ -420,6 +435,9 @@
 
         aplicarFiltros();
 
+        document.getElementById('edit-origen').addEventListener('change', function() {
+            document.getElementById('edit-grupo-cuotas').style.display = (this.value === 'tarjetaCredito') ? 'block' : 'none';
+        });
         document.getElementById('btn-cerrar-modal').addEventListener('click', function() {
             document.getElementById('modal-editar-gasto').style.display = 'none';
         });
@@ -430,13 +448,18 @@
             e.preventDefault();
             const idx = parseInt(document.getElementById('edit-gasto-index').value);
             gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+            const editOrigen = document.getElementById('edit-origen').value;
+            const editCuotas = editOrigen === 'tarjetaCredito' ? (parseInt(document.getElementById('edit-cuotas').value) || 1) : 1;
+            const editCantidad = parseFloat(document.getElementById('edit-cantidad').value);
             gastos[idx] = {
                 nombre: document.getElementById('edit-nombre').value,
-                cantidad: parseFloat(document.getElementById('edit-cantidad').value),
+                cantidad: editCantidad,
                 fecha: document.getElementById('edit-fecha').value,
                 categoria: document.getElementById('edit-categoria').value,
-                origen: document.getElementById('edit-origen').value,
-                nota: document.getElementById('edit-nota').value || null
+                origen: editOrigen,
+                nota: document.getElementById('edit-nota').value || null,
+                cuotas: editCuotas,
+                cuotaMensual: editOrigen === 'tarjetaCredito' ? (editCantidad / editCuotas) : editCantidad
             };
             localStorage.setItem('gastos', JSON.stringify(gastos));
             document.getElementById('modal-editar-gasto').style.display = 'none';

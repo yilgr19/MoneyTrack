@@ -50,7 +50,12 @@ function calcularSaldosPorCuenta() {
     const saldos = {};
     CUENTAS.forEach(c => {
         const ing = ingresos.filter(i => i.origen === c.id).reduce((s, i) => s + i.cantidad, 0);
-        const gast = gastos.filter(g => g.origen === c.id).reduce((s, g) => s + g.cantidad, 0);
+        const gast = gastos.filter(g => g.origen === c.id || (c.id === 'tarjetaCredito' && g.origen === 'Tarjeta de crédito')).reduce((s, g) => {
+            const monto = (c.id === 'tarjetaCredito' && g.cuotas > 1)
+                ? (g.cuotaMensual || (g.cantidad || 0) / g.cuotas)
+                : (g.cantidad || 0);
+            return s + monto;
+        }, 0);
         const contrib = contribuciones.filter(x => x.origen === c.id).reduce((s, x) => s + x.cantidad, 0);
         saldos[c.id] = saldosIni[c.id] + ing - gast - contrib;
     });
@@ -59,13 +64,29 @@ function calcularSaldosPorCuenta() {
     return saldos;
 }
 
-/** Gastos totales pagados con tarjeta de crédito */
-function obtenerGastadoTarjetaCredito() {
-    const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
-    return gastos.filter(g => (g.origen === 'tarjetaCredito' || g.origen === 'Tarjeta de crédito')).reduce((s, g) => s + g.cantidad, 0);
+/** Devuelve el monto a descontar de una cuenta para un gasto. Tarjeta en cuotas: cuota mensual. Resto: total. */
+function montoGastoPorCuenta(g, cuentaId) {
+    if (cuentaId === 'tarjetaCredito' && g.cuotas > 1) {
+        return g.cuotaMensual || (g.cantidad / g.cuotas) || 0;
+    }
+    return g.cantidad || 0;
 }
 
-/** Verifica si debe mostrarse alerta de tarjeta al 50% o más. Retorna { mostrar, gastado, limite, porcentaje } */
+/** Monto que afecta el saldo/crédito: para tarjeta en cuotas usa cuotaMensual, sino cantidad. */
+function montoGastoAfectaSaldo(g) {
+    if (!g || g.origen !== 'tarjetaCredito') return g ? (g.cantidad || 0) : 0;
+    return (g.cuotas > 1) ? (g.cuotaMensual || (g.cantidad || 0) / g.cuotas) : (g.cantidad || 0);
+}
+
+/** Crédito usado en tarjeta: suma de las CUOTAS MENSUALES (no el total). En cuotas, solo se descuenta 1/cuotas cada mes. */
+function obtenerGastadoTarjetaCredito() {
+    const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
+    return gastos.filter(g => (g.origen === 'tarjetaCredito' || g.origen === 'Tarjeta de crédito')).reduce((s, g) => {
+        return s + montoGastoPorCuenta(g, 'tarjetaCredito');
+    }, 0);
+}
+
+/** Verifica si debe mostrarse alerta de tarjeta al 50% o más. gastado = suma de cuotas mensuales. */
 function verificarAlertaTarjetaCredito() {
     const limite = parseFloat(localStorage.getItem('limiteTarjetaCredito')) || 0;
     if (limite <= 0) return { mostrar: false, gastado: 0, limite: 0, porcentaje: 0 };

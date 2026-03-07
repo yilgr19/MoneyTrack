@@ -319,6 +319,18 @@ body {
     margin-top: 0.25rem;
 }
 
+.input-limite-tarjeta {
+    border: 2px solid blueviolet !important;
+    outline-color: blueviolet;
+}
+
+.grupo-cuotas-oculto {
+    display: none !important;
+}
+.grupo-cuotas-visible {
+    display: block !important;
+}
+
 /* ========================================
    INTERFAZ: METAS DE AHORRO (metas.html)
    ======================================== */

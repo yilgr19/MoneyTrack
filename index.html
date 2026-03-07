@@ -225,9 +225,9 @@
                 const { mes, año } = obtenerMesAño(g.fecha);
                 return mes === mesActual && año === añoActual;
             })
-            .reduce((s, g) => s + g.cantidad, 0);
+            .reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
 
-        const totalGastos = gastos.reduce((s, g) => s + g.cantidad, 0);
+        const totalGastos = gastos.reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
 
         const nombreMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mesActual];
 
@@ -453,8 +453,9 @@
             ultimosGastos.forEach((g) => {
                 const li = document.createElement('li');
                 const fechaFormato = formatearFechaHora(g.fecha);
-                const origenLabel = g.origen === 'efectivo' ? 'Efectivo' : 'Banco';
-                li.innerHTML = `<span><strong>${g.nombre}</strong> — ${formatearNumero(g.cantidad)} ${moneda} (${g.categoria}) — ${origenLabel} — ${fechaFormato}</span>`;
+                const origenLabel = CUENTAS.find(c => c.id === g.origen)?.nombre || g.origen || '';
+                const cuotasTexto = (g.origen === 'tarjetaCredito' && g.cuotas > 1) ? ` — ${g.cuotas} cuotas (${formatearNumero(g.cuotaMensual || g.cantidad/g.cuotas)} ${moneda}/mes)` : '';
+                li.innerHTML = `<span><strong>${g.nombre}</strong> — ${formatearNumero(g.cantidad)} ${moneda} (${g.categoria}) — ${origenLabel}${cuotasTexto} — ${fechaFormato}</span>`;
                 listaGastos.appendChild(li);
             });
         }
