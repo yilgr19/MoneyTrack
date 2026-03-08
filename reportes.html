@@ -58,17 +58,29 @@
             return d.toLocaleDateString('es') + (fechaStr.includes('T') ? ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '');
         }
 
-        /** Saldo total (todas las cuentas) al inicio del mes indicado (antes de cualquier transacción de ese mes) */
+        /** Saldo total (todas las cuentas) al inicio del mes indicado (antes de cualquier transacción de ese mes).
+         * Para tarjeta de crédito con límite: usa crédito disponible = límite - gastado (igual que Inicio). */
         function calcularSaldoAlInicioDelMes(mes, año, ingresos, gastos, contribuciones) {
             const saldosIni = obtenerSaldosIniciales();
+            const limiteTc = parseFloat(localStorage.getItem('limiteTarjetaCredito')) || 0;
             const limite = new Date(año, mes, 1, 0, 0, 0, 0);
             let total = 0;
             CUENTAS.forEach(c => {
-                let s = saldosIni[c.id] || 0;
-                ingresos.filter(i => i.origen === c.id && new Date(i.fecha) < limite).forEach(i => { s += i.cantidad; });
-                gastos.filter(g => g.origen === c.id && new Date(g.fecha) < limite).forEach(g => { s -= montoGastoAfectaSaldo(g); });
-                contribuciones.filter(x => x.origen === c.id && new Date(x.fecha) < limite).forEach(x => { s -= x.cantidad; });
-                total += s;
+                const esTc = c.id === 'tarjetaCredito';
+                const origMatch = (origen) => normalizarOrigenCuenta(origen) === c.id;
+                if (esTc && limiteTc > 0) {
+                    const gastAntes = gastos.filter(g => origMatch(g.origen) && new Date(g.fecha) < limite)
+                        .reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
+                    const contribAntes = contribuciones.filter(x => origMatch(x.origen) && new Date(x.fecha) < limite)
+                        .reduce((s, x) => s + x.cantidad, 0);
+                    total += Math.max(0, limiteTc - gastAntes - contribAntes);
+                } else {
+                    let s = saldosIni[c.id] || 0;
+                    ingresos.filter(i => origMatch(i.origen) && new Date(i.fecha) < limite).forEach(i => { s += i.cantidad; });
+                    gastos.filter(g => origMatch(g.origen) && new Date(g.fecha) < limite).forEach(g => { s -= montoGastoAfectaSaldo(g); });
+                    contribuciones.filter(x => origMatch(x.origen) && new Date(x.fecha) < limite).forEach(x => { s -= x.cantidad; });
+                    total += s;
+                }
             });
             return total;
         }
@@ -145,8 +157,8 @@
                             <thead><tr><th>Fecha</th><th>Nombre</th><th>Categoría</th><th>Cuenta</th><th>Monto</th><th>Cuotas</th></tr></thead>
                             <tbody>
                                 ${gastMes.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(g => {
-                                    const nomCuenta = CUENTAS.find(x => x.id === g.origen)?.nombre || g.origen || '—';
-                                    const cuotasCell = (g.origen === 'tarjetaCredito' && g.cuotas > 1) ? `${g.cuotas} (${formatearNumero(g.cuotaMensual || g.cantidad/g.cuotas)} ${moneda}/mes)` : '—';
+                                    const nomCuenta = CUENTAS.find(x => x.id === normalizarOrigenCuenta(g.origen))?.nombre || g.origen || '—';
+                                    const cuotasCell = (normalizarOrigenCuenta(g.origen) === 'tarjetaCredito' && g.cuotas > 1) ? `${g.cuotas} (${formatearNumero(g.cuotaMensual || g.cantidad/g.cuotas)} ${moneda}/mes)` : '—';
                                     return `<tr><td>${formatearFechaReporte(g.fecha)}</td><td>${g.nombre || '—'}</td><td>${g.categoria || '—'}</td><td>${nomCuenta}</td><td>${formatearNumero(g.cantidad)} ${moneda}</td><td>${cuotasCell}</td></tr>`;
                                 }).join('')}
                             </tbody>
@@ -163,7 +175,7 @@
                             <thead><tr><th>Fecha</th><th>Cuenta</th><th>Monto</th><th>Nota</th></tr></thead>
                             <tbody>
                                 ${ingMes.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(i => {
-                                    const nomCuenta = CUENTAS.find(x => x.id === i.origen)?.nombre || i.origen || '—';
+                                    const nomCuenta = CUENTAS.find(x => x.id === normalizarOrigenCuenta(i.origen))?.nombre || i.origen || '—';
                                     return `<tr><td>${formatearFechaReporte(i.fecha)}</td><td>${nomCuenta}</td><td>${formatearNumero(i.cantidad)} ${moneda}</td><td>${i.nota || '—'}</td></tr>`;
                                 }).join('')}
                             </tbody>
@@ -191,7 +203,7 @@
                                 ${contribMes.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(c => {
                                     const meta = metas.find(m => m.id === c.metaId);
                                     const nomMeta = meta ? meta.nombre : 'Meta eliminada';
-                                    const nomCuenta = CUENTAS.find(x => x.id === c.origen)?.nombre || c.origen || '—';
+                                    const nomCuenta = CUENTAS.find(x => x.id === normalizarOrigenCuenta(c.origen))?.nombre || c.origen || '—';
                                     return `<tr><td>${nomMeta}</td><td>${formatearFechaReporte(c.fecha)}</td><td>${nomCuenta}</td><td>${formatearNumero(c.cantidad)} ${moneda}</td></tr>`;
                                 }).join('')}
                             </tbody>
