@@ -32,6 +32,13 @@
         <div class="administrar-intro">
             <h2>Administrar</h2>
             <p>Resumen de toda tu información</p>
+            <button type="button" id="btn-descargar-excel" class="btn btn-excel" title="Descargar toda la información en Excel">
+                📥 Descargar Excel
+            </button>
+            <input type="file" id="input-importar-excel" accept=".xlsx,.xls" style="display:none;">
+            <button type="button" id="btn-importar-excel" class="btn btn-importar" title="Importar datos desde un Excel exportado">
+                📤 Importar Excel
+            </button>
         </div>
 
         <!-- Alerta tarjeta de crédito al 50% -->
@@ -201,7 +208,9 @@
         <p>MoneyTrack - Control de gastos personales</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js"></script>
     <script src="js/utils.js"></script>
+    <script src="js/exportarExcel.js"></script>
     <script>
         const moneda = localStorage.getItem('moneda') || '';
         function formatearFechaHora(fechaStr) {
@@ -596,6 +605,23 @@
                 localStorage.removeItem('presupuestoMensual');
                 alert('Datos reseteados. Saldo en cero.');
                 location.reload();
+            }
+        });
+
+        // Botón Descargar Excel
+        document.getElementById('btn-descargar-excel').addEventListener('click', function() {
+            exportarAExcel();
+        });
+
+        // Botón Importar Excel
+        document.getElementById('btn-importar-excel').addEventListener('click', function() {
+            document.getElementById('input-importar-excel').click();
+        });
+        document.getElementById('input-importar-excel').addEventListener('change', function() {
+            const f = this.files[0];
+            if (f) {
+                importarDesdeExcel(f);
+                this.value = '';
             }
         });
 

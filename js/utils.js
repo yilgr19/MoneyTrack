@@ -40,6 +40,18 @@ function obtenerSaldosIniciales() {
     }, {});
 }
 
+/** Normaliza origen a id de cuenta (Banco->banco, Tarjeta de crédito->tarjetaCredito) */
+function normalizarOrigenCuenta(origen) {
+    if (!origen || typeof origen !== 'string') return '';
+    const o = origen.trim();
+    const map = { 'efectivo':'efectivo','banco':'banco','tarjetacredito':'tarjetaCredito','nequi':'nequi','daviplata':'daviplata',
+        'efectivo':'efectivo','banco':'banco','tarjeta de crédito':'tarjetaCredito','tarjeta de credito':'tarjetaCredito' };
+    const key = o.toLowerCase().replace(/\s/g, '');
+    if (map[key]) return map[key];
+    const c = CUENTAS.find(x => x.nombre.toLowerCase() === o.toLowerCase() || x.id === o);
+    return c ? c.id : o;
+}
+
 /** Calcula saldos actuales por cuenta (ingresos - gastos - contribuciones) */
 function calcularSaldosPorCuenta() {
     const saldosIni = obtenerSaldosIniciales();
@@ -49,14 +61,17 @@ function calcularSaldosPorCuenta() {
 
     const saldos = {};
     CUENTAS.forEach(c => {
-        const ing = ingresos.filter(i => i.origen === c.id).reduce((s, i) => s + i.cantidad, 0);
-        const gast = gastos.filter(g => g.origen === c.id || (c.id === 'tarjetaCredito' && g.origen === 'Tarjeta de crédito')).reduce((s, g) => {
+        const ing = ingresos.filter(i => normalizarOrigenCuenta(i.origen) === c.id).reduce((s, i) => s + i.cantidad, 0);
+        const gast = gastos.filter(g => {
+            const orig = normalizarOrigenCuenta(g.origen);
+            return orig === c.id || (c.id === 'tarjetaCredito' && (orig === 'tarjetaCredito' || g.origen === 'Tarjeta de crédito'));
+        }).reduce((s, g) => {
             const monto = (c.id === 'tarjetaCredito' && g.cuotas > 1)
                 ? (g.cuotaMensual || (g.cantidad || 0) / g.cuotas)
                 : (g.cantidad || 0);
             return s + monto;
         }, 0);
-        const contrib = contribuciones.filter(x => x.origen === c.id).reduce((s, x) => s + x.cantidad, 0);
+        const contrib = contribuciones.filter(x => normalizarOrigenCuenta(x.origen) === c.id).reduce((s, x) => s + x.cantidad, 0);
         saldos[c.id] = saldosIni[c.id] + ing - gast - contrib;
     });
     saldos.total = Object.values(saldos).reduce((a, b) => a + b, 0);

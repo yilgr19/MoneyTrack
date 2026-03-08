@@ -1473,6 +1473,54 @@ body {
     color: purple;
 }
 
+.administrar-intro {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.administrar-intro .btn-excel {
+    background: linear-gradient(135deg, #217346, #1e5c3a);
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 8px rgba(33, 115, 70, 0.3);
+}
+
+.administrar-intro .btn-excel:hover {
+    background: linear-gradient(135deg, #1e5c3a, #174d2e);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(33, 115, 70, 0.4);
+}
+
+.administrar-intro .btn-importar {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.administrar-intro .btn-importar:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
 .administrar-grid {
     margin-bottom: 2rem;
 }
