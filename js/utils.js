@@ -164,7 +164,27 @@ function pagoVenceHoy(pago, hoy) {
         }
         return true;
     }
+    if (pago.frecuencia === 'unico') {
+        const fechaPago = new Date(pago.fechaInicio + 'T12:00:00');
+        return hoy.getFullYear() === fechaPago.getFullYear() &&
+               hoy.getMonth() === fechaPago.getMonth() &&
+               hoy.getDate() === fechaPago.getDate();
+    }
     return false;
+}
+
+/** Indica si un pago programado debe mostrarse para pagar (cuotas únicas: solo cuando ya venció o vence hoy) */
+function pagoDebeMostrarseParaPagar(pago, hoy) {
+    if (!pago || pago.activo === false) return false;
+    if (pago.frecuencia === 'unico') {
+        if (!pago.fechaInicio) return false;
+        const fechaPago = new Date(pago.fechaInicio + 'T12:00:00');
+        fechaPago.setHours(0, 0, 0, 0);
+        const hoyNorm = new Date(hoy);
+        hoyNorm.setHours(0, 0, 0, 0);
+        return fechaPago <= hoyNorm;
+    }
+    return true;
 }
 
 /** Ejecuta pagos programados del día: crea gastos automáticamente. Se ejecuta al cargar cualquier página. */

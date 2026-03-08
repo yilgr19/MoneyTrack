@@ -166,10 +166,10 @@
                 return;
             }
             sinPagos.style.display = 'none';
-            const freqLabel = { mensual: 'mensual', quincenal: 'quincenal', semanal: 'semanal' };
+            const freqLabel = { mensual: 'mensual', quincenal: 'quincenal', semanal: 'semanal', unico: 'cuota (única vez)' };
             pagos.forEach(p => {
                 const li = document.createElement('li');
-                const diaTexto = p.frecuencia === 'mensual' || p.frecuencia === 'quincenal' ? ` día ${p.diaPago}` : '';
+                const diaTexto = p.frecuencia === 'mensual' || p.frecuencia === 'quincenal' ? ` día ${p.diaPago}` : (p.frecuencia === 'unico' && p.fechaInicio) ? ` — vence ${p.fechaInicio}` : '';
                 const pausado = p.activo === false ? ' <span class="pago-pausado">(Pausado)</span>' : '';
                 li.className = 'pago-programado-item' + (p.activo === false ? ' pago-inactivo' : '');
                 li.innerHTML = `

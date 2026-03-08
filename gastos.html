@@ -237,7 +237,8 @@
         actualizarGrupoCuotas();
 
         function renderPagosProgramados() {
-            const pagos = obtenerPagosProgramados().filter(p => p.activo !== false);
+            const hoy = new Date();
+            const pagos = obtenerPagosProgramados().filter(p => p.activo !== false && pagoDebeMostrarseParaPagar(p, hoy));
             const ul = document.getElementById('lista-pagos-gastos');
             const sinPagos = document.getElementById('sin-pagos-gastos');
             const moneda = localStorage.getItem('moneda') || '';
@@ -247,10 +248,10 @@
                 return;
             }
             sinPagos.style.display = 'none';
-            const freqLabel = { mensual: 'mensual', quincenal: 'quincenal', semanal: 'semanal' };
+            const freqLabel = { mensual: 'mensual', quincenal: 'quincenal', semanal: 'semanal', unico: 'cuota (única vez)' };
             pagos.forEach(p => {
                 const li = document.createElement('li');
-                const diaTexto = (p.frecuencia === 'mensual' || p.frecuencia === 'quincenal') ? ` día ${p.diaPago}` : '';
+                const diaTexto = (p.frecuencia === 'mensual' || p.frecuencia === 'quincenal') ? ` día ${p.diaPago}` : (p.frecuencia === 'unico' && p.fechaInicio) ? ` — vence ${p.fechaInicio}` : '';
                 li.className = 'pago-gasto-item';
                 li.innerHTML = `
                     <div class="pago-gasto-info">
@@ -312,6 +313,7 @@
 
         document.getElementById('gastos-form').addEventListener('submit', function(e) {
             e.preventDefault();
+            const pad = n => String(n).padStart(2, '0');
             const categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
             if (categorias.length === 0) {
                 alert('Primero crea al menos una categoría en Categorías.');
@@ -384,6 +386,35 @@
                 cuotaMensual: origen === 'tarjetaCredito' ? cuotaMensual : cantidad
             });
             localStorage.setItem('gastos', JSON.stringify(gastos));
+
+            // Si es compra diferida a cuotas, programar automáticamente las cuotas restantes
+            if (origen === 'tarjetaCredito' && cuotas > 1) {
+                const pagos = obtenerPagosProgramados();
+                const d = new Date(fecha);
+                const diaCompra = Math.min(28, d.getDate());
+                const año = d.getFullYear();
+                const mes = d.getMonth();
+                const pad = n => String(n).padStart(2, '0');
+                for (let i = 0; i < cuotas - 1; i++) {
+                    const nextDate = new Date(año, mes + i + 1, diaCompra);
+                    const fechaCuota = nextDate.toISOString().slice(0, 10);
+                    pagos.push({
+                        id: 'cuota-' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 6),
+                        concepto: nombre + ' - Cuota ' + (i + 2) + ' de ' + cuotas,
+                        monto: cuotaMensual,
+                        frecuencia: 'unico',
+                        fechaInicio: fechaCuota,
+                        diaPago: nextDate.getDate(),
+                        cuenta: origen,
+                        categoria: categoria,
+                        activo: true,
+                        nota: (nota || '') + (nota ? ' | ' : '') + 'Cuota diferida automática',
+                        esCuotaDiferida: true
+                    });
+                }
+                guardarPagosProgramados(pagos);
+                renderPagosProgramados();
+            }
 
             // Si el gasto vino de un pago programado, eliminarlo
             if (pagoProgramadoEnUso) {
