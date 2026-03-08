@@ -252,6 +252,24 @@ body {
     margin: 0 0 1rem 0;
 }
 
+.pago-mes-header {
+    list-style: none;
+    padding: 8px 0 4px 0;
+    margin-top: 12px;
+    border-bottom: 1px solid #e0e0e0;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.pago-mes-header:first-child {
+    margin-top: 0;
+}
+
+.pago-mes-titulo {
+    display: block;
+}
+
 .gastos-pagos-card .pago-gasto-item,
 .gastos-pagos-card .pago-item-gasto {
     display: flex;
@@ -770,13 +788,41 @@ body {
     border: 1px solid #ccc;
 }
 
+.categorias-acciones-top {
+    margin-bottom: 1rem;
+}
+
+.categorias-acciones-top .btn-secundario {
+    font-size: 0.9rem;
+    padding: 8px 14px;
+}
+
+.categoria-icono {
+    margin-right: 6px;
+    font-size: 1.1em;
+}
+
 .categoria-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     padding: 4px 12px;
     border-radius: 5px;
     color: white;
     font-weight: 500;
     text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+}
+
+.categoria-icono {
+    margin-right: 4px;
+    font-size: 1.1em;
+}
+
+.categorias-acciones-top {
+    margin-bottom: 1rem;
+}
+
+.categorias-acciones-top .btn-secundario {
+    width: 100%;
 }
 
 .categoria-form .btn {
@@ -1362,6 +1408,20 @@ body {
 
 .grafica-categorias .accion-gastos {
     margin-bottom: 1rem;
+}
+
+.grafica-barras-wrap {
+    max-height: 240px;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+}
+
+.grafica-barras-wrap.grafica-barras-wrap-expandido {
+    max-height: 2000px;
+}
+
+.grafica-barras-wrap + .btn-ver-mas {
+    margin-top: 0.75rem;
 }
 
 .grafica-barras {

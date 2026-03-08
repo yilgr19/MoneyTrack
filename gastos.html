@@ -132,8 +132,8 @@
     <script src="js/utils.js"></script>
     <script>
         function normalizarCat(cat) {
-            if (typeof cat === 'string') return { nombre: cat, color: '#6b7280', limite: null };
-            return { nombre: cat.nombre || cat, color: cat.color || '#6b7280', limite: cat.limite || null };
+            if (typeof cat === 'string') return { nombre: cat, color: '#6b7280', limite: null, icono: '📋' };
+            return { nombre: cat.nombre || cat, color: cat.color || '#6b7280', limite: cat.limite || null, icono: cat.icono || '📋' };
         }
 
         function cargarCategorias() {
@@ -152,7 +152,7 @@
                 categorias.forEach(cat => {
                     const opt = document.createElement('option');
                     opt.value = cat.nombre;
-                    opt.textContent = cat.nombre;
+                    opt.textContent = (cat.icono || '📋') + ' ' + cat.nombre;
                     select.appendChild(opt);
                 });
             }
@@ -245,19 +245,45 @@
                 return;
             }
             sinPagos.style.display = 'none';
+            const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
             const freqLabel = { mensual: 'mensual', quincenal: 'quincenal', semanal: 'semanal', unico: 'cuota (única vez)' };
+
+            // Agrupar por mes: para unico usa fechaInicio, para recurrentes usa mes actual
+            const porMes = {};
             pagos.forEach(p => {
-                const li = document.createElement('li');
-                const diaTexto = (p.frecuencia === 'mensual' || p.frecuencia === 'quincenal') ? ` día ${p.diaPago}` : (p.frecuencia === 'unico' && p.fechaInicio) ? ` — vence ${p.fechaInicio}` : '';
-                li.className = 'pago-gasto-item';
-                li.innerHTML = `
-                    <div class="pago-gasto-info">
-                        <strong>${p.concepto}</strong> — ${formatearNumero(p.monto)} ${moneda}
-                        <span class="pago-gasto-detalle">${freqLabel[p.frecuencia] || p.frecuencia}${diaTexto} · ${CUENTAS.find(c => c.id === p.cuenta)?.nombre || p.cuenta}</span>
-                    </div>
-                    <button type="button" class="btn btn-pagar-programado" data-pago-id="${p.id}" title="Usar para registrar gasto">Pagar</button>
-                `;
-                ul.appendChild(li);
+                let mesKey;
+                if (p.frecuencia === 'unico' && p.fechaInicio) {
+                    const [y, m] = p.fechaInicio.slice(0, 10).split('-');
+                    mesKey = (y || '') + '-' + (m || '01');
+                } else {
+                    mesKey = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+                }
+                if (!porMes[mesKey]) porMes[mesKey] = [];
+                porMes[mesKey].push(p);
+            });
+
+            // Ordenar meses cronológicamente y renderizar
+            const mesesOrdenados = Object.keys(porMes).sort();
+            mesesOrdenados.forEach(mesKey => {
+                const [año, mes] = mesKey.split('-').map(Number);
+                const mesNombre = MESES[(mes || 1) - 1] + ' ' + (año || new Date().getFullYear());
+                const liHeader = document.createElement('li');
+                liHeader.className = 'pago-mes-header';
+                liHeader.innerHTML = `<span class="pago-mes-titulo">${mesNombre}</span>`;
+                ul.appendChild(liHeader);
+                porMes[mesKey].forEach(p => {
+                    const li = document.createElement('li');
+                    const diaTexto = (p.frecuencia === 'mensual' || p.frecuencia === 'quincenal') ? ` día ${p.diaPago}` : (p.frecuencia === 'unico' && p.fechaInicio) ? ` — vence ${p.fechaInicio}` : '';
+                    li.className = 'pago-gasto-item';
+                    li.innerHTML = `
+                        <div class="pago-gasto-info">
+                            <strong>${p.concepto}</strong> — ${formatearNumero(p.monto)} ${moneda}
+                            <span class="pago-gasto-detalle">${freqLabel[p.frecuencia] || p.frecuencia}${diaTexto} · ${CUENTAS.find(c => c.id === p.cuenta)?.nombre || p.cuenta}</span>
+                        </div>
+                        <button type="button" class="btn btn-pagar-programado" data-pago-id="${p.id}" title="Usar para registrar gasto">Pagar</button>
+                    `;
+                    ul.appendChild(li);
+                });
             });
         }
 

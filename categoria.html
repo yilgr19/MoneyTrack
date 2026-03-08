@@ -48,6 +48,51 @@
                     required
                 >
             </div>
+            <div class="input-group">
+                <label for="icono">Icono de la categoría</label>
+                <select id="icono" name="icono" class="select-icono">
+                    <option value="📋">📋 General</option>
+                    <option value="🛒">🛒 Supermercado</option>
+                    <option value="🚗">🚗 Transporte</option>
+                    <option value="🏠">🏠 Hogar</option>
+                    <option value="🎬">🎬 Entretenimiento</option>
+                    <option value="🍽️">🍽️ Restaurantes</option>
+                    <option value="👕">👕 Ropa</option>
+                    <option value="💊">💊 Salud</option>
+                    <option value="📚">📚 Educación</option>
+                    <option value="💡">💡 Servicios</option>
+                    <option value="🎁">🎁 Regalos</option>
+                    <option value="✈️">✈️ Viajes</option>
+                    <option value="📱">📱 Tecnología</option>
+                    <option value="🐾">🐾 Mascotas</option>
+                    <option value="💄">💄 Belleza</option>
+                    <option value="🏋️">🏋️ Deportes</option>
+                    <option value="💰">💰 Dinero</option>
+                    <option value="🏦">🏦 Banco</option>
+                    <option value="⛽">⛽ Gasolina</option>
+                    <option value="🎮">🎮 Juegos</option>
+                    <option value="🎵">🎵 Música</option>
+                    <option value="📺">📺 TV / Streaming</option>
+                    <option value="☕">☕ Café</option>
+                    <option value="🛍️">🛍️ Compras</option>
+                    <option value="💳">💳 Tarjeta</option>
+                    <option value="🏥">🏥 Hospital</option>
+                    <option value="💇">💇 Peluquería</option>
+                    <option value="🌴">🌴 Vacaciones</option>
+                    <option value="📦">📦 Envíos</option>
+                    <option value="🎓">🎓 Cursos</option>
+                    <option value="🏠">🏠 Alquiler</option>
+                    <option value="🔧">🔧 Reparaciones</option>
+                    <option value="📞">📞 Telefonía</option>
+                    <option value="🧹">🧹 Limpieza</option>
+                    <option value="🚿">🚿 Agua / Servicios</option>
+                    <option value="🎯">🎯 Otros</option>
+                    <option value="📷">📷 Fotografía</option>
+                    <option value="🎤">🎤 Eventos</option>
+                    <option value="💵">💵 Efectivo</option>
+                    <option value="🛒">🛒 Compras online</option>
+                </select>
+            </div>
             <div class="input-group input-group-color">
                 <label for="color">Color de la categoría</label>
                 <div class="color-picker-wrapper">
@@ -80,8 +125,13 @@
         <div class="categorias-columna-derecha">
             <div class="categorias-lista resumen-card">
                 <h3>Tus categorías</h3>
+                <div class="categorias-acciones-top">
+                    <button type="button" class="btn btn-secundario" id="btn-categorias-defecto">
+                        Añadir categorías por defecto
+                    </button>
+                </div>
                 <ul id="lista-categorias"></ul>
-                <p id="sin-categorias" class="sin-categorias">Aún no hay categorías. Agrega la primera.</p>
+                <p id="sin-categorias" class="sin-categorias">Aún no hay categorías. Agrega la primera o usa las categorías por defecto.</p>
             </div>
         </div>
     </section>
@@ -93,8 +143,8 @@
     <script src="js/utils.js"></script>
     <script>
         function normalizarCategoria(cat) {
-            if (typeof cat === 'string') return { nombre: cat, color: '#6b7280', limite: null };
-            return { nombre: cat.nombre || cat, color: cat.color || '#6b7280', limite: cat.limite || null };
+            if (typeof cat === 'string') return { nombre: cat, color: '#6b7280', limite: null, icono: '📋' };
+            return { nombre: cat.nombre || cat, color: cat.color || '#6b7280', limite: cat.limite || null, icono: cat.icono || '📋' };
         }
 
         function cargarCategorias() {
@@ -114,7 +164,8 @@
                     const li = document.createElement('li');
                     const colorStyle = `background-color: ${cat.color};`;
                     const limiteText = cat.limite ? ` — Límite: ${formatearNumero(parseFloat(cat.limite))}` : '';
-                    li.innerHTML = `<span class="categoria-badge" style="${colorStyle}">${cat.nombre}${limiteText}</span> <span class="categoria-acciones"><a href="?editar=${encodeURIComponent(cat.nombre)}" class="btn-accion btn-editar">Editar</a> <button type="button" class="btn-eliminar" data-index="${index}">Eliminar</button></span>`;
+                    const icono = cat.icono || '📋';
+                    li.innerHTML = `<span class="categoria-badge" style="${colorStyle}"><span class="categoria-icono">${icono}</span> ${cat.nombre}${limiteText}</span> <span class="categoria-acciones"><a href="?editar=${encodeURIComponent(cat.nombre)}" class="btn-accion btn-editar">Editar</a> <button type="button" class="btn-eliminar" data-index="${index}">Eliminar</button></span>`;
                     lista.appendChild(li);
                 });
             }
@@ -137,6 +188,41 @@
 
         document.getElementById('color-preview').style.backgroundColor = document.getElementById('color').value;
 
+        const CATEGORIAS_POR_DEFECTO = [
+            { nombre: 'Supermercado', color: '#22c55e', icono: '🛒' },
+            { nombre: 'Transporte', color: '#3b82f6', icono: '🚗' },
+            { nombre: 'Hogar', color: '#f59e0b', icono: '🏠' },
+            { nombre: 'Entretenimiento', color: '#8b5cf6', icono: '🎬' },
+            { nombre: 'Restaurantes', color: '#ec4899', icono: '🍽️' },
+            { nombre: 'Ropa', color: '#06b6d4', icono: '👕' },
+            { nombre: 'Salud', color: '#ef4444', icono: '💊' },
+            { nombre: 'Educación', color: '#6366f1', icono: '📚' },
+            { nombre: 'Servicios', color: '#f97316', icono: '💡' },
+            { nombre: 'Regalos', color: '#14b8a6', icono: '🎁' },
+            { nombre: 'Viajes', color: '#0ea5e9', icono: '✈️' },
+            { nombre: 'Tecnología', color: '#64748b', icono: '📱' }
+        ];
+
+        const btnDefecto = document.getElementById('btn-categorias-defecto');
+        if (btnDefecto) {
+            btnDefecto.addEventListener('click', function() {
+                let categorias = JSON.parse(localStorage.getItem('categorias') || '[]');
+                categorias = categorias.map(normalizarCategoria);
+                const nombresExistentes = categorias.map(c => c.nombre.toLowerCase());
+                let añadidas = 0;
+                CATEGORIAS_POR_DEFECTO.forEach(def => {
+                    if (!nombresExistentes.includes(def.nombre.toLowerCase())) {
+                        categorias.push({ nombre: def.nombre, color: def.color, limite: null, icono: def.icono });
+                        nombresExistentes.push(def.nombre.toLowerCase());
+                        añadidas++;
+                    }
+                });
+                localStorage.setItem('categorias', JSON.stringify(categorias));
+                cargarCategorias();
+                alert(añadidas > 0 ? `Se añadieron ${añadidas} categorías por defecto.` : 'Todas las categorías por defecto ya estaban añadidas.');
+            });
+        }
+
         // Modo edición: ?editar=NombreCategoria
         const params = new URLSearchParams(window.location.search);
         const editarNombre = params.get('editar');
@@ -147,9 +233,12 @@
             if (cat) {
                 document.getElementById('editar-nombre-original').value = cat.nombre;
                 document.getElementById('nombre').value = cat.nombre;
+                document.getElementById('icono').value = cat.icono || '📋';
                 document.getElementById('color').value = cat.color || '#22c55e';
                 document.getElementById('limite').value = cat.limite || '';
                 document.getElementById('color-preview').style.backgroundColor = cat.color || '#22c55e';
+                const selIcono = document.getElementById('icono');
+                if (selIcono) selIcono.value = cat.icono || '📋';
                 document.getElementById('btn-submit-categoria').textContent = 'Guardar cambios';
             }
         }
@@ -174,7 +263,8 @@
                     alert('Ya existe una categoría con ese nombre.');
                     return;
                 }
-                categorias[idx] = { nombre, color, limite };
+                const icono = document.getElementById('icono').value || '📋';
+                categorias[idx] = { nombre, color, limite, icono };
                 localStorage.setItem('categorias', JSON.stringify(categorias));
                 // Actualizar gastos que usaban el nombre antiguo
                 const gastos = JSON.parse(localStorage.getItem('gastos') || '[]');
@@ -189,11 +279,13 @@
                     alert('Esta categoría ya existe.');
                     return;
                 }
-                categorias.push({ nombre, color, limite });
+                const icono = document.getElementById('icono').value || '📋';
+                categorias.push({ nombre, color, limite, icono });
                 localStorage.setItem('categorias', JSON.stringify(categorias));
             }
 
             document.getElementById('nombre').value = '';
+            document.getElementById('icono').value = '📋';
             document.getElementById('color').value = '#22c55e';
             document.getElementById('limite').value = '';
             document.getElementById('color-preview').style.backgroundColor = '#22c55e';

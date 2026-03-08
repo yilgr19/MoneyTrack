@@ -160,7 +160,10 @@
             <div id="grafica-contenedor" class="grafica-categorias resumen-card">
                 <h3>Gastos por categoría</h3>
                 <p class="accion-gastos"><a href="categoria.html" class="btn btn-registrar">Ver categorías</a></p>
-                <div id="grafica-barras" class="grafica-barras"></div>
+                <div id="grafica-barras-wrap" class="grafica-barras-wrap">
+                    <div id="grafica-barras" class="grafica-barras"></div>
+                </div>
+                <button type="button" id="btn-ver-mas-grafica" class="btn btn-secundario btn-ver-mas" style="display:none;">Ver más</button>
                 <p id="sin-grafica" class="sin-datos">Crea categorías en Categorías para ver el gráfico.</p>
             </div>
 
@@ -177,7 +180,10 @@
             <div id="grafica-metas-contenedor" class="grafica-categorias resumen-card">
                 <h3>Metas de ahorro</h3>
                 <p class="accion-gastos"><a href="metas.html" class="btn btn-registrar">Ver metas</a></p>
-                <div id="grafica-metas-barras" class="grafica-barras"></div>
+                <div id="grafica-metas-wrap" class="grafica-barras-wrap">
+                    <div id="grafica-metas-barras" class="grafica-barras"></div>
+                </div>
+                <button type="button" id="btn-ver-mas-metas" class="btn btn-secundario btn-ver-mas" style="display:none;">Ver más</button>
                 <p id="sin-metas-grafica" class="sin-datos">Aún no tienes metas. Crea una en <a href="metas.html">Metas</a>.</p>
             </div>
         </div>
@@ -577,6 +583,31 @@
                     </div>
                 `;
                 graficaMetasBarras.appendChild(item);
+            });
+        }
+
+        // Botón "Ver más" para gráficas (gastos por categoría y metas)
+        const LIMITE_VISIBLE = 3;
+        const wrapGrafica = document.getElementById('grafica-barras-wrap');
+        const wrapMetas = document.getElementById('grafica-metas-wrap');
+        const btnVerMasGrafica = document.getElementById('btn-ver-mas-grafica');
+        const btnVerMasMetas = document.getElementById('btn-ver-mas-metas');
+
+        const itemsGrafica = graficaBarras.querySelectorAll('.grafica-item');
+        const itemsMetas = graficaMetasBarras.querySelectorAll('.grafica-item');
+
+        if (itemsGrafica.length > LIMITE_VISIBLE && wrapGrafica && btnVerMasGrafica) {
+            btnVerMasGrafica.style.display = 'inline-block';
+            btnVerMasGrafica.addEventListener('click', function() {
+                const expandido = wrapGrafica.classList.toggle('grafica-barras-wrap-expandido');
+                btnVerMasGrafica.textContent = expandido ? 'Ver menos' : 'Ver más';
+            });
+        }
+        if (itemsMetas.length > LIMITE_VISIBLE && wrapMetas && btnVerMasMetas) {
+            btnVerMasMetas.style.display = 'inline-block';
+            btnVerMasMetas.addEventListener('click', function() {
+                const expandido = wrapMetas.classList.toggle('grafica-barras-wrap-expandido');
+                btnVerMasMetas.textContent = expandido ? 'Ver menos' : 'Ver más';
             });
         }
     </script>
