@@ -4,13 +4,14 @@
     "slug": "moneytrack",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/moneytrack-logo.jpg",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0c0812",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/moneytrack-logo.jpg",
       "resizeMode": "contain",
-      "backgroundColor": "#1e1b4b"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -18,24 +19,32 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1e1b4b"
+        "foregroundImage": "./assets/moneytrack-logo.jpg",
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.moneytrack.app"
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/moneytrack-logo.jpg"
     },
     "scheme": "moneytrack",
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/moneytrack-logo.jpg",
+          "resizeMode": "contain"
+        }
+      ],
       "@react-native-community/datetimepicker",
       [
         "expo-navigation-bar",
         {
           "visibility": "hidden",
           "behavior": "overlay-swipe",
-          "backgroundColor": "#08060e"
+          "backgroundColor": "#0c0812"
         }
       ]
     ]

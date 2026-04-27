@@ -15,7 +15,244 @@ export const CUENTAS = [
   { id: 'tarjetaCredito', nombre: 'Tarjeta de crédito' },
   { id: 'nequi', nombre: 'Nequi' },
   { id: 'daviplata', nombre: 'Daviplata' },
+  /** Suma de billeteras y apps que no son Nequi ni Daviplata (Movii, Línea, etc.) */
+  { id: 'billeteras', nombre: 'Otras plataformas' },
 ];
+
+/** Plataformas digitales en Colombia (saldo inicial «Mis plataformas»). */
+export const PLATAFORMA_OTRO_VALUE = '__otro__';
+
+export const PLATAFORMAS_CO = [
+  { value: 'nequi', label: 'Nequi' },
+  { value: 'daviplata', label: 'Daviplata' },
+  { value: 'movii', label: 'Movii' },
+  { value: 'linea', label: 'Línea (Línea Pay)' },
+  { value: 'dale', label: 'Dale!' },
+  { value: 'rappipay', label: 'RappiPay' },
+  { value: 'bold', label: 'Bold' },
+  { value: 'tpaga', label: 'Tpaga' },
+  { value: 'powwi', label: 'Powwi' },
+  { value: 'claro_pay', label: 'Claro Pay' },
+  { value: 'iris', label: 'Iris' },
+  { value: 'tyba', label: 'Tyba' },
+  { value: 'ziper', label: 'Zíper' },
+  { value: 'a2censo', label: 'A2censo' },
+  { value: 'movistar_wallet', label: 'Movistar Wallet' },
+  { value: 'wompi', label: 'Wompi' },
+  { value: 'bre_b', label: 'Bre-B' },
+  { value: 'livibank', label: 'Livi / Uala' },
+];
+
+export function getPlataformasOptions() {
+  return [
+    ...PLATAFORMAS_CO,
+    { value: PLATAFORMA_OTRO_VALUE, label: 'Otro (especificar)' },
+  ];
+}
+
+/** Clave en saldosCuentas donde acumula cada opción del selector. */
+export function cuentaSaldoPlataforma(platformValue) {
+  if (platformValue === 'nequi') return 'nequi';
+  if (platformValue === 'daviplata') return 'daviplata';
+  return 'billeteras';
+}
+
+const PLATAFORMA_VALUE_TO_LABEL = (() => {
+  const m = new Map();
+  PLATAFORMAS_CO.forEach((p) => m.set(p.value, p.label));
+  return m;
+})();
+
+export function getPlataformaLabelByValue(value) {
+  if (!value || value === PLATAFORMA_OTRO_VALUE) return '';
+  return PLATAFORMA_VALUE_TO_LABEL.get(value) || '';
+}
+
+export function totalPlataformasTresSaldos(saldosObj) {
+  const n = parseFloat(saldosObj?.nequi) || 0;
+  const d = parseFloat(saldosObj?.daviplata) || 0;
+  const b = parseFloat(saldosObj?.billeteras) || 0;
+  return n + d + b;
+}
+
+/** Valor interno del ítem «Otro banco» en el selector (no incluir en listas por país). */
+export const BANCO_OTRO_VALUE = '__otro__';
+
+/**
+ * Bancos por moneda ISO (COP → Colombia, MXN → México, etc.).
+ * Si la moneda no está mapeada o está vacía, se usa la lista DEFAULT (Latinoamérica general).
+ */
+const BANCOS_POR_MONEDA = {
+  COP: [
+    { value: 'cop_bancolombia', label: 'Bancolombia' },
+    { value: 'cop_davivienda', label: 'Davivienda' },
+    { value: 'cop_bbva', label: 'BBVA Colombia' },
+    { value: 'cop_bogota', label: 'Banco de Bogotá' },
+    { value: 'cop_scotiabank', label: 'Scotiabank Colpatria' },
+    { value: 'cop_popular', label: 'Banco Popular' },
+    { value: 'cop_occidente', label: 'Banco de Occidente' },
+    { value: 'cop_caja_social', label: 'Banco Caja Social' },
+    { value: 'cop_agrario', label: 'Banco Agrario' },
+    { value: 'cop_av_villas', label: 'Banco AV Villas' },
+    { value: 'cop_finandina', label: 'Banco Finandina' },
+    { value: 'cop_itau', label: 'Itaú Colombia' },
+  ],
+  MXN: [
+    { value: 'mxn_bbva', label: 'BBVA México' },
+    { value: 'mxn_santander', label: 'Santander México' },
+    { value: 'mxn_banamex', label: 'Citibanamex' },
+    { value: 'mxn_banorte', label: 'Banorte' },
+    { value: 'mxn_hsbc', label: 'HSBC México' },
+    { value: 'mxn_scotiabank', label: 'Scotiabank México' },
+    { value: 'mxn_inbursa', label: 'Inbursa' },
+    { value: 'mxn_banregio', label: 'BanRegio' },
+    { value: 'mxn_nu', label: 'Nu México' },
+    { value: 'mxn_hey', label: 'Hey Banco' },
+    { value: 'mxn_afirme', label: 'Afirme' },
+    { value: 'mxn_bajio', label: 'Banco del Bajío' },
+  ],
+  ARS: [
+    { value: 'ars_galicia', label: 'Banco Galicia' },
+    { value: 'ars_santander', label: 'Santander Río' },
+    { value: 'ars_bbva', label: 'BBVA Argentina' },
+    { value: 'ars_macro', label: 'Banco Macro' },
+    { value: 'ars_icbc', label: 'ICBC Argentina' },
+    { value: 'ars_credicoop', label: 'Banco Credicoop' },
+    { value: 'ars_brubank', label: 'Brubank' },
+    { value: 'ars_naranja', label: 'Naranja X' },
+    { value: 'ars_mercadopago', label: 'Mercado Pago' },
+    { value: 'ars_uala', label: 'Ualá' },
+    { value: 'ars_citi', label: 'Citibank Argentina' },
+  ],
+  CLP: [
+    { value: 'clp_chile', label: 'Banco de Chile' },
+    { value: 'clp_bci', label: 'BCI' },
+    { value: 'clp_santander', label: 'Santander Chile' },
+    { value: 'clp_scotiabank', label: 'Scotiabank Chile' },
+    { value: 'clp_itau', label: 'Itaú Chile' },
+    { value: 'clp_estado', label: 'Banco Estado' },
+    { value: 'clp_security', label: 'Banco Security' },
+    { value: 'clp_consorcio', label: 'Banco Consorcio' },
+    { value: 'clp_bice', label: 'Banco BICE' },
+  ],
+  PEN: [
+    { value: 'pen_bcp', label: 'BCP' },
+    { value: 'pen_bbva', label: 'BBVA Perú' },
+    { value: 'pen_scotiabank', label: 'Scotiabank Perú' },
+    { value: 'pen_interbank', label: 'Interbank' },
+    { value: 'pen_banbif', label: 'BanBif' },
+    { value: 'pen_pichincha', label: 'Banco Pichincha' },
+    { value: 'pen_gnb', label: 'GNB Perú' },
+    { value: 'pen_credito', label: 'Banco de Crédito del Perú' },
+  ],
+  USD: [
+    { value: 'usd_chase', label: 'Chase' },
+    { value: 'usd_bofa', label: 'Bank of America' },
+    { value: 'usd_wells', label: 'Wells Fargo' },
+    { value: 'usd_citi', label: 'Citibank' },
+    { value: 'usd_capital_one', label: 'Capital One' },
+    { value: 'usd_td', label: 'TD Bank' },
+    { value: 'usd_usbank', label: 'U.S. Bank' },
+    { value: 'usd_pnc', label: 'PNC Bank' },
+    { value: 'usd_truist', label: 'Truist' },
+    { value: 'usd_hsbc_us', label: 'HSBC USA' },
+  ],
+  EUR: [
+    { value: 'eur_santander', label: 'Santander' },
+    { value: 'eur_bbva', label: 'BBVA' },
+    { value: 'eur_caixa', label: 'CaixaBank' },
+    { value: 'eur_ing', label: 'ING' },
+    { value: 'eur_deutsche', label: 'Deutsche Bank' },
+    { value: 'eur_bnpp', label: 'BNP Paribas' },
+    { value: 'eur_unicredit', label: 'UniCredit' },
+    { value: 'eur_intesa', label: 'Intesa Sanpaolo' },
+  ],
+  BRL: [
+    { value: 'brl_nubank', label: 'Nubank' },
+    { value: 'brl_itau', label: 'Itaú Unibanco' },
+    { value: 'brl_bradesco', label: 'Bradesco' },
+    { value: 'brl_bb', label: 'Banco do Brasil' },
+    { value: 'brl_santander', label: 'Santander Brasil' },
+    { value: 'brl_c6', label: 'C6 Bank' },
+    { value: 'brl_inter', label: 'Inter' },
+    { value: 'brl_btg', label: 'BTG Pactual' },
+    { value: 'brl_caixa', label: 'Caixa Econômica Federal' },
+    { value: 'brl_safra', label: 'Banco Safra' },
+  ],
+  GTQ: [
+    { value: 'gtq_gyt', label: 'Banco G&T Continental' },
+    { value: 'gtq_industrial', label: 'Banco Industrial' },
+    { value: 'gtq_banrural', label: 'Banrural' },
+    { value: 'gtq_bac', label: 'BAC Credomatic' },
+    { value: 'gtq_agromercantil', label: 'Banco Agromercantil' },
+    { value: 'gtq_promerica', label: 'Promerica' },
+  ],
+  CAD: [
+    { value: 'cad_rbc', label: 'RBC' },
+    { value: 'cad_td', label: 'TD Canada Trust' },
+    { value: 'cad_scotia', label: 'Scotiabank Canadá' },
+    { value: 'cad_bmo', label: 'BMO' },
+    { value: 'cad_cibc', label: 'CIBC' },
+    { value: 'cad_national', label: 'National Bank' },
+  ],
+  GBP: [
+    { value: 'gbp_barclays', label: 'Barclays' },
+    { value: 'gbp_hsbc', label: 'HSBC UK' },
+    { value: 'gbp_lloyds', label: 'Lloyds Bank' },
+    { value: 'gbp_natwest', label: 'NatWest' },
+    { value: 'gbp_santander', label: 'Santander UK' },
+  ],
+  JPY: [
+    { value: 'jpy_mufg', label: 'MUFG' },
+    { value: 'jpy_smbc', label: 'SMBC (Mitsui)' },
+    { value: 'jpy_mizuho', label: 'Mizuho' },
+    { value: 'jpy_resona', label: 'Resona Bank' },
+    { value: 'jpy_japanpost', label: 'Japan Post Bank' },
+  ],
+  /** Moneda no elegida o sin lista dedicada */
+  DEFAULT: [
+    { value: 'def_bancolombia', label: 'Bancolombia' },
+    { value: 'def_bbva', label: 'BBVA' },
+    { value: 'def_santander', label: 'Santander' },
+    { value: 'def_scotiabank', label: 'Scotiabank' },
+    { value: 'def_nu', label: 'Nu / Nubank' },
+    { value: 'def_bcp', label: 'BCP (Perú)' },
+    { value: 'def_banorte', label: 'Banorte' },
+    { value: 'def_bac', label: 'BAC Credomatic' },
+  ],
+};
+
+/**
+ * Opciones del Picker para la moneda actual (siempre termina en «Otro»).
+ */
+export function getBancosOptionsForMoneda(moneda) {
+  const code = moneda && String(moneda).toUpperCase().trim();
+  const list =
+    code && BANCOS_POR_MONEDA[code] && BANCOS_POR_MONEDA[code].length
+      ? BANCOS_POR_MONEDA[code]
+      : BANCOS_POR_MONEDA.DEFAULT;
+  return [...list, { value: BANCO_OTRO_VALUE, label: 'Otro (especificar)' }];
+}
+
+/** Etiqueta legible para un value de banco (cualquier moneda), útil al cambiar de moneda con filas antiguas. */
+const VALUE_TO_LABEL_BANCO = (() => {
+  const m = new Map();
+  Object.entries(BANCOS_POR_MONEDA).forEach(([k, arr]) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach((b) => m.set(b.value, b.label));
+  });
+  return m;
+})();
+
+export function getBankLabelByValue(value) {
+  if (!value || value === BANCO_OTRO_VALUE) return '';
+  return VALUE_TO_LABEL_BANCO.get(value) || '';
+}
+
+export function totalSaldoBancosDetalle(lineas) {
+  if (!Array.isArray(lineas)) return 0;
+  return lineas.reduce((s, r) => s + (parseFloat(r.saldo) || 0), 0);
+}
 
 export function obtenerSaldosIniciales(data) {
   const raw = data.saldosCuentas;
@@ -44,6 +281,26 @@ export function normalizarOrigenCuenta(origen) {
     tarjetacredito: 'tarjetaCredito',
     nequi: 'nequi',
     daviplata: 'daviplata',
+    billeteras: 'billeteras',
+    otrasplataformas: 'billeteras',
+    otrasbilleteras: 'billeteras',
+    movii: 'billeteras',
+    linea: 'billeteras',
+    lineapay: 'billeteras',
+    dale: 'billeteras',
+    rappipay: 'billeteras',
+    bold: 'billeteras',
+    tpaga: 'billeteras',
+    powwi: 'billeteras',
+    claropay: 'billeteras',
+    iris: 'billeteras',
+    tyba: 'billeteras',
+    ziper: 'billeteras',
+    a2censo: 'billeteras',
+    wompi: 'billeteras',
+    breb: 'billeteras',
+    livibank: 'billeteras',
+    uala: 'billeteras',
     tarjetadecredito: 'tarjetaCredito',
     tarjetadecrédito: 'tarjetaCredito',
     tarjeta: 'tarjetaCredito',
@@ -58,12 +315,213 @@ export function normalizarOrigenCuenta(origen) {
   return c ? c.id : o;
 }
 
+/** Suma de cupos totales configurados; si no hay tarjetas detalladas, usa limiteTarjetaCredito legacy. */
+export function limiteTotalTarjetasCredito(data) {
+  const arr = data.tarjetasCredito;
+  if (Array.isArray(arr) && arr.length > 0) {
+    return arr.reduce((s, t) => s + (parseFloat(t.cupoTotal) || 0), 0);
+  }
+  return parseFloat(data.limiteTarjetaCredito) || 0;
+}
+
+export function generarIdTarjetaCredito() {
+  return `tc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function padTiempo(n) {
+  return String(n).padStart(2, '0');
+}
+
+/** ISO local sin zona: YYYY-MM-DDTHH:mm:ss (interpretación local al parsear). */
+export function fechaHoraALocalISO(d) {
+  if (!d || Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${padTiempo(d.getMonth() + 1)}-${padTiempo(d.getDate())}T${padTiempo(d.getHours())}:${padTiempo(d.getMinutes())}:00`;
+}
+
+/** Solo calendario local: YYYY-MM-DD */
+export function fechaALocalISO(d) {
+  if (!d || Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${padTiempo(d.getMonth() + 1)}-${padTiempo(d.getDate())}`;
+}
+
+export function parseFechaHoraLocal(str) {
+  if (str == null || String(str).trim() === '') return null;
+  const s = String(str).trim();
+  const d = new Date(s.includes('T') ? s : `${s.slice(0, 10)}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Patrón mensual: día del mes (la hora se fija al mediodía solo para el cálculo; en UI solo se pide fecha).
+ */
+function patronMensualDesdeTarjeta(t, kind) {
+  const key = kind === 'corte' ? 'fechaHoraCorte' : 'fechaHoraLimitePago';
+  const parsed = parseFechaHoraLocal(t[key]);
+  if (parsed) {
+    return new Date(2020, 0, parsed.getDate(), 12, 0, 0);
+  }
+  const diaLegacy = Math.min(
+    28,
+    Math.max(1, parseInt(kind === 'corte' ? t.diaCorte : t.diaLimitePago, 10) || (kind === 'corte' ? 15 : 5))
+  );
+  return new Date(2020, 0, diaLegacy, 12, 0, 0);
+}
+
+/** Próxima ocurrencia estrictamente después de `ref`. */
+export function proximaOcurrenciaMensual(anchorPatron, ref = new Date()) {
+  if (!anchorPatron || Number.isNaN(anchorPatron.getTime())) return null;
+  const dom = anchorPatron.getDate();
+  const H = anchorPatron.getHours();
+  const M = anchorPatron.getMinutes();
+  const S = anchorPatron.getSeconds();
+  const MS = anchorPatron.getMilliseconds();
+  const base = ref.getFullYear() * 12 + ref.getMonth();
+  for (let k = 0; k < 48; k++) {
+    const total = base + k;
+    const y = Math.floor(total / 12);
+    const m = total - y * 12;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const day = Math.min(dom, lastDay);
+    const cand = new Date(y, m, day, H, M, S, MS);
+    if (cand.getTime() > ref.getTime()) return cand;
+  }
+  return null;
+}
+
+/** Fecha/hora de vencimiento del ciclo del mes de `ref` (puede ser pasada respecto a `ref`). */
+export function instanteVencimientoCicloActual(anchorPatron, ref = new Date()) {
+  if (!anchorPatron || Number.isNaN(anchorPatron.getTime())) return null;
+  const dom = anchorPatron.getDate();
+  const H = anchorPatron.getHours();
+  const M = anchorPatron.getMinutes();
+  const S = anchorPatron.getSeconds();
+  const MS = anchorPatron.getMilliseconds();
+  const y = ref.getFullYear();
+  const m = ref.getMonth();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const day = Math.min(dom, lastDay);
+  return new Date(y, m, day, H, M, S, MS);
+}
+
+export function diasCalendarioHasta(futuro, ahora = new Date()) {
+  if (!futuro || Number.isNaN(futuro.getTime())) return null;
+  const ua = Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  const ub = Date.UTC(futuro.getFullYear(), futuro.getMonth(), futuro.getDate());
+  return Math.round((ub - ua) / 86400000);
+}
+
+/** Días hasta la próxima fecha de calendario con ese día del mes (1–28, legacy). */
+export function diasHastaProximoDiaCalendario(diaDelMes, ref = new Date()) {
+  const dObj = Math.min(28, Math.max(1, parseInt(diaDelMes, 10) || 1));
+  const pat = new Date(2020, 0, dObj, 12, 0, 0);
+  const prox = proximaOcurrenciaMensual(pat, ref);
+  if (!prox) return 0;
+  const d = diasCalendarioHasta(prox, ref);
+  return d == null ? 0 : d;
+}
+
+/**
+ * Sustituye recordatorios generados desde tarjetas; conserva el resto de pagos programados.
+ */
+export function reemplazarPagosRecordatorioTarjetas(pagosExistentes, tarjetasCredito, categorias) {
+  const firstCat =
+    Array.isArray(categorias) && categorias.length > 0
+      ? typeof categorias[0] === 'string'
+        ? categorias[0]
+        : categorias[0].nombre || 'Otros'
+      : 'Otros';
+  const filtrados = (pagosExistentes || []).filter((p) => !p.esRecordatorioTarjeta);
+  const extras = [];
+  for (const t of tarjetasCredito || []) {
+    const nombre = String(t.nombreEntidad || '').trim();
+    if (!nombre) continue;
+    const fc = String(t.fechaHoraCorte || '').trim();
+    const fl = String(t.fechaHoraLimitePago || '').trim();
+    const monto = Math.max(parseFloat(t.cupoUtilizado) || 0, 0);
+    const pushPago = (idSuf, tipo, conceptoPref, fechaISO) => {
+      const d0 = parseFechaHoraLocal(fechaISO);
+      if (!d0) return;
+      const diaPago = Math.min(28, d0.getDate());
+      const fi = fechaISO.slice(0, 10);
+      extras.push({
+        id: `tc-${t.id}-${idSuf}`,
+        esRecordatorioTarjeta: true,
+        tipoRecordatorioTarjeta: tipo,
+        tarjetaId: t.id,
+        concepto: `${conceptoPref} · ${nombre}`,
+        monto,
+        frecuencia: 'mensual',
+        fechaInicio: fi,
+        diaPago,
+        cuenta: 'tarjetaCredito',
+        categoria: firstCat,
+        activo: true,
+        nota: 'Recordatorio desde Tarjetas (Saldo). Confirma en Gastos.',
+      });
+    };
+    if (fc) pushPago('corte', 'corte', 'Corte TC', fc);
+    if (fl) pushPago('limite', 'limite', 'Límite pago TC', fl);
+  }
+  return [...filtrados, ...extras];
+}
+
+/**
+ * Alertas y “reloj” por tarjeta + totales (gasto registrado en la app vs cupo).
+ */
+export function resumenAlertasTarjetasCredito(data, ref = new Date()) {
+  const gastadoTotal = obtenerGastadoTarjetaCredito(data);
+  const limiteTotal = limiteTotalTarjetasCredito(data);
+  const pctGlobal = limiteTotal > 0 ? (gastadoTotal / limiteTotal) * 100 : 0;
+  const arr = Array.isArray(data.tarjetasCredito) ? data.tarjetasCredito : [];
+
+  const tarjetas = arr.map((t) => {
+    const cupoT = parseFloat(t.cupoTotal) || 0;
+    const cupoU = parseFloat(t.cupoUtilizado) || 0;
+    const utilPct = cupoT > 0 ? (cupoU / cupoT) * 100 : 0;
+    const patCorte = patronMensualDesdeTarjeta(t, 'corte');
+    const patPago = patronMensualDesdeTarjeta(t, 'pago');
+    const proxCorte = proximaOcurrenciaMensual(patCorte, ref);
+    const proxPago = proximaOcurrenciaMensual(patPago, ref);
+    const diasCorte = proxCorte ? diasCalendarioHasta(proxCorte, ref) ?? 0 : 0;
+    const diasPago = proxPago ? diasCalendarioHasta(proxPago, ref) ?? 0 : 0;
+    const etiquetaProxCorte = proxCorte ? proxCorte.toLocaleDateString('es', { dateStyle: 'short' }) : '';
+    const etiquetaProxPago = proxPago ? proxPago.toLocaleDateString('es', { dateStyle: 'short' }) : '';
+    return {
+      id: t.id,
+      nombreEntidad: (t.nombreEntidad && String(t.nombreEntidad).trim()) || 'Tarjeta',
+      tasaEA: parseFloat(t.tasaEA) || 0,
+      cupoTotal: cupoT,
+      cupoUtilizado: cupoU,
+      utilPct,
+      diasCorte,
+      diasPago,
+      etiquetaProxCorte,
+      etiquetaProxPago,
+      alertaUtil: cupoT > 0 && utilPct >= 50,
+      alertaPagoUrgente: diasPago <= 3 && diasPago >= 0,
+      alertaCorte: diasCorte <= 2 && diasCorte >= 0,
+    };
+  });
+
+  const mostrarPorTarjeta = tarjetas.some(
+    (x) => x.alertaUtil || x.alertaPagoUrgente || x.alertaCorte
+  );
+  /** Con tarjetas detalladas siempre mostramos el «reloj»; sin ellas, solo alertas legacy. */
+  const mostrar = tarjetas.length > 0 || mostrarPorTarjeta || pctGlobal >= 50;
+
+  return {
+    mostrar,
+    global: { gastado: gastadoTotal, limite: limiteTotal, porcentaje: pctGlobal },
+    tarjetas,
+  };
+}
+
 export function calcularSaldosPorCuenta(data) {
   const saldosIni = obtenerSaldosIniciales(data);
   const ingresos = data.ingresos || [];
   const gastos = data.gastos || [];
   const contribuciones = data.contribucionesMetas || [];
-  const limiteTc = parseFloat(data.limiteTarjetaCredito) || 0;
+  const limiteTc = limiteTotalTarjetasCredito(data);
 
   const saldos = {};
   CUENTAS.forEach((c) => {
@@ -118,11 +576,14 @@ export function obtenerGastadoTarjetaCredito(data) {
 }
 
 export function verificarAlertaTarjetaCredito(data) {
-  const limite = parseFloat(data.limiteTarjetaCredito) || 0;
-  if (limite <= 0) return { mostrar: false, gastado: 0, limite: 0, porcentaje: 0 };
-  const gastado = obtenerGastadoTarjetaCredito(data);
-  const porcentaje = limite > 0 ? (gastado / limite) * 100 : 0;
-  return { mostrar: porcentaje >= 50, gastado, limite, porcentaje };
+  const r = resumenAlertasTarjetasCredito(data);
+  return {
+    mostrar: r.mostrar,
+    gastado: r.global.gastado,
+    limite: r.global.limite,
+    porcentaje: r.global.porcentaje,
+    tarjetas: r.tarjetas,
+  };
 }
 
 export function obtenerMesAño(fechaStr) {
@@ -165,8 +626,16 @@ export function pagoVenceHoy(pago, hoy) {
   const añoHoy = hoy.getFullYear();
 
   if (pago.frecuencia === 'mensual') {
-    const diaPago = Math.min(28, parseInt(pago.diaPago, 10) || 1);
-    if (diaHoy !== diaPago) return false;
+    const anchor = parseFechaHoraLocal(pago.fechaInicio);
+    const diaPagoEff = anchor
+      ? Math.min(28, anchor.getDate())
+      : Math.min(28, parseInt(pago.diaPago, 10) || 1);
+    if (diaHoy !== diaPagoEff) return false;
+    const rawFi = String(pago.fechaInicio || '');
+    if (anchor && rawFi.length > 10) {
+      const due = new Date(añoHoy, mesHoy, diaHoy, anchor.getHours(), anchor.getMinutes(), 0);
+      if (hoy.getTime() < due.getTime()) return false;
+    }
     if (ultima && ultima.getFullYear() === añoHoy && ultima.getMonth() === mesHoy) return false;
     return true;
   }
@@ -192,7 +661,8 @@ export function pagoVenceHoy(pago, hoy) {
     return true;
   }
   if (pago.frecuencia === 'unico') {
-    const fechaPago = new Date(pago.fechaInicio + 'T12:00:00');
+    const fechaPago = parseFechaHoraLocal(pago.fechaInicio);
+    if (!fechaPago) return false;
     return (
       hoy.getFullYear() === fechaPago.getFullYear() &&
       hoy.getMonth() === fechaPago.getMonth() &&
@@ -202,15 +672,30 @@ export function pagoVenceHoy(pago, hoy) {
   return false;
 }
 
-export function pagoDebeMostrarseParaPagar(pago, hoy) {
+export function pagoDebeMostrarseParaPagar(pago, ahora = new Date()) {
   if (!pago || pago.activo === false) return false;
   if (pago.frecuencia === 'unico') {
     if (!pago.fechaInicio) return false;
-    const fechaPago = new Date(pago.fechaInicio + 'T12:00:00');
-    fechaPago.setHours(0, 0, 0, 0);
-    const hoyNorm = new Date(hoy);
-    hoyNorm.setHours(0, 0, 0, 0);
-    return fechaPago <= hoyNorm;
+    const raw = String(pago.fechaInicio);
+    const fechaPago = parseFechaHoraLocal(raw);
+    if (!fechaPago) return false;
+    if (raw.length <= 10) {
+      const h0 = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
+      const f0 = new Date(fechaPago.getFullYear(), fechaPago.getMonth(), fechaPago.getDate()).getTime();
+      return f0 <= h0;
+    }
+    return ahora.getTime() >= fechaPago.getTime();
+  }
+  if (pago.esRecordatorioTarjeta) {
+    const anchor = parseFechaHoraLocal(pago.fechaInicio);
+    if (!anchor) return true;
+    const patron = new Date(2020, 0, anchor.getDate(), 12, 0, 0);
+    const venc = instanteVencimientoCicloActual(patron, ahora);
+    if (!venc) return true;
+    const dias = diasCalendarioHasta(venc, ahora);
+    if (dias != null && dias > 14) return false;
+    if (dias != null && dias < -3) return false;
+    return true;
   }
   return true;
 }

@@ -45,7 +45,7 @@ const stackOptions = {
     color: colors.text,
   },
   headerShadowVisible: false,
-  contentStyle: { backgroundColor: colors.bg },
+  contentStyle: { flex: 1, backgroundColor: colors.bg },
 };
 
 function MoreStack() {
@@ -66,6 +66,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       <Tab.Navigator
+        sceneContainerStyle={{ flex: 1, backgroundColor: colors.bg }}
         screenOptions={({ route }) => ({
           headerStyle: {
             backgroundColor: colors.headerBg,

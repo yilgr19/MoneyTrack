@@ -1,38 +1,45 @@
 import { Platform, StyleSheet } from 'react-native';
 
-/** Paleta: fondo profundo, violetas y acentos fríos — aspecto “fintech” moderno */
+/**
+ * Paleta alineada al logo Money Track — púrpura profundo, lavanda, menta y oro.
+ * Referencias: primary #4B246C / #3E1F5A, mint #7DC191, gold #D9B44A, lavanda #C7C3E3, azul gráfico #A7D8DE.
+ */
 export const colors = {
-  bg: '#08060e',
-  bgElevated: '#0e0c16',
-  surface: 'rgba(22, 20, 35, 0.88)',
-  surfaceSolid: '#161423',
-  surfaceHighlight: 'rgba(139, 92, 246, 0.12)',
-  stroke: 'rgba(167, 139, 250, 0.18)',
-  strokeStrong: 'rgba(167, 139, 250, 0.35)',
-  text: '#f8f7fc',
-  textSecondary: 'rgba(216, 210, 245, 0.92)',
-  textMuted: '#9088b0',
-  textFaint: '#6b6580',
-  accent: '#c4b5fd',
-  accentBright: '#a78bfa',
-  accentDeep: '#7c3aed',
-  mint: '#5eead4',
-  success: '#34d399',
-  warning: '#fbbf24',
-  danger: '#fb7185',
-  orange: '#fdba74',
+  bg: '#0c0812',
+  bgElevated: '#140e1c',
+  surface: 'rgba(32, 26, 44, 0.92)',
+  surfaceSolid: '#1c1526',
+  surfaceHighlight: 'rgba(75, 36, 108, 0.2)',
+  stroke: 'rgba(199, 195, 227, 0.2)',
+  strokeStrong: 'rgba(199, 195, 227, 0.38)',
+  text: '#f7f5fb',
+  textSecondary: 'rgba(232, 228, 245, 0.9)',
+  textMuted: '#9b94b8',
+  textFaint: '#6d6685',
+  accent: '#C7C3E3',
+  accentBright: '#e4e0f5',
+  accentDeep: '#4B246C',
+  /** Acento oro del logo — destacados y alertas informativas */
+  accentGold: '#D9B44A',
+  mint: '#7DC191',
+  success: '#6BAF82',
+  warning: '#D9B44A',
+  danger: '#c77b88',
+  orange: '#D9B44A',
+  /** Datos / gráficos secundarios */
+  chartBlue: '#A7D8DE',
   /** Gradient stops (LinearGradient) */
-  gradTop: '#1a1030',
-  gradMid: '#0f0b18',
-  gradBottom: '#08060e',
-  btnFrom: '#8b5cf6',
-  btnTo: '#6d28d9',
-  tabBar: 'rgba(12, 10, 20, 0.94)',
-  tabBorder: 'rgba(255,255,255,0.06)',
-  headerBg: 'rgba(14, 12, 22, 0.97)',
-  alertBg: 'rgba(180, 83, 9, 0.22)',
-  alertBorder: 'rgba(251, 191, 36, 0.35)',
-  barTrack: 'rgba(255,255,255,0.06)',
+  gradTop: '#2a1f3d',
+  gradMid: '#150f1f',
+  gradBottom: '#0c0812',
+  btnFrom: '#5a2f7d',
+  btnTo: '#3E1F5A',
+  tabBar: 'rgba(12, 8, 18, 0.94)',
+  tabBorder: 'rgba(199, 195, 227, 0.08)',
+  headerBg: 'rgba(18, 12, 26, 0.97)',
+  alertBg: 'rgba(217, 180, 74, 0.14)',
+  alertBorder: 'rgba(217, 180, 74, 0.38)',
+  barTrack: 'rgba(167, 216, 222, 0.12)',
 };
 
 export const spacing = {
@@ -66,9 +73,9 @@ export const shadows = {
   }),
   soft: Platform.select({
     ios: {
-      shadowColor: '#7c3aed',
+      shadowColor: '#4B246C',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
+      shadowOpacity: 0.2,
       shadowRadius: 12,
     },
     android: { elevation: 3 },

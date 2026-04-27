@@ -172,7 +172,7 @@ export default function HomeScreen() {
       </Text>
 
       <LinearGradient
-        colors={['rgba(124, 58, 237, 0.35)', 'rgba(8, 6, 14, 0.4)']}
+        colors={['rgba(75, 36, 108, 0.42)', 'rgba(12, 8, 18, 0.45)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroCard}
@@ -198,7 +198,72 @@ export default function HomeScreen() {
         </View>
       </LinearGradient>
 
-      {derived.alertaTc.mostrar && (
+      {derived.alertaTc.tarjetas && derived.alertaTc.tarjetas.length > 0 ? (
+        <UICard style={{ marginBottom: spacing.md }}>
+          <Text style={typography.label}>Tarjetas de crédito · reloj</Text>
+          {derived.alertaTc.limite > 0 ? (
+            <Text style={[typography.small, { marginBottom: spacing.sm, color: colors.textSecondary }]}>
+              Gasto registrado en la app vs cupo total: {formatearNumero(derived.alertaTc.gastado)} {moneda} (
+              {formatearNumero(derived.alertaTc.porcentaje, 1)}%)
+            </Text>
+          ) : null}
+          {derived.alertaTc.tarjetas.map((t, i) => (
+            <View
+              key={t.id || `tc-${i}`}
+              style={{
+                marginTop: i > 0 ? spacing.md : spacing.xs,
+                paddingTop: i > 0 ? spacing.md : 0,
+                borderTopWidth: i > 0 ? 1 : 0,
+                borderTopColor: colors.stroke,
+              }}
+            >
+              <Text style={[typography.body, { fontWeight: '600' }]}>{t.nombreEntidad}</Text>
+              <View style={styles.tcRelojRow}>
+                <Text
+                  style={[
+                    typography.small,
+                    { color: t.alertaCorte ? colors.warning : colors.textSecondary },
+                  ]}
+                >
+                  Corte en {t.diasCorte} d
+                </Text>
+                <Text style={[typography.small, { color: colors.textFaint, marginHorizontal: 6 }]}>·</Text>
+                <Text
+                  style={[
+                    typography.small,
+                    { color: t.alertaPagoUrgente ? colors.danger : colors.textSecondary },
+                  ]}
+                >
+                  Pago en {t.diasPago} d
+                </Text>
+              </View>
+              {(t.etiquetaProxCorte || t.etiquetaProxPago) && (
+                <Text style={[typography.small, { marginTop: 4, color: colors.textMuted }]}>
+                  Próx. corte: {t.etiquetaProxCorte || '—'} · Próx. pago: {t.etiquetaProxPago || '—'}
+                </Text>
+              )}
+              {t.cupoTotal > 0 ? (
+                <Text style={[typography.small, { marginTop: 4, color: colors.textSecondary }]}>
+                  Cupo declarado: {formatearNumero(t.cupoUtilizado)} / {formatearNumero(t.cupoTotal)} (
+                  {formatearNumero(t.utilPct, 1)}% utilización)
+                </Text>
+              ) : null}
+              {t.tasaEA > 0 ? (
+                <Text style={[typography.small, { marginTop: 2, color: colors.textMuted }]}>
+                  Tasa E.A.: {formatearNumero(t.tasaEA, 2)}%
+                </Text>
+              ) : null}
+              {(t.alertaUtil || t.alertaPagoUrgente || t.alertaCorte) && (
+                <View style={styles.tcChipsRow}>
+                  {t.alertaPagoUrgente ? <Text style={styles.tcChipDanger}>Pago próximo</Text> : null}
+                  {t.alertaCorte ? <Text style={styles.tcChipWarn}>Corte próximo</Text> : null}
+                  {t.alertaUtil ? <Text style={styles.tcChipWarn}>Uso alto del cupo</Text> : null}
+                </View>
+              )}
+            </View>
+          ))}
+        </UICard>
+      ) : derived.alertaTc.mostrar ? (
         <View style={styles.alerta}>
           <Text style={styles.alertaTit}>Tarjeta de crédito</Text>
           <Text style={styles.alertaBody}>
@@ -206,7 +271,7 @@ export default function HomeScreen() {
             {formatearNumero(derived.alertaTc.porcentaje, 1)}% del límite).
           </Text>
         </View>
-      )}
+      ) : null}
 
       <UICard>
         <Text style={typography.label}>Por cuenta</Text>
@@ -466,6 +531,32 @@ const styles = StyleSheet.create({
   },
   alertaTit: { color: colors.orange, fontWeight: '700', marginBottom: 4 },
   alertaBody: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  tcRelojRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 6 },
+  tcChipsRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.sm },
+  tcChipDanger: {
+    borderRadius: radii.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(251, 113, 133, 0.22)',
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 8,
+    marginBottom: 4,
+    overflow: 'hidden',
+  },
+  tcChipWarn: {
+    borderRadius: radii.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+    color: colors.warning,
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 8,
+    marginBottom: 4,
+    overflow: 'hidden',
+  },
   barBg: {
     height: 7,
     backgroundColor: colors.barTrack,

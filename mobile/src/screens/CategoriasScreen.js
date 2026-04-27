@@ -11,7 +11,7 @@ const CATEGORIAS_POR_DEFECTO = [
   { nombre: 'Supermercado', color: '#22c55e', icono: '🛒' },
   { nombre: 'Transporte', color: '#3b82f6', icono: '🚗' },
   { nombre: 'Hogar', color: '#f59e0b', icono: '🏠' },
-  { nombre: 'Entretenimiento', color: '#8b5cf6', icono: '🎬' },
+  { nombre: 'Entretenimiento', color: '#4B246C', icono: '🎬' },
   { nombre: 'Restaurantes', color: '#ec4899', icono: '🍽️' },
   { nombre: 'Ropa', color: '#06b6d4', icono: '👕' },
   { nombre: 'Salud', color: '#ef4444', icono: '💊' },

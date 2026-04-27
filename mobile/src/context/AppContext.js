@@ -9,9 +9,14 @@ function normalizeState(raw) {
     if (raw.saldoEfectivo) saldos.efectivo = parseFloat(raw.saldoEfectivo) || 0;
     if (raw.saldoBanco) saldos.banco = parseFloat(raw.saldoBanco) || 0;
   }
+  let bancosDetalle = Array.isArray(raw.bancosDetalle) ? raw.bancosDetalle.filter((r) => r && typeof r === 'object') : [];
+  if (!bancosDetalle.length && saldos.banco > 0) {
+    bancosDetalle = [{ id: `mig-${Date.now()}`, nombre: 'Cuenta bancaria', saldo: saldos.banco }];
+  }
   return {
     moneda: raw.moneda || '',
     saldosCuentas: saldos,
+    bancosDetalle,
     limiteTarjetaCredito: parseFloat(raw.limiteTarjetaCredito) || 0,
     presupuestoMensual: parseFloat(raw.presupuestoMensual) || 0,
     ingresos: raw.ingresos || [],
@@ -21,6 +26,12 @@ function normalizeState(raw) {
     contribucionesMetas: raw.contribucionesMetas || [],
     pagosProgramados: raw.pagosProgramados || [],
     saldoInicialNota: raw.saldoInicialNota || '',
+    plataformasDetalle: Array.isArray(raw.plataformasDetalle)
+      ? raw.plataformasDetalle.filter((r) => r && typeof r === 'object')
+      : [],
+    tarjetasCredito: Array.isArray(raw.tarjetasCredito)
+      ? raw.tarjetasCredito.filter((r) => r && typeof r === 'object')
+      : [],
   };
 }
 

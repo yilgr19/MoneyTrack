@@ -6,7 +6,14 @@ import ScreenWrap from '../components/ScreenWrap';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
-import { CUENTAS, formatearNumero, normalizarCategoria, generarIdPagoProgramado } from '../lib/finance';
+import {
+  CUENTAS,
+  formatearNumero,
+  normalizarCategoria,
+  generarIdPagoProgramado,
+  fechaALocalISO,
+  parseFechaHoraLocal,
+} from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
 function pad(n) {
@@ -45,14 +52,15 @@ export default function PagosScreen() {
       Alert.alert('Datos', 'Completa concepto, monto, cuenta y categoría.');
       return;
     }
-    const fechaStr = `${fechaInicio.getFullYear()}-${pad(fechaInicio.getMonth() + 1)}-${pad(fechaInicio.getDate())}`;
+    const fechaStr = fechaALocalISO(fechaInicio);
+    const diaFromFecha = Math.min(28, fechaInicio.getDate());
     const p = {
       id: generarIdPagoProgramado(),
       concepto: concepto.trim(),
       monto: m,
       frecuencia,
       fechaInicio: fechaStr,
-      diaPago: frecuencia === 'semanal' ? fechaInicio.getDate() : diaPago,
+      diaPago: frecuencia === 'semanal' ? fechaInicio.getDate() : frecuencia === 'mensual' ? diaFromFecha : diaPago,
       cuenta,
       categoria,
       activo,
@@ -132,9 +140,11 @@ export default function PagosScreen() {
             ))}
           </Picker>
         </View>
-        <Lab>Fecha de inicio</Lab>
+        <Lab>Fecha de inicio (mensual/quincenal: define el día del vencimiento en el mes)</Lab>
         <TouchableOpacity style={styles.input} onPress={() => setShowPicker(true)}>
-          <Text style={{ color: colors.text, fontSize: 16 }}>{fechaInicio.toLocaleDateString('es')}</Text>
+          <Text style={{ color: colors.text, fontSize: 16 }}>
+            {fechaInicio.toLocaleDateString('es', { dateStyle: 'short' })}
+          </Text>
         </TouchableOpacity>
         {showPicker && (
           <DateTimePicker
@@ -173,6 +183,9 @@ export default function PagosScreen() {
               <Text style={typography.small}>
                 {formatearNumero(p.monto)} {moneda} · {p.frecuencia} ·{' '}
                 {p.activo !== false ? 'activo' : 'inactivo'}
+                {p.fechaInicio
+                  ? ` · ${parseFechaHoraLocal(p.fechaInicio)?.toLocaleDateString('es', { dateStyle: 'short' }) ?? p.fechaInicio}`
+                  : ''}
               </Text>
               <TouchableOpacity onPress={() => eliminar(p.id)} hitSlop={8}>
                 <Text style={styles.del}>Eliminar</Text>

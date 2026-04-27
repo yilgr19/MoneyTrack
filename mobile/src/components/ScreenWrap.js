@@ -20,11 +20,12 @@ export default function ScreenWrap({ children, contentStyle, scrollProps, includ
   const bottomPad = screenPadding.paddingBottom + TAB_BAR_SCROLL_PADDING;
   return (
     <View style={styles.root}>
+      <View style={[StyleSheet.absoluteFill, styles.baseFill]} />
       <LinearGradient
-        colors={[colors.gradTop, colors.gradMid, colors.gradBottom]}
-        locations={[0, 0.38, 1]}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
+        colors={[colors.gradTop, colors.gradMid, colors.gradBottom, colors.bg]}
+        locations={[0, 0.28, 0.62, 1]}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.85, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
       <ScrollView
@@ -51,6 +52,7 @@ export default function ScreenWrap({ children, contentStyle, scrollProps, includ
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flex: 1 },
+  baseFill: { backgroundColor: colors.bg },
+  scroll: { flex: 1, backgroundColor: 'transparent' },
   content: { flexGrow: 1 },
 });

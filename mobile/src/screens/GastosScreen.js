@@ -62,10 +62,9 @@ export default function GastosScreen() {
     return list;
   }, [saldos, cantNum, cuotaMensualTc]);
 
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+  const ahora = new Date();
   const pagosPendientes = (state.pagosProgramados || []).filter(
-    (p) => p.activo !== false && pagoDebeMostrarseParaPagar(p, hoy)
+    (p) => p.activo !== false && pagoDebeMostrarseParaPagar(p, ahora)
   );
 
   function aplicarPagoProgramado(p) {

@@ -4,6 +4,9 @@ import { CUENTAS } from './finance';
 const KEYS = [
   'moneda',
   'saldosCuentas',
+  'bancosDetalle',
+  'plataformasDetalle',
+  'tarjetasCredito',
   'limiteTarjetaCredito',
   'presupuestoMensual',
   'ingresos',
@@ -54,6 +57,9 @@ export async function loadAppState() {
     contribucionesMetas: parseJson(map.contribucionesMetas, []),
     pagosProgramados: parseJson(map.pagosProgramados, []),
     saldoInicialNota: map.saldoInicialNota || '',
+    bancosDetalle: parseJson(map.bancosDetalle, []),
+    plataformasDetalle: parseJson(map.plataformasDetalle, []),
+    tarjetasCredito: parseJson(map.tarjetasCredito, []),
   };
 }
 
@@ -71,6 +77,9 @@ export async function persistAppState(state) {
     ['contribucionesMetas', JSON.stringify(state.contribucionesMetas || [])],
     ['pagosProgramados', JSON.stringify(state.pagosProgramados || [])],
     ['saldoInicialNota', state.saldoInicialNota || ''],
+    ['bancosDetalle', JSON.stringify(state.bancosDetalle || [])],
+    ['plataformasDetalle', JSON.stringify(state.plataformasDetalle || [])],
+    ['tarjetasCredito', JSON.stringify(state.tarjetasCredito || [])],
   ];
   await AsyncStorage.multiSet(pairs);
 }
@@ -78,6 +87,9 @@ export async function persistAppState(state) {
 export async function clearStoragePartial() {
   await AsyncStorage.multiRemove([
     'saldosCuentas',
+    'bancosDetalle',
+    'plataformasDetalle',
+    'tarjetasCredito',
     'limiteTarjetaCredito',
     'presupuestoMensual',
     'saldoEfectivo',
