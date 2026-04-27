@@ -303,19 +303,35 @@ export default function HomeScreen() {
                 <Text
                   style={[
                     typography.small,
-                    { color: t.alertaCorte ? colors.warning : colors.textSecondary },
+                    {
+                      color: t.pagoCorteMuestraAlDia
+                        ? colors.mint
+                        : t.alertaCorte
+                          ? colors.warning
+                          : colors.textSecondary,
+                    },
                   ]}
                 >
-                  {t.corteHoy ? 'Corte: hoy' : `Corte en ${t.diasCorte} d`}
+                  {t.pagoCorteMuestraAlDia
+                    ? 'Corte: al día'
+                    : t.corteHoy
+                      ? 'Corte: hoy'
+                      : `Corte en ${t.diasCorte} d`}
                 </Text>
                 <Text style={[typography.small, { color: colors.textFaint, marginHorizontal: 6 }]}>·</Text>
                 <Text
                   style={[
                     typography.small,
-                    { color: t.alertaPagoUrgente ? colors.danger : colors.textSecondary },
+                    {
+                      color: t.pagoCorteMuestraAlDia
+                        ? colors.mint
+                        : t.alertaPagoUrgente
+                          ? colors.danger
+                          : colors.textSecondary,
+                    },
                   ]}
                 >
-                  Pago en {t.diasPago} d
+                  {t.pagoCorteMuestraAlDia ? 'Pago: al día' : `Pago en ${t.diasPago} d`}
                 </Text>
               </View>
               {(t.etiquetaProxCorte || t.etiquetaProxPago) && (

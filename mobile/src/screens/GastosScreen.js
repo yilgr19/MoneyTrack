@@ -25,6 +25,7 @@ import {
   reemplazarPagosRecordatorioTarjetas,
   filtrarPagosProgramadosCumplidosPorGasto,
   pagoProgramadoCumplidoPorGasto,
+  abonoCoindiceCorteMensual,
 } from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
@@ -54,9 +55,11 @@ function pad(n) {
 export default function GastosScreen() {
   const insets = useSafeAreaInsets();
   const { state, replaceState } = useApp();
-  const moneda = state.moneda || '';
+  const moneda = state?.moneda || '';
   const flashPagoRef = useRef(null);
   const [flashPagoExito, setFlashPagoExito] = useState(false);
+  /** Tras abonar el monto al corte (lista o monto que coincide con el corte sugerido). */
+  const [cortePagoMensaje, setCortePagoMensaje] = useState(null);
 
   const [nombre, setNombre] = useState('');
   const [cantidad, setCantidad] = useState('');
@@ -71,13 +74,15 @@ export default function GastosScreen() {
   const [abonoDeudaTarjeta, setAbonoDeudaTarjeta] = useState(false);
   /** Con varias filas de TC en Saldo, el cargo a cuál aplica (extracto e importe por entidad). */
   const [tarjetaCreditoElegida, setTarjetaCreditoElegida] = useState('');
+  /** Abono/pago programado: a qué fila de tarjeta aplica (independiente por entidad). */
+  const [tarjetaAbonoElegida, setTarjetaAbonoElegida] = useState('');
 
   const categorias = useMemo(
-    () => (state.categorias || []).map(normalizarCategoria),
-    [state.categorias]
+    () => (state?.categorias || []).map(normalizarCategoria),
+    [state?.categorias]
   );
 
-  const filasTarjeta = useMemo(() => state.tarjetasCredito || [], [state.tarjetasCredito]);
+  const filasTarjeta = useMemo(() => state?.tarjetasCredito || [], [state?.tarjetasCredito]);
 
   const cantNum = parseFloat(cantidad) || 0;
   const origenCuenta = normalizarOrigenCuenta(origen) || String(origen || '').trim();
@@ -94,6 +99,17 @@ export default function GastosScreen() {
       setTarjetaCreditoElegida(String(filasTarjeta[0].id));
     }
   }, [origen, origenCuenta, abonoDeudaTarjeta, filasTarjeta, tarjetaCreditoElegida]);
+
+  useEffect(() => {
+    if (!abonoDeudaTarjeta) return;
+    if (filasTarjeta.length === 1) {
+      setTarjetaAbonoElegida(String(filasTarjeta[0].id));
+      return;
+    }
+    if (filasTarjeta.length > 1 && !filasTarjeta.some((x) => x && x.id === tarjetaAbonoElegida)) {
+      setTarjetaAbonoElegida(String(filasTarjeta[0].id));
+    }
+  }, [abonoDeudaTarjeta, filasTarjeta, tarjetaAbonoElegida]);
 
   const cuentasDisponibles = useMemo(
     () =>
@@ -148,7 +164,7 @@ export default function GastosScreen() {
   );
 
   const ahora = new Date();
-  const pagosPendientes = (state.pagosProgramados || []).filter(
+  const pagosPendientes = (state?.pagosProgramados || []).filter(
     (p) => p.activo !== false && pagoDebeMostrarseParaPagar(p, ahora)
   );
 
@@ -166,6 +182,7 @@ export default function GastosScreen() {
     setAbonoDeudaTarjeta(esPagoDeuda);
     if (esPagoDeuda) {
       setOrigen('');
+      if (p.tarjetaId) setTarjetaAbonoElegida(String(p.tarjetaId));
     } else {
       setOrigen(normalizarOrigenCuenta(p.cuenta) || p.cuenta || '');
     }
@@ -177,11 +194,11 @@ export default function GastosScreen() {
       return;
     }
 
-    const saldosAct = calcularSaldosPorCuenta(state);
+    const saldosAct = calcularSaldosPorCuenta(state || {});
     const esTcCarga = origenCuenta === 'tarjetaCredito';
     const cuotasVal = esTcCarga ? cuotasNum : 1;
     const cuotaMensualVal = esTcCarga ? cantNum / cuotasVal : cantNum;
-    const saldoOrigen = obtenerSaldoDisponibleParaOrigenMovimiento(state, origen);
+    const saldoOrigen = obtenerSaldoDisponibleParaOrigenMovimiento(state || {}, origen);
     const montoAValidar = esTcCarga ? cuotaMensualVal : cantNum;
     const saldoTotal = saldosAct.total || 0;
 
@@ -199,10 +216,18 @@ export default function GastosScreen() {
     }
     if (
       origenCuenta === 'tarjetaCredito' &&
-      (state.tarjetasCredito || []).length > 1 &&
+      (state?.tarjetasCredito || []).length > 1 &&
       !String(tarjetaCreditoElegida || '').trim()
     ) {
       Alert.alert('Tarjeta', 'Selecciona con qué entidad o tarjeta hiciste la compra.');
+      return;
+    }
+    if (
+      abonoDeudaTarjeta &&
+      (state?.tarjetasCredito || []).length > 1 &&
+      !String(tarjetaAbonoElegida || '').trim()
+    ) {
+      Alert.alert('Tarjeta', 'Indica a qué tarjeta aplica el abono o el pago del recordatorio.');
       return;
     }
 
@@ -212,7 +237,7 @@ export default function GastosScreen() {
       const ah = new Date();
       const m0 = ah.getMonth();
       const y0 = ah.getFullYear();
-      const gastosCategoria = (state.gastos || []).filter(
+      const gastosCategoria = (state?.gastos || []).filter(
         (g) =>
           g.categoria === categoria && montoGastoAfectaSaldoEnMes(g, state, m0, y0) > 0
       );
@@ -240,13 +265,20 @@ export default function GastosScreen() {
     const esTcCarga = origenCuenta === 'tarjetaCredito';
     const origenGuardado = esTcCarga ? 'tarjetaCredito' : origen;
     const fechaStr = `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}:00`;
-    const tcsGuard = state.tarjetasCredito || [];
+    const tcsGuard = state?.tarjetasCredito || [];
     const tarjetaIdGasto =
       esTcCarga && tcsGuard.length === 1
         ? String(tcsGuard[0].id)
         : esTcCarga && tcsGuard.length > 1
           ? String(tarjetaCreditoElegida)
           : undefined;
+    const tarjetaIdAbono =
+      abonoDeudaTarjeta && tcsGuard.length === 1
+        ? String(tcsGuard[0].id)
+        : abonoDeudaTarjeta && tcsGuard.length > 1
+          ? String(tarjetaAbonoElegida || '').trim()
+          : undefined;
+    const tarjetaFilaGastoOAbono = esTcCarga ? tarjetaIdGasto : abonoDeudaTarjeta ? tarjetaIdAbono : undefined;
 
     const nuevo = {
       nombre: nombre.trim(),
@@ -258,12 +290,31 @@ export default function GastosScreen() {
       cuotas: esTcCarga ? cuotasVal : 1,
       cuotaMensual: esTcCarga ? cuotaMensualVal : cantNum,
       ...(abonoDeudaTarjeta ? { esAbonoDeudaTarjeta: true } : {}),
-      ...(esTcCarga && tarjetaIdGasto ? { tarjetaCreditoId: tarjetaIdGasto } : {}),
+      ...(tarjetaFilaGastoOAbono ? { tarjetaCreditoId: String(tarjetaFilaGastoOAbono) } : {}),
     };
 
-    const pagosPrev = state.pagosProgramados || [];
+    const pagosPrev = state?.pagosProgramados || [];
     const habiaCierreProgramado =
       !!pagoProgramadoEnUso || pagosPrev.some((p) => pagoProgramadoCumplidoPorGasto(nuevo, p));
+    const refPagoCorte = new Date();
+    let corteMsg = null;
+    if (pagoProgramadoEnUso) {
+      const p0 = pagosPrev.find((x) => x && x.id === pagoProgramadoEnUso);
+      if (p0 && p0.esRecordatorioTarjeta && p0.tipoRecordatorioTarjeta === 'corte' && p0.tarjetaId) {
+        const t = (state?.tarjetasCredito || []).find((x) => x && String(x.id) === String(p0.tarjetaId));
+        const nom = (t && String(t.nombreEntidad || '').trim()) || 'Tu tarjeta';
+        corteMsg = {
+          detalle: `${nom} — ${formatearNumero(cantNum, 0)} ${moneda}`.trim(),
+        };
+      }
+    } else if (abonoDeudaTarjeta) {
+      const hit = abonoCoindiceCorteMensual(nuevo, state || {}, refPagoCorte);
+      if (hit) {
+        corteMsg = {
+          detalle: `${hit.nombreEntidad} — ${formatearNumero(cantNum, 0)} ${moneda}`.trim(),
+        };
+      }
+    }
 
     replaceState((s) => {
       let gastos = [...(s.gastos || []), nuevo];
@@ -290,6 +341,7 @@ export default function GastosScreen() {
             cuenta: 'tarjetaCredito',
             notaUsuario: nota.trim(),
             tasaEA: tasaEaVal,
+            tarjetaCreditoId: tarjetaIdGasto,
           });
         });
       }
@@ -307,7 +359,12 @@ export default function GastosScreen() {
       };
     });
 
-    if (habiaCierreProgramado) {
+    if (corteMsg) {
+      if (flashPagoRef.current) clearTimeout(flashPagoRef.current);
+      flashPagoRef.current = null;
+      setFlashPagoExito(false);
+      setCortePagoMensaje(corteMsg);
+    } else if (habiaCierreProgramado) {
       if (flashPagoRef.current) clearTimeout(flashPagoRef.current);
       setFlashPagoExito(true);
       flashPagoRef.current = setTimeout(() => {
@@ -423,6 +480,29 @@ export default function GastosScreen() {
           />
         </View>
 
+        {abonoDeudaTarjeta && filasTarjeta.length > 1 ? (
+          <>
+            <FieldLabel>¿A qué tarjeta aplica este pago?</FieldLabel>
+            <View style={styles.pickerWrap}>
+              <Picker
+                selectedValue={tarjetaAbonoElegida}
+                onValueChange={setTarjetaAbonoElegida}
+                dropdownIconColor={colors.text}
+                style={{ color: colors.text }}
+              >
+                <Picker.Item label="Selecciona…" value="" color={colors.textMuted} />
+                {filasTarjeta.map((t) => (
+                  <Picker.Item
+                    key={t.id}
+                    label={String(t.nombreEntidad || 'Tarjeta').trim() || 'Tarjeta'}
+                    value={t.id}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </>
+        ) : null}
+
         <FieldLabel>Cuenta</FieldLabel>
         {cuentasDisponibles.length === 0 ? (
           <Text style={styles.warn}>
@@ -521,7 +601,28 @@ export default function GastosScreen() {
         <PrimaryButton title="Guardar gasto" onPress={onSubmit} style={{ marginTop: spacing.lg }} />
       </UICard>
     </ScreenWrap>
-    {flashPagoExito ? (
+    {cortePagoMensaje ? (
+      <View
+        style={[styles.flashPagoWrap, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xs }]}
+        pointerEvents="box-none"
+        accessibilityViewIsModal
+      >
+        <View style={styles.cortePagoBox} accessibilityLiveRegion="polite">
+          <Text style={styles.cortePagoBadge}>Pagado</Text>
+          <Text style={styles.flashPagoTitulo}>Corte del mes</Text>
+          <Text style={styles.flashPagoSub}>
+            {cortePagoMensaje.detalle}
+            {'\n\n'}
+            Queda registrado: cubriste el monto al corte. Puedes seguir con tranquilidad o revisar Saldo.
+          </Text>
+          <PrimaryButton
+            title="Listo, gracias"
+            onPress={() => setCortePagoMensaje(null)}
+            style={{ marginTop: spacing.lg }}
+          />
+        </View>
+      </View>
+    ) : flashPagoExito ? (
       <View
         style={[styles.flashPagoWrap, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xs }]}
         pointerEvents="none"
@@ -549,6 +650,37 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     bottom: 0,
     zIndex: 100,
+  },
+  cortePagoBox: {
+    maxWidth: '100%',
+    backgroundColor: colors.bgElevated,
+    borderWidth: 2,
+    borderColor: colors.mint,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.28,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  cortePagoBadge: {
+    alignSelf: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+    color: colors.mint,
+    fontWeight: '800',
+    fontSize: 13,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radii.pill || 999,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   flashPagoBox: {
     maxWidth: '100%',

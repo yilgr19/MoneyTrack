@@ -524,11 +524,15 @@ export function diasHastaProximoDiaCalendario(diaDelMes, ref = new Date()) {
  */
 export function reemplazarPagosRecordatorioTarjetas(pagosExistentes, data, ref = new Date()) {
   const filtrados = (pagosExistentes || []).filter((p) => !p.esRecordatorioTarjeta);
-  /** Fechas (YYYY-MM-DD) que ya cubre un pago por cuotas diferidas desde Gastos (mismo corte). */
+  /** `tarjetaId|YYYY-MM-DD` con cuota diferida desde Gastos (por entidad; legacy = sin id en datos viejos). */
   const corteDiasConCuotaDif = new Set();
   for (const p of pagosExistentes || []) {
     if (!p || p.activo === false || !p.esCuotaDiferida || !p.fechaInicio) continue;
-    corteDiasConCuotaDif.add(String(p.fechaInicio).trim().slice(0, 10));
+    const ptid =
+      p.tarjetaIdCuotaCorte != null && String(p.tarjetaIdCuotaCorte).trim() !== ''
+        ? String(p.tarjetaIdCuotaCorte).trim()
+        : 'legacy';
+    corteDiasConCuotaDif.add(`${ptid}|${String(p.fechaInicio).trim().slice(0, 10)}`);
   }
   if (!data || typeof data !== 'object' || !Array.isArray(data.tarjetasCredito) || data.tarjetasCredito.length === 0) {
     return filtrados;
@@ -548,28 +552,17 @@ export function reemplazarPagosRecordatorioTarjetas(pagosExistentes, data, ref =
     const fl = String(t.fechaHoraLimitePago || '').trim();
     const ex = construirExtractoBancarioTarjeta(t, data, ref);
     const montoLimitePago = montoPagoSugeridoDesdeExtracto(ex);
-    const deudaU = nNum(ex.cupoUtilizado);
-    const capCierre = nNum(ex.capitalCierreLineas);
-    const intEx = nNum(ex.intereses);
-    /** Pago aprox. al cierre alineado con la deuda del extracto (no solo 3% mín. si faltan líneas). */
-    const pagoCierreAlineadoDeuda = redondear2(
-      Math.min(deudaU, nNum(ex.cupoUtilizado) + nNum(ex.intereses))
-    );
-    let montoCorte = pagoCierreAlineadoDeuda;
-    if (capCierre > 0) {
-      montoCorte = redondear2(Math.min(deudaU, capCierre + intEx));
-      /** Líneas de corte hoy < deuda: p. ej. contado con corte “hoy” cuyo 1.º corte programado es el mes que viene. */
-      if (montoCorte < deudaU - 0.01) montoCorte = pagoCierreAlineadoDeuda;
-    } else {
-      montoCorte = pagoCierreAlineadoDeuda;
-    }
+    const montoCorte = montoCorteDesdeExtracto(ex);
     const notaMovs = notaMovimientosCorteYTC(ex);
     const pushPago = (idSuf, tipo, conceptoPref, fechaISO, montoVal) => {
       const d0 = parseFechaHoraLocal(fechaISO);
       if (!d0) return;
       const diaPago = Math.min(28, d0.getDate());
       const fi = fechaISO.slice(0, 10);
-      if (tipo === 'corte' && corteDiasConCuotaDif.has(fi)) return;
+      if (tipo === 'corte') {
+        const key = `${String(t.id)}|${fi}`;
+        if (corteDiasConCuotaDif.has(key) || corteDiasConCuotaDif.has(`legacy|${fi}`)) return;
+      }
       const cuentaFila = tipo === 'limite' ? 'banco' : 'tarjetaCredito';
       const notaF =
         `Estim. capital cierre + int. aprox. (E.A. ${(t.tasaEA && String(t.tasaEA).trim()) || 0}%). ${notaMovs} Pago: ${formatearNumero(montoVal, 0)}. Confirma en Gastos.`;
@@ -641,14 +634,23 @@ export function agregarOFusionarPagoProgramadoCuotaCorte(pagos, p) {
   const mo = fechaCorteDate.getMonth() + 1;
   const da = fechaCorteDate.getDate();
   const ymd = `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
-  const id = `corte-tc-dif-${ymd}`;
+  const tid =
+    p.tarjetaCreditoId != null && String(p.tarjetaCreditoId).trim() !== '' ? String(p.tarjetaCreditoId).trim() : 'legacy';
+  const id = `corte-tc-dif-${tid}-${ymd}`;
   const linea = `${nombre} · cuota ${iCuota}/${nCuotas}`;
   const mAdd = nNum(monto);
   const rMes = tasaEfectivaMensualDesdeEAPorcentaje(tasaEA);
   const notaB = (notaUsuario && String(notaUsuario).trim()) || '';
   const list = pagos || [];
-  const enMismaFecha = (x) =>
-    x && x.esCuotaDiferida && String(x.fechaInicio || '').slice(0, 10) === ymd;
+  const enMismaFecha = (x) => {
+    if (!x || !x.esCuotaDiferida) return false;
+    if (String(x.fechaInicio || '').slice(0, 10) !== ymd) return false;
+    const xtid =
+      x.tarjetaIdCuotaCorte != null && String(x.tarjetaIdCuotaCorte).trim() !== ''
+        ? String(x.tarjetaIdCuotaCorte).trim()
+        : 'legacy';
+    return xtid === tid;
+  };
   const tramosCorte = list.filter((x) => enMismaFecha(x));
   const resto = list.filter((x) => !enMismaFecha(x));
   const capitalPrev = capitalAcumuladoCorteTC(tramosCorte);
@@ -682,6 +684,7 @@ export function agregarOFusionarPagoProgramadoCuotaCorte(pagos, p) {
     activo: true,
     nota: notaFinal,
     esCuotaDiferida: true,
+    tarjetaIdCuotaCorte: tid,
   };
   return [...resto, out];
 }
@@ -689,7 +692,7 @@ export function agregarOFusionarPagoProgramadoCuotaCorte(pagos, p) {
 /**
  * Alertas y “reloj” por tarjeta + totales (gasto registrado en la app vs cupo).
  * `cupoUtilizado` y `utilPct` por tarjeta = deuda efectiva como en el extracto y el cupo disponible:
- * cupo anotado en Saldo + movimientos a TC cuyo corte aplica a la fecha, menos abonos prorrateados.
+ * cupo en Saldo + mov. a TC de esa fila cuyo corte aplica, menos abonos atribuibles a esa entidad.
  * (Si solo se usara el “cupo usado” de la fila, en fecha de corte no reflejaría lo ya cargado en Gastos.)
  */
 export function resumenAlertasTarjetasCredito(data, ref = new Date()) {
@@ -708,7 +711,7 @@ export function resumenAlertasTarjetasCredito(data, ref = new Date()) {
     const cupoT = nNum(t.cupoTotal);
     const cupoU = nNum(t.cupoUtilizado);
     const deudaMovG = nNum(deudaGastosTarjetaAcumuladaHastaCorteParaTarjeta(t.id, data, ref));
-    const abonosPart = nNum(abonos) * fraccionCupoDeTarjeta(t, data);
+    const abonosPart = nNum(totalAbonosDeudaTarjetaDesdeGastosParaTarjeta(t.id, data));
     const deudaEfect = Math.min(
       cupoT > 0 ? cupoT : limiteTotal,
       Math.max(0, nNum(cupoU) + nNum(deudaMovG) - nNum(abonosPart))
@@ -729,6 +732,7 @@ export function resumenAlertasTarjetasCredito(data, ref = new Date()) {
     const diasPago = proxPago ? diasCalendarioHasta(proxPago, ref) ?? 0 : 0;
     const etiquetaProxCorte = proxCorte ? proxCorte.toLocaleDateString('es', { dateStyle: 'short' }) : '';
     const etiquetaProxPago = proxPago ? proxPago.toLocaleDateString('es', { dateStyle: 'short' }) : '';
+    const pagoCorteAlDia = pagoCorteMuestraAlDia(t, data, ref);
     return {
       id: t.id,
       nombreEntidad: (t.nombreEntidad && String(t.nombreEntidad).trim()) || 'Tarjeta',
@@ -741,9 +745,10 @@ export function resumenAlertasTarjetasCredito(data, ref = new Date()) {
       diasPago,
       etiquetaProxCorte,
       etiquetaProxPago,
+      pagoCorteMuestraAlDia: pagoCorteAlDia,
       alertaUtil: cupoT > 0 && utilPct >= 50,
-      alertaPagoUrgente: diasPago <= 3 && diasPago >= 0,
-      alertaCorte: corteHoy || (diasCorte <= 2 && diasCorte >= 0),
+      alertaPagoUrgente: (diasPago <= 3 && diasPago >= 0) && !pagoCorteAlDia,
+      alertaCorte: (corteHoy || (diasCorte <= 2 && diasCorte >= 0)) && !pagoCorteAlDia,
     };
   });
 
@@ -1427,6 +1432,38 @@ function fraccionCupoDeTarjeta(t, data) {
 }
 
 /**
+ * Parte de un abono a la deuda (Gastos) atribuible a una fila de tarjeta. Con `g.tarjetaCreditoId` = solo esa entidad;
+ * con 1 fila = todo el abono; con varias filas y sin id = prorrateo por cupo (legacy).
+ */
+export function montoAbonoAtribuidoATarjeta(g, t, data) {
+  if (!g || g.esAbonoDeudaTarjeta !== true) return 0;
+  if (normalizarOrigenCuenta(g.origen) === 'tarjetaCredito') return 0;
+  if (!t || t.id == null) return 0;
+  const cant = nNum(g.cantidad);
+  if (cant <= 0) return 0;
+  const arr = data?.tarjetasCredito;
+  if (!Array.isArray(arr) || !arr.length) return 0;
+  const tid = String(t.id);
+  if (g.tarjetaCreditoId) {
+    return String(g.tarjetaCreditoId) === tid ? redondear2(cant) : 0;
+  }
+  if (arr.length === 1) {
+    return String(arr[0].id) === tid ? redondear2(cant) : 0;
+  }
+  return redondear2(cant * fraccionCupoDeTarjeta(t, data));
+}
+
+export function totalAbonosDeudaTarjetaDesdeGastosParaTarjeta(tarjetaId, data) {
+  const t = (data?.tarjetasCredito || []).find((x) => x && String(x.id) === String(tarjetaId));
+  if (!t) return 0;
+  let sum = 0;
+  for (const g of data.gastos || []) {
+    sum += montoAbonoAtribuidoATarjeta(g, t, data);
+  }
+  return redondear2(sum);
+}
+
+/**
  * Compras a TC asignadas a esta entidad (por `tarjetaCreditoId` o legacy solo primera), más recientes primero.
  * El extracto las muestra aunque el corte de referencia no sea hoy; `lineas` del corte sigue filtrado por día.
  */
@@ -1545,9 +1582,8 @@ export function construirExtractoBancarioTarjeta(t, data, ref = new Date()) {
   const limT = nNum(t.cupoTotal);
   const limS = limiteTotalTarjetasCredito(data);
   const cupoU = nNum(t.cupoUtilizado);
-  const frac = fraccionCupoDeTarjeta(t, data);
   const deudaMovG = nNum(deudaGastosTarjetaAcumuladaHastaCorteParaTarjeta(t.id, data, ref));
-  const abonosPart = nNum(totalAbonosDeudaTarjetaDesdeGastos(data)) * frac;
+  const abonosPart = nNum(totalAbonosDeudaTarjetaDesdeGastosParaTarjeta(t.id, data));
   const deudaEfect = Math.min(
     limT > 0 ? limT : limS,
     Math.max(0, nNum(cupoU) + nNum(deudaMovG) - nNum(abonosPart))
@@ -1620,6 +1656,91 @@ export function montoPagoSugeridoDesdeExtracto(ex) {
   }
   if (nNum(ex.pagoMinimo) > 0) return nNum(ex.pagoMinimo);
   return Math.min(deuda, nNum(ex.pagoTotalObl) || deuda);
+}
+
+/**
+ * Pago "al corte" (capital cierre + int. aprox.); coincide con Corte TC en recordatorios.
+ */
+function montoCorteDesdeExtracto(ex) {
+  if (!ex) return 0;
+  const deudaU = nNum(ex.cupoUtilizado);
+  const capCierre = nNum(ex.capitalCierreLineas);
+  const intEx = nNum(ex.intereses);
+  const pagoCierreAlineadoDeuda = redondear2(
+    Math.min(deudaU, nNum(ex.cupoUtilizado) + nNum(ex.intereses))
+  );
+  let montoCorte = pagoCierreAlineadoDeuda;
+  if (capCierre > 0) {
+    montoCorte = redondear2(Math.min(deudaU, capCierre + intEx));
+    if (montoCorte < deudaU - 0.01) montoCorte = pagoCierreAlineadoDeuda;
+  } else {
+    montoCorte = pagoCierreAlineadoDeuda;
+  }
+  return Math.max(0, montoCorte);
+}
+
+export function montoCorteSugeridoDesdeEstado(t, data, ref = new Date()) {
+  if (!t || !data) return 0;
+  return montoCorteDesdeExtracto(construirExtractoBancarioTarjeta(t, data, ref));
+}
+
+const TOL_CORTE_ABONO = 0.02;
+
+/**
+ * Abono a la TC: el monto coincide (±) con el corte sugerido de una fila (sin elegir el recordatorio).
+ */
+export function abonoCoindiceCorteMensual(nuevo, data, ref = new Date()) {
+  if (!nuevo || nuevo.esAbonoDeudaTarjeta !== true) return null;
+  if (normalizarOrigenCuenta(nuevo.origen) === 'tarjetaCredito') return null;
+  const m = nNum(nuevo.cantidad);
+  if (m <= 0) return null;
+  const arr = data?.tarjetasCredito;
+  if (!Array.isArray(arr) || !arr.length) return null;
+  for (const t of arr) {
+    if (!t) continue;
+    const mAl = montoAbonoAtribuidoATarjeta(nuevo, t, data);
+    if (mAl <= 0) continue;
+    const corteM = montoCorteSugeridoDesdeEstado(t, data, ref);
+    if (corteM > 0 && Math.abs(mAl - corteM) <= TOL_CORTE_ABONO) {
+      return {
+        tarjetaId: t.id,
+        nombreEntidad: String(t.nombreEntidad || 'Tarjeta').trim() || 'Tarjeta',
+        monto: corteM,
+      };
+    }
+  }
+  return null;
+}
+
+const DIAS_ABONO_CORTE_AL_DIA_INICIO = 28;
+
+/**
+ * Inicio / calendario: el corte del periodo no requiere aviso de «Pago en X d» si ya no hay monto al corte
+ * o si en Gastos registraste un abono al corte de esta fila (monto ≈ al sugerido ese día, sin el movimiento).
+ */
+export function pagoCorteMuestraAlDia(t, data, ref = new Date()) {
+  if (!t || !data) return false;
+  const mAhora = montoCorteSugeridoDesdeEstado(t, data, ref);
+  if (mAhora <= TOL_CORTE_ABONO) return true;
+  const gastos = data.gastos || [];
+  const ua = Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  for (let i = 0; i < gastos.length; i++) {
+    const g = gastos[i];
+    if (!g || g.esAbonoDeudaTarjeta !== true) continue;
+    if (normalizarOrigenCuenta(g.origen) === 'tarjetaCredito') continue;
+    const refG = parseFechaHoraLocal(g.fecha) || new Date();
+    const ub = Date.UTC(refG.getFullYear(), refG.getMonth(), refG.getDate());
+    const diasDesdeAbono = Math.round((ua - ub) / 86400000);
+    if (diasDesdeAbono < 0 || diasDesdeAbono > DIAS_ABONO_CORTE_AL_DIA_INICIO) continue;
+    const mAtrib = montoAbonoAtribuidoATarjeta(g, t, data);
+    if (mAtrib <= TOL_CORTE_ABONO) continue;
+    const dataSinG = { ...data, gastos: gastos.filter((_, j) => j !== i) };
+    const mEnPago = montoCorteSugeridoDesdeEstado(t, dataSinG, refG);
+    if (mEnPago > TOL_CORTE_ABONO && Math.abs(mAtrib - mEnPago) <= TOL_CORTE_ABONO) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function notaMovimientosCorteYTC(ex) {

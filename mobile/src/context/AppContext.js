@@ -115,6 +115,15 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  /**
+   * Solo para efectos: cambia si cambia la lista de pagos programados (misma ref si solo moviste gastos/ingresos).
+   * Evita re-sincronizar notificaciones en cada actualización de estado y posibles cierres/atascos en Expo Go.
+   */
+  const claveParaNotificacionesPagos = useMemo(
+    () => `${String(state?.moneda ?? '')}\n${JSON.stringify(state?.pagosProgramados || [])}`,
+    [state?.moneda, state?.pagosProgramados]
+  );
+
   const lenG = state?.gastos?.length ?? 0;
   const nTc = state?.tarjetasCredito?.length ?? 0;
   const cupoHash =
@@ -144,7 +153,7 @@ export function AppProvider({ children }) {
     import('../lib/notificacionesLocalesPagosProgramados').then((m) =>
       m.sincronizarNotificacionesLocalesPagosProgramados(state).catch(() => {})
     );
-  }, [ready, mostrarOnboarding, state]);
+  }, [ready, mostrarOnboarding, claveParaNotificacionesPagos]);
 
   useEffect(() => {
     if (!ready || mostrarOnboarding) return;

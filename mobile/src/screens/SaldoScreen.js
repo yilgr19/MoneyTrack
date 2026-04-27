@@ -473,7 +473,13 @@ export default function SaldoScreen() {
   }
 
   function addTcLine() {
-    setTcModalLines((prev) => [...prev, emptyTcDraft()]);
+    setTcModalLines((prev) => {
+      if (prev.length >= 3) {
+        Alert.alert('Tarjetas', 'Puedes configurar hasta 3 tarjetas. Cada una tiene corte, límite de pago y extracto independientes.');
+        return prev;
+      }
+      return [...prev, emptyTcDraft()];
+    });
   }
 
   function removeTcLine(index) {

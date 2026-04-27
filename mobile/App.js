@@ -85,7 +85,7 @@ function LoadingSplash() {
 }
 
 function Root() {
-  const { ready, mostrarOnboarding } = useApp();
+  const { ready, mostrarOnboarding, state } = useApp();
 
   useEffect(() => {
     if (ready) {
@@ -93,7 +93,7 @@ function Root() {
     }
   }, [ready]);
 
-  if (!ready) {
+  if (!ready || state == null) {
     return <LoadingSplash />;
   }
 

@@ -54,8 +54,8 @@ function nNumSeguro(v) {
 
 export default function ExtractosTarjetasScreen() {
   const { state, replaceState } = useApp();
-  const moneda = (state.moneda && String(state.moneda).trim()) || '';
-  const tarjetas = state.tarjetasCredito || [];
+  const moneda = (state?.moneda && String(state.moneda).trim()) || '';
+  const tarjetas = state?.tarjetasCredito || [];
   const mesesOpt = useMemo(() => opcionesMeses(), []);
 
   const [modalAdd, setModalAdd] = useState(false);
@@ -66,18 +66,18 @@ export default function ExtractosTarjetasScreen() {
 
   const tarjetaDeExtractoAbierto = useMemo(() => {
     if (!verExtracto) return null;
-    return (state.tarjetasCredito || []).find((x) => x && String(x.id) === String(verExtracto.tarjetaId)) || null;
-  }, [verExtracto, state.tarjetasCredito]);
+    return (state?.tarjetasCredito || []).find((x) => x && String(x.id) === String(verExtracto.tarjetaId)) || null;
+  }, [verExtracto, state?.tarjetasCredito]);
 
   const listaOrdenada = useMemo(() => {
-    const arr = [...(state.extractosTarjetasHistorial || [])];
+    const arr = [...(state?.extractosTarjetasHistorial || [])];
     arr.sort((a, b) => {
       const m = (b.mes || '').localeCompare(a.mes || '');
       if (m !== 0) return m;
       return (a.nombreEntidad || '').localeCompare(b.nombreEntidad || '', 'es');
     });
     return arr;
-  }, [state.extractosTarjetasHistorial]);
+  }, [state?.extractosTarjetasHistorial]);
 
   /** Deuda mostrada en fila: recalculada con movimientos actuales (mismo criterio que al abrir el extracto). */
   const filasVista = useMemo(() => {
@@ -87,7 +87,7 @@ export default function ExtractosTarjetasScreen() {
       if (t && it.mes) {
         try {
           const refD = refUltimaHoraDiaEnMes(it.mes);
-          const ex = construirExtractoBancarioTarjeta(t, state, refD);
+          const ex = construirExtractoBancarioTarjeta(t, state || {}, refD);
           cupoVivo = nNumSeguro(ex.cupoUtilizado);
         } catch {
           /* no-op */
@@ -118,7 +118,7 @@ export default function ExtractosTarjetasScreen() {
       return;
     }
     const refD = refUltimaHoraDiaEnMes(mesSel);
-    const snapshot = construirExtractoBancarioTarjeta(t, state, refD);
+    const snapshot = construirExtractoBancarioTarjeta(t, state || {}, refD);
     const nombreEntidad = String(t.nombreEntidad || 'Tarjeta').trim() || 'Tarjeta';
     const nuevo = {
       id: generarIdExtracto(),
@@ -258,7 +258,7 @@ export default function ExtractosTarjetasScreen() {
       <ExtractoBancarioModal
         visible={verExtracto != null}
         onClose={() => setVerExtracto(null)}
-        state={state}
+        state={state || {}}
         tarjeta={tarjetaDeExtractoAbierto}
         moneda={moneda}
         extSnapshot={!tarjetaDeExtractoAbierto && verExtracto ? verExtracto.snapshot : null}
