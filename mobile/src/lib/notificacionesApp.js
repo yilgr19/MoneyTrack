@@ -20,6 +20,8 @@ import {
 const DIAS_RECORDATORIO_CAMPANA = 3;
 /** Bajo esto, aviso de “poco en efectivo/cuentas” (sin contar cupo de tarjeta). */
 const LIQ_BAJO_UMBRAL = 100_000;
+/** Aviso “cupo al filo”: queda poco libre respecto al tope (≤32%). Incluye 5%, 10%, 20%…; sin piso mínimo para no omitir casos como 50.000 libres con tope alto. */
+const TC_CUPO_LIBRE_AVISO_MAX = 0.32;
 
 /** Misma notificación, mismo mensaje: evita “parpadeos” al marcar leída; añade variedad fija por id. */
 function rotarFrase(semilla, frases) {
@@ -326,7 +328,7 @@ function notificacionesSaldo(state) {
 }
 
 /**
- * Saldo “disponible” en cupo vía app + alertas de resumen (pago/corte, uso alto).
+ * Saldo “disponible” en cupo vía app + alertas de resumen (pago/corte, uso alto, ~20% libre).
  */
 function notificacionesTarjetas(state, ref) {
   const ymd = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-${String(ref.getDate()).padStart(2, '0')}`;
@@ -518,28 +520,57 @@ function notificacionesTarjetas(state, ref) {
         ]),
       });
     } else if (t.alertaUtil) {
-      const idU = `tc-uso-${t.id}`;
+      const ratioLibre = t.cupoTotal > 0 ? libre / t.cupoTotal : 0;
       const pU = t.utilPct.toFixed(0);
-      out.push({
-        id: idU,
-        tipo: 'tc',
-        severidad: 'info',
-        puntuacionOrden: 320_000,
-        titulo: rotarFrase(`${idU}-t-${ymd}`, [
-          `${t.nombreEntidad} · ~${pU}% del cupo usado.`,
-          `${pU}% de cupo en ${t.nombreEntidad} · ojo a Saldo.`,
-          `Casi ${pU}% del cupo en ${t.nombreEntidad} (registro de la app).`,
-          `Uso: ~${pU}% con ${t.nombreEntidad}. Mira límite en Saldo.`,
-          `Cupo al límite: ${t.nombreEntidad} ~${pU}% usado, mira en Saldo.`,
-        ]),
-        detalle: rotarFrase(`${idU}-d-${ymd}`, [
-          'Ajusta ritmo o límite en Saldo. Tú eliges.',
-          'Si ajusta, baja carga o el tope anotado.',
-          'Menos compras a cuota o abono: el % baja o sube tope; Saldo alinea con el banco.',
-          'Ojo: no te quede sin colchón para sorpresas del cierre. Saldo: tarjeta concreta.',
-          'Cupo fino: decide si subes pago, bajas tope o paras compras. Saldo: números.',
-        ]),
-      });
+      const pLibre = (ratioLibre * 100).toFixed(0);
+      if (libre > 0 && ratioLibre <= TC_CUPO_LIBRE_AVISO_MAX) {
+        const id20 = `tc-cupo-20-${t.id}`;
+        const lTxt = formatearNumero(libre, 0);
+        const totTxt = formatearNumero(t.cupoTotal, 0);
+        out.push({
+          id: id20,
+          tipo: 'tc',
+          severidad: 'warning',
+          tarjetaId: t.id,
+          puntuacionOrden: 335_000,
+          titulo: rotarFrase(`${id20}-t-${ymd}`, [
+            `Uff, en ${t.nombreEntidad} el cupo se acaba: ~${pLibre}% libre (~${lTxt} de ${totTxt})`,
+            `Ojo, ${t.nombreEntidad}: te queda como un ~${pLibre}% del cupo libre. Pronto 0 en la app.`,
+            `${t.nombreEntidad} · poco aire: ~${pLibre}% del tope aún suelto (${lTxt} / ${totTxt}).`,
+            `Casi sin cupo en ${t.nombreEntidad}: ~${pLibre}% libre. Revisa antes de seguir comprando.`,
+            `Te queda poco: ~${pLibre}% de cupo con ${t.nombreEntidad} (${lTxt} libres de ${totTxt}).`,
+          ]),
+          detalle: rotarFrase(`${id20}-d-${ymd}`, [
+            'Poco cupo libre: toca parar, abonar o subir el tope en la app. Saldo y banco, alineados.',
+            'Baja un pago a cuota, abona a la deuda o no gastes: el límite ceñido en Más → Saldo.',
+            'Si en banco ves otro “disponible”, corregimos el tope o el usado en la ficha de la tarjeta.',
+            'Cupo al filo: evita sorpresas al corte; pasa por Saldo y confirma con el extracto real.',
+            'Ese resto se va en un giro. Planea: abono, menos compra o ajuste de cupo; Saldo: números.',
+          ]),
+        });
+      } else {
+        const idU = `tc-uso-${t.id}`;
+        out.push({
+          id: idU,
+          tipo: 'tc',
+          severidad: 'info',
+          puntuacionOrden: 320_000,
+          titulo: rotarFrase(`${idU}-t-${ymd}`, [
+            `${t.nombreEntidad} · ~${pU}% del cupo usado.`,
+            `${pU}% de cupo en ${t.nombreEntidad} · ojo a Saldo.`,
+            `Casi ${pU}% del cupo en ${t.nombreEntidad} (registro de la app).`,
+            `Uso: ~${pU}% con ${t.nombreEntidad}. Mira límite en Saldo.`,
+            `Cupo al límite: ${t.nombreEntidad} ~${pU}% usado, mira en Saldo.`,
+          ]),
+          detalle: rotarFrase(`${idU}-d-${ymd}`, [
+            'Ajusta ritmo o límite en Saldo. Tú eliges.',
+            'Si ajusta, baja carga o el tope anotado.',
+            'Menos compras a cuota o abono: el % baja o sube tope; Saldo alinea con el banco.',
+            'Ojo: no te quede sin colchón para sorpresas del cierre. Saldo: tarjeta concreta.',
+            'Cupo fino: decide si subes pago, bajas tope o paras compras. Saldo: números.',
+          ]),
+        });
+      }
     } else if (libre > 0 && libre < t.cupoTotal * 0.05) {
       const idL = `tc-libre-${t.id}`;
       const lTxt = formatearNumero(libre, 0);

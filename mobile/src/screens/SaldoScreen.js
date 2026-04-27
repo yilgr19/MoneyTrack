@@ -492,7 +492,8 @@ export default function SaldoScreen() {
         tarjetasCredito: [],
         limiteTarjetaCredito: 0,
         saldosCuentas: {
-          ...s.saldosCuentas,
+          ...emptySaldosCuentas(),
+          ...(s.saldosCuentas && typeof s.saldosCuentas === 'object' ? s.saldosCuentas : {}),
           tarjetaCredito: montoTarjetaCta,
         },
         pagosProgramados: reemplazarPagosRecordatorioTarjetas(
@@ -549,7 +550,8 @@ export default function SaldoScreen() {
       tarjetasCredito: tarjetasClean,
       limiteTarjetaCredito: sumCupos,
       saldosCuentas: {
-        ...s.saldosCuentas,
+        ...emptySaldosCuentas(),
+        ...(s.saldosCuentas && typeof s.saldosCuentas === 'object' ? s.saldosCuentas : {}),
         tarjetaCredito: montoTarjetaCta,
       },
       pagosProgramados: reemplazarPagosRecordatorioTarjetas(

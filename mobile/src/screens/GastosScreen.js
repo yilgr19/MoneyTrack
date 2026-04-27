@@ -15,7 +15,7 @@ import {
   normalizarCategoria,
   montoGastoAfectaSaldoEnMes,
   fechaALocalISO,
-  fechasCortesParaGastoTarjeta,
+  fechasCortesGastoConFallback,
   pagoDebeMostrarseParaPagar,
   obtenerCuentasOrigenGastoElegible,
   obtenerCuentasDestinoIngreso,
@@ -79,8 +79,13 @@ export default function GastosScreen() {
 
   const filasTarjeta = useMemo(() => state.tarjetasCredito || [], [state.tarjetasCredito]);
 
+  const cantNum = parseFloat(cantidad) || 0;
+  const origenCuenta = normalizarOrigenCuenta(origen) || String(origen || '').trim();
+  const cuotasNum = Math.max(1, parseInt(cuotas, 10) || 1);
+  const cuotaMensualTc = cantNum > 0 && cuotasNum > 0 ? cantNum / cuotasNum : cantNum;
+
   useEffect(() => {
-    if (normalizarOrigenCuenta(origen) !== 'tarjetaCredito' || abonoDeudaTarjeta) return;
+    if (origenCuenta !== 'tarjetaCredito' || abonoDeudaTarjeta) return;
     if (filasTarjeta.length === 1) {
       setTarjetaCreditoElegida(String(filasTarjeta[0].id));
       return;
@@ -88,10 +93,7 @@ export default function GastosScreen() {
     if (filasTarjeta.length > 1 && !filasTarjeta.some((t) => t && t.id === tarjetaCreditoElegida)) {
       setTarjetaCreditoElegida(String(filasTarjeta[0].id));
     }
-  }, [origen, abonoDeudaTarjeta, filasTarjeta, tarjetaCreditoElegida]);
-
-  const cantNum = parseFloat(cantidad) || 0;
-  const cuotaMensualTc = cantNum > 0 && cuotas > 0 ? cantNum / cuotas : cantNum;
+  }, [origen, origenCuenta, abonoDeudaTarjeta, filasTarjeta, tarjetaCreditoElegida]);
 
   const cuentasDisponibles = useMemo(
     () =>
@@ -176,13 +178,14 @@ export default function GastosScreen() {
     }
 
     const saldosAct = calcularSaldosPorCuenta(state);
-    const cuotasVal = origen === 'tarjetaCredito' ? cuotas : 1;
-    const cuotaMensualVal = origen === 'tarjetaCredito' ? cantNum / cuotasVal : cantNum;
+    const esTcCarga = origenCuenta === 'tarjetaCredito';
+    const cuotasVal = esTcCarga ? cuotasNum : 1;
+    const cuotaMensualVal = esTcCarga ? cantNum / cuotasVal : cantNum;
     const saldoOrigen = obtenerSaldoDisponibleParaOrigenMovimiento(state, origen);
-    const montoAValidar = origen === 'tarjetaCredito' ? cuotaMensualVal : cantNum;
+    const montoAValidar = esTcCarga ? cuotaMensualVal : cantNum;
     const saldoTotal = saldosAct.total || 0;
 
-    if (origen !== 'tarjetaCredito' && cantNum > saldoTotal) {
+    if (origenCuenta !== 'tarjetaCredito' && cantNum > saldoTotal) {
       Alert.alert('Saldo', 'No hay saldo suficiente en total.');
       return;
     }
@@ -195,7 +198,7 @@ export default function GastosScreen() {
       return;
     }
     if (
-      origen === 'tarjetaCredito' &&
+      origenCuenta === 'tarjetaCredito' &&
       (state.tarjetasCredito || []).length > 1 &&
       !String(tarjetaCreditoElegida || '').trim()
     ) {
@@ -234,12 +237,14 @@ export default function GastosScreen() {
   }
 
   function guardarGasto(cuotasVal, cuotaMensualVal) {
+    const esTcCarga = origenCuenta === 'tarjetaCredito';
+    const origenGuardado = esTcCarga ? 'tarjetaCredito' : origen;
     const fechaStr = `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}:00`;
     const tcsGuard = state.tarjetasCredito || [];
     const tarjetaIdGasto =
-      origen === 'tarjetaCredito' && tcsGuard.length === 1
+      esTcCarga && tcsGuard.length === 1
         ? String(tcsGuard[0].id)
-        : origen === 'tarjetaCredito' && tcsGuard.length > 1
+        : esTcCarga && tcsGuard.length > 1
           ? String(tarjetaCreditoElegida)
           : undefined;
 
@@ -248,14 +253,12 @@ export default function GastosScreen() {
       cantidad: cantNum,
       fecha: fechaStr,
       categoria,
-      origen,
+      origen: origenGuardado,
       nota: nota.trim() || null,
-      cuotas: origen === 'tarjetaCredito' ? cuotasVal : 1,
-      cuotaMensual: origen === 'tarjetaCredito' ? cuotaMensualVal : cantNum,
+      cuotas: esTcCarga ? cuotasVal : 1,
+      cuotaMensual: esTcCarga ? cuotaMensualVal : cantNum,
       ...(abonoDeudaTarjeta ? { esAbonoDeudaTarjeta: true } : {}),
-      ...(origen === 'tarjetaCredito' && tarjetaIdGasto
-        ? { tarjetaCreditoId: tarjetaIdGasto }
-        : {}),
+      ...(esTcCarga && tarjetaIdGasto ? { tarjetaCreditoId: tarjetaIdGasto } : {}),
     };
 
     const pagosPrev = state.pagosProgramados || [];
@@ -266,14 +269,14 @@ export default function GastosScreen() {
       let gastos = [...(s.gastos || []), nuevo];
       let pagos = [...(s.pagosProgramados || [])];
 
-      if (origen === 'tarjetaCredito') {
+      if (esTcCarga) {
         const tcs = s.tarjetasCredito || [];
         const tTarjeta =
           (tarjetaIdGasto && tcs.find((x) => x && String(x.id) === String(tarjetaIdGasto))) ||
           tcs.find((x) => (parseFloat(x.tasaEA) || 0) > 0) ||
           tcs[0];
         const tasaEaVal = tTarjeta ? parseFloat(tTarjeta.tasaEA) || 0 : 0;
-        const fechasC = fechasCortesParaGastoTarjeta(fechaStr, cuotasVal, s, tarjetaIdGasto);
+        const fechasC = fechasCortesGastoConFallback(fechaStr, cuotasVal, s, tarjetaIdGasto);
         fechasC.forEach((nextDate, i) => {
           const fechaCuota = fechaALocalISO(nextDate);
           if (!fechaCuota) return;
@@ -284,7 +287,7 @@ export default function GastosScreen() {
             iCuota: i + 1,
             nCuotas: cuotasVal,
             categoria,
-            cuenta: origen,
+            cuenta: 'tarjetaCredito',
             notaUsuario: nota.trim(),
             tasaEA: tasaEaVal,
           });
@@ -436,7 +439,7 @@ export default function GastosScreen() {
           </View>
         )}
 
-        {!abonoDeudaTarjeta && origen === 'tarjetaCredito' && (
+        {!abonoDeudaTarjeta && origenCuenta === 'tarjetaCredito' && (
           <>
             {filasTarjeta.length > 1 ? (
               <>
@@ -462,19 +465,25 @@ export default function GastosScreen() {
             ) : null}
             <FieldLabel>Cuotas</FieldLabel>
             <View style={styles.pickerWrap}>
-              <Picker selectedValue={cuotas} onValueChange={(v) => setCuotas(v)} style={{ color: colors.text }}>
+              <Picker
+                selectedValue={cuotasNum}
+                onValueChange={(v) =>
+                  setCuotas(typeof v === 'number' ? v : Math.max(1, parseInt(String(v), 10) || 1))
+                }
+                style={{ color: colors.text }}
+              >
                 {CUOTAS_OPTS.map((n) => (
                   <Picker.Item key={n} label={n === 1 ? '1 (contado)' : `${n} cuotas`} value={n} />
                 ))}
               </Picker>
             </View>
-            {cuotas > 1 && (
+            {cuotasNum > 1 && (
               <Text style={typography.small}>
-                Cuota mensual aprox.: {formatearNumero(cantNum / cuotas)} {moneda}. Cada cuota (incl. la 1) se
+                Cuota mensual aprox.: {formatearNumero(cantNum / cuotasNum)} {moneda}. Cada cuota (incl. la 1) se
                 contabiliza en el mes de la fecha de corte definida en Saldo → Tarjeta.
               </Text>
             )}
-            {origen === 'tarjetaCredito' && cuotas === 1 && (
+            {origenCuenta === 'tarjetaCredito' && cuotasNum === 1 && (
               <Text style={typography.small}>
                 Un solo pago: se imputa al mes de tu próximo corte (según Saldo → Tarjeta).
               </Text>

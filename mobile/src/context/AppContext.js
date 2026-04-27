@@ -106,6 +106,15 @@ export function AppProvider({ children }) {
     };
   }, []);
 
+  const replaceState = useCallback((updater) => {
+    setState((prev) => {
+      if (!prev) return prev;
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      persistAppState(next).catch(() => {});
+      return next;
+    });
+  }, []);
+
   const lenG = state?.gastos?.length ?? 0;
   const nTc = state?.tarjetasCredito?.length ?? 0;
   const cupoHash =
@@ -114,13 +123,20 @@ export function AppProvider({ children }) {
           .map((t) => `${t.id}:${t.cupoUtilizado || 0}:${t.cupoTotal || 0}`)
           .join('|')
       : '';
+  /** Regenerar recordatorios TC si cambian fechas de corte/pago (antes solo cupo y no se volvían a crear). */
+  const tcFechasHash =
+    nTc > 0
+      ? (state?.tarjetasCredito || [])
+          .map((t) => `${String(t.fechaHoraCorte || '')}|${String(t.fechaHoraLimitePago || '')}`)
+          .join('||')
+      : '';
   useEffect(() => {
     if (!ready || !state) return;
     replaceState((s) => ({
       ...s,
       pagosProgramados: reemplazarPagosRecordatorioTarjetas(s.pagosProgramados || [], s, new Date()),
     }));
-  }, [ready, lenG, nTc, cupoHash, replaceState, state?.moneda]);
+  }, [ready, lenG, nTc, cupoHash, tcFechasHash, replaceState, state?.moneda]);
 
   useEffect(() => {
     if (!ready || !state || mostrarOnboarding) return;
@@ -151,15 +167,6 @@ export function AppProvider({ children }) {
     await setOnboardingCompletado();
     setPostOnboardingIrASaldo(true);
     setMostrarOnboarding(false);
-  }, []);
-
-  const replaceState = useCallback((updater) => {
-    setState((prev) => {
-      if (!prev) return prev;
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      persistAppState(next).catch(() => {});
-      return next;
-    });
   }, []);
 
   const resetPartial = useCallback(async () => {

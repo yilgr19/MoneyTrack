@@ -47,6 +47,11 @@ function formatearEtiquetaMes(ym) {
   return new Date(y, m0, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' });
 }
 
+function nNumSeguro(v) {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : 0;
+}
+
 export default function ExtractosTarjetasScreen() {
   const { state, replaceState } = useApp();
   const moneda = (state.moneda && String(state.moneda).trim()) || '';
@@ -59,6 +64,11 @@ export default function ExtractosTarjetasScreen() {
 
   const [verExtracto, setVerExtracto] = useState(null);
 
+  const tarjetaDeExtractoAbierto = useMemo(() => {
+    if (!verExtracto) return null;
+    return (state.tarjetasCredito || []).find((x) => x && String(x.id) === String(verExtracto.tarjetaId)) || null;
+  }, [verExtracto, state.tarjetasCredito]);
+
   const listaOrdenada = useMemo(() => {
     const arr = [...(state.extractosTarjetasHistorial || [])];
     arr.sort((a, b) => {
@@ -68,6 +78,24 @@ export default function ExtractosTarjetasScreen() {
     });
     return arr;
   }, [state.extractosTarjetasHistorial]);
+
+  /** Deuda mostrada en fila: recalculada con movimientos actuales (mismo criterio que al abrir el extracto). */
+  const filasVista = useMemo(() => {
+    return listaOrdenada.map((it) => {
+      const t = tarjetas.find((x) => x && String(x.id) === String(it.tarjetaId));
+      let cupoVivo = nNumSeguro(it.snapshot?.cupoUtilizado);
+      if (t && it.mes) {
+        try {
+          const refD = refUltimaHoraDiaEnMes(it.mes);
+          const ex = construirExtractoBancarioTarjeta(t, state, refD);
+          cupoVivo = nNumSeguro(ex.cupoUtilizado);
+        } catch {
+          /* no-op */
+        }
+      }
+      return { it, cupoVivo };
+    });
+  }, [listaOrdenada, tarjetas, state]);
 
   useEffect(() => {
     if (tarjetas.length && !tarjetaIdSel) {
@@ -131,8 +159,9 @@ export default function ExtractosTarjetasScreen() {
   return (
     <ScreenWrap contentStyle={{ paddingTop: spacing.xs }}>
       <Text style={styles.hint}>
-        Cada registro fija un extracto (estimado con los datos al guardarlo) con referencia al último día del mes
-        elegido. Puedes guardar otra vez el mismo mes y tarjeta para sustituir la copia anterior.
+        Cada registro archiva un mes y tarjeta. La lista y el detalle se recalculan con tus movimientos y cupos
+        actuales; la fecha “guardado” es solo la copia de respaldo. Puedes volver a guardar el mismo mes para
+        sustituir el archivo.
       </Text>
 
       {tarjetas.length === 0 ? (
@@ -148,12 +177,12 @@ export default function ExtractosTarjetasScreen() {
       <Text style={typography.label} accessibilityRole="header">
         Historial (más reciente primero)
       </Text>
-      {listaOrdenada.length === 0 ? (
+      {filasVista.length === 0 ? (
         <UICard>
           <Text style={[typography.body, { color: colors.textMuted }]}>Aún no hay extractos guardados.</Text>
         </UICard>
       ) : (
-        listaOrdenada.map((it) => (
+        filasVista.map(({ it, cupoVivo }) => (
           <View key={it.id} style={styles.rowCard}>
             <TouchableOpacity
               style={styles.rowMain}
@@ -169,7 +198,7 @@ export default function ExtractosTarjetasScreen() {
                   {formatearEtiquetaMes(it.mes)} · {it.nombreEntidad || 'Tarjeta'}
                 </Text>
                 <Text style={styles.rowSub} numberOfLines={2}>
-                  Deuda est. {formatearNumero(it.snapshot?.cupoUtilizado || 0, 0)} {moneda}
+                  Deuda est. (al día) {formatearNumero(cupoVivo, 0)} {moneda}
                   {it.creadoEn
                     ? ` · guardado ${new Date(it.creadoEn).toLocaleDateString('es', { day: 'numeric', month: 'short' })}`
                     : ''}
@@ -230,9 +259,11 @@ export default function ExtractosTarjetasScreen() {
         visible={verExtracto != null}
         onClose={() => setVerExtracto(null)}
         state={state}
-        tarjeta={null}
+        tarjeta={tarjetaDeExtractoAbierto}
         moneda={moneda}
-        extSnapshot={verExtracto?.snapshot}
+        extSnapshot={!tarjetaDeExtractoAbierto && verExtracto ? verExtracto.snapshot : null}
+        refMesHistorial={verExtracto?.mes}
+        historialCreadoEn={verExtracto?.creadoEn}
       />
     </ScreenWrap>
   );

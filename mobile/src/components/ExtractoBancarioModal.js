@@ -10,21 +10,38 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatearNumero, construirExtractoBancarioTarjeta } from '../lib/finance';
+import { formatearNumero, construirExtractoBancarioTarjeta, refUltimaHoraDiaEnMes } from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
 /**
  * Extracto tipo banco: fechas, cupo, movimientos del corte, totales y proyección 3/6 cuotas.
- * Si `extSnapshot` está definido (historial), se muestra tal cual y no se recalcula.
+ * - Sin historial: hoy como referencia.
+ * - Con `refMesHistorial` (YYYY-MM), p. ej. desde archivados: se recalcula con gastos/cupos **actuales** a fin de ese mes.
+ * - `extSnapshot` solo si no hay tarjeta (fila borrada) o no hubo forma de recalcular.
  */
-export default function ExtractoBancarioModal({ visible, onClose, state, tarjeta, moneda, extSnapshot }) {
+export default function ExtractoBancarioModal({
+  visible,
+  onClose,
+  state,
+  tarjeta,
+  moneda,
+  extSnapshot,
+  refMesHistorial,
+  historialCreadoEn,
+}) {
   const insets = useSafeAreaInsets();
 
   const ext = useMemo(() => {
+    if (!visible || !state) return null;
+    if (tarjeta) {
+      const refD = refMesHistorial
+        ? refUltimaHoraDiaEnMes(refMesHistorial)
+        : new Date();
+      return construirExtractoBancarioTarjeta(tarjeta, state, refD);
+    }
     if (extSnapshot) return extSnapshot;
-    if (!visible || !tarjeta || !state) return null;
-    return construirExtractoBancarioTarjeta(tarjeta, state, new Date());
-  }, [extSnapshot, visible, tarjeta, state]);
+    return null;
+  }, [visible, tarjeta, state, extSnapshot, refMesHistorial]);
 
   if (!ext) return null;
 
@@ -47,6 +64,13 @@ export default function ExtractoBancarioModal({ visible, onClose, state, tarjeta
               <Text style={[typography.title, { marginTop: 4 }]} numberOfLines={2}>
                 {ext.nombre}
               </Text>
+              {refMesHistorial && historialCreadoEn ? (
+                <Text style={[typography.small, { color: colors.textFaint, marginTop: 6, lineHeight: 18 }]}>
+                  Cálculo al día con tus movimientos; mes de referencia al cierre. Copia archivada el{' '}
+                  {new Date(historialCreadoEn).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  .
+                </Text>
+              ) : null}
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityLabel="Cerrar">
               <Ionicons name="close" size={28} color={colors.textMuted} />
