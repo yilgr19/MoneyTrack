@@ -338,8 +338,8 @@ export default function SaldoScreen() {
   ]);
 
   /**
-   * Incluye borrador de esta pantalla (saldos, tarjetas, tope) para que la tarjeta muestre
-   * cupo total − deuda, no el «saldo inicial» a 0 si no se rellenó ese campo.
+   * Incluye borrador de esta pantalla (saldos, tarjetas, tope) para previsualizar el cupo libre
+   * (cupo total − deuda) coherente con el formulario.
    */
   const dataCalculoBorrador = useMemo(
     () => ({
@@ -450,7 +450,6 @@ export default function SaldoScreen() {
   }
 
   function openTarjetasCredito() {
-    setDraftMonto(String(saldos.tarjetaCredito ?? ''));
     let list = tarjetasCredito.length > 0 ? [...tarjetasCredito] : [];
     if (!list.length && (parseFloat(limiteTc) || 0) > 0) {
       list = [
@@ -482,11 +481,12 @@ export default function SaldoScreen() {
   }
 
   function applyTarjetasCredito() {
-    const montoTarjetaCta = parseFloat(draftMonto) || 0;
+    /** El cupo libre sale de cupo total − deuda (filas y movimientos); no hace falta un «saldo inicial» aparte. */
+    const montoTarjetaCta = 0;
     if (tcModalLines.length === 0) {
       setTarjetasCredito([]);
       setLimiteTc('0');
-      setSaldos((prev) => ({ ...prev, tarjetaCredito: draftMonto }));
+      setSaldos((prev) => ({ ...prev, tarjetaCredito: '0' }));
       replaceState((s) => ({
         ...s,
         tarjetasCredito: [],
@@ -543,7 +543,7 @@ export default function SaldoScreen() {
     });
     setTarjetasCredito(tarjetasClean);
     setLimiteTc(String(sumCupos));
-    setSaldos((prev) => ({ ...prev, tarjetaCredito: draftMonto }));
+    setSaldos((prev) => ({ ...prev, tarjetaCredito: '0' }));
     replaceState((s) => ({
       ...s,
       tarjetasCredito: tarjetasClean,
@@ -1099,20 +1099,11 @@ export default function SaldoScreen() {
                 {sheet === 'tarjetasCredito' && (
                   <>
                     <Text style={styles.modalHint}>
-                      El saldo inicial es opcional. Los cupos por entidad se suman como límite total. Indica la fecha
-                      de corte y la fecha límite de pago: cada mes se usará el mismo día del mes (si el mes tiene menos
-                      días, se ajusta al último día). Al guardar el saldo inicial se sincronizan recordatorios en «Pagos
-                      programados».
+                      El cupo libre se calcula a partir de cupo total, cupo utilizado (deuda) y tus movimientos en
+                      Gastos. Los cupos por entidad se suman como límite total. Indica la fecha de corte y la fecha
+                      límite de pago: cada mes se usará el mismo día del mes (si el mes tiene menos días, se ajusta al
+                      último día). Al aplicar, se actualizan los recordatorios en «Pagos programados».
                     </Text>
-                    <Text style={styles.modalLab}>Saldo inicial (tarjeta en la app)</Text>
-                    <TextInput
-                      style={styles.input}
-                      keyboardType="decimal-pad"
-                      value={draftMonto}
-                      onChangeText={setDraftMonto}
-                      placeholder="0,00"
-                      placeholderTextColor={colors.textFaint}
-                    />
                     {tcModalLines.length === 0 ? (
                       <Text style={[styles.modalHint, { marginBottom: spacing.sm }]}>
                         No hay filas: pulsa «Agregar otra tarjeta» o Aplicar para quitar toda la configuración de

@@ -46,11 +46,26 @@ export default function GastosScreen() {
   const [pagoProgramadoEnUso, setPagoProgramadoEnUso] = useState(null);
   /** Abono/liquidación de tarjeta: solo cajas con dinero, no cargo nuevo a la TC. */
   const [abonoDeudaTarjeta, setAbonoDeudaTarjeta] = useState(false);
+  /** Con varias filas de TC en Saldo, el cargo a cuál aplica (extracto e importe por entidad). */
+  const [tarjetaCreditoElegida, setTarjetaCreditoElegida] = useState('');
 
   const categorias = useMemo(
     () => (state.categorias || []).map(normalizarCategoria),
     [state.categorias]
   );
+
+  const filasTarjeta = useMemo(() => state.tarjetasCredito || [], [state.tarjetasCredito]);
+
+  useEffect(() => {
+    if (normalizarOrigenCuenta(origen) !== 'tarjetaCredito' || abonoDeudaTarjeta) return;
+    if (filasTarjeta.length === 1) {
+      setTarjetaCreditoElegida(String(filasTarjeta[0].id));
+      return;
+    }
+    if (filasTarjeta.length > 1 && !filasTarjeta.some((t) => t && t.id === tarjetaCreditoElegida)) {
+      setTarjetaCreditoElegida(String(filasTarjeta[0].id));
+    }
+  }, [origen, abonoDeudaTarjeta, filasTarjeta, tarjetaCreditoElegida]);
 
   const cantNum = parseFloat(cantidad) || 0;
   const cuotaMensualTc = cantNum > 0 && cuotas > 0 ? cantNum / cuotas : cantNum;
@@ -149,6 +164,14 @@ export default function GastosScreen() {
       Alert.alert('Cuenta', 'Para abonar o pagar la deuda, elige efectivo, bancos o apps; no un nuevo cargo a la tarjeta.');
       return;
     }
+    if (
+      origen === 'tarjetaCredito' &&
+      (state.tarjetasCredito || []).length > 1 &&
+      !String(tarjetaCreditoElegida || '').trim()
+    ) {
+      Alert.alert('Tarjeta', 'Selecciona con qué entidad o tarjeta hiciste la compra.');
+      return;
+    }
 
     const catObj = categorias.find((c) => c.nombre === categoria);
     if (catObj && catObj.limite) {
@@ -178,6 +201,13 @@ export default function GastosScreen() {
 
   function guardarGasto(cuotasVal, cuotaMensualVal) {
     const fechaStr = `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}:00`;
+    const tcsGuard = state.tarjetasCredito || [];
+    const tarjetaIdGasto =
+      origen === 'tarjetaCredito' && tcsGuard.length === 1
+        ? String(tcsGuard[0].id)
+        : origen === 'tarjetaCredito' && tcsGuard.length > 1
+          ? String(tarjetaCreditoElegida)
+          : undefined;
 
     const nuevo = {
       nombre: nombre.trim(),
@@ -189,6 +219,9 @@ export default function GastosScreen() {
       cuotas: origen === 'tarjetaCredito' ? cuotasVal : 1,
       cuotaMensual: origen === 'tarjetaCredito' ? cuotaMensualVal : cantNum,
       ...(abonoDeudaTarjeta ? { esAbonoDeudaTarjeta: true } : {}),
+      ...(origen === 'tarjetaCredito' && tarjetaIdGasto
+        ? { tarjetaCreditoId: tarjetaIdGasto }
+        : {}),
     };
 
     replaceState((s) => {
@@ -197,9 +230,12 @@ export default function GastosScreen() {
 
       if (origen === 'tarjetaCredito') {
         const tcs = s.tarjetasCredito || [];
-        const tTarjeta = tcs.find((x) => (parseFloat(x.tasaEA) || 0) > 0) || tcs[0];
+        const tTarjeta =
+          (tarjetaIdGasto && tcs.find((x) => x && String(x.id) === String(tarjetaIdGasto))) ||
+          tcs.find((x) => (parseFloat(x.tasaEA) || 0) > 0) ||
+          tcs[0];
         const tasaEaVal = tTarjeta ? parseFloat(tTarjeta.tasaEA) || 0 : 0;
-        const fechasC = fechasCortesParaGastoTarjeta(fechaStr, cuotasVal, s);
+        const fechasC = fechasCortesParaGastoTarjeta(fechaStr, cuotasVal, s, tarjetaIdGasto);
         fechasC.forEach((nextDate, i) => {
           const fechaCuota = fechaALocalISO(nextDate);
           if (!fechaCuota) return;
@@ -352,6 +388,28 @@ export default function GastosScreen() {
 
         {!abonoDeudaTarjeta && origen === 'tarjetaCredito' && (
           <>
+            {filasTarjeta.length > 1 ? (
+              <>
+                <FieldLabel>¿Con qué tarjeta?</FieldLabel>
+                <View style={styles.pickerWrap}>
+                  <Picker
+                    selectedValue={tarjetaCreditoElegida}
+                    onValueChange={setTarjetaCreditoElegida}
+                    dropdownIconColor={colors.text}
+                    style={{ color: colors.text }}
+                  >
+                    <Picker.Item label="Selecciona…" value="" color={colors.textMuted} />
+                    {filasTarjeta.map((t) => (
+                      <Picker.Item
+                        key={t.id}
+                        label={String(t.nombreEntidad || 'Tarjeta').trim() || 'Tarjeta'}
+                        value={t.id}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </>
+            ) : null}
             <FieldLabel>Cuotas</FieldLabel>
             <View style={styles.pickerWrap}>
               <Picker selectedValue={cuotas} onValueChange={(v) => setCuotas(v)} style={{ color: colors.text }}>

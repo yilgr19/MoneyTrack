@@ -817,10 +817,35 @@ export function montoGastoPorCuenta(g, cuentaId) {
   return g.cantidad || 0;
 }
 
-function patCortePrimeraTarjeta(data) {
+function idPrimeraTarjetaCreditoEnData(data) {
+  const arr = data?.tarjetasCredito;
+  if (!Array.isArray(arr) || !arr[0] || !arr[0].id) return null;
+  return String(arr[0].id);
+}
+
+/**
+ * Patrón de fecha de corte: tarjeta con `tarjetaCreditoId` o, si no se indica, la primera (compatible con gastos
+ * antiguos sin `tarjetaCreditoId`).
+ */
+function patCorteParaTarjetaId(data, tarjetaCreditoId) {
   const arr = data?.tarjetasCredito;
   if (!Array.isArray(arr) || arr.length === 0) return null;
+  if (tarjetaCreditoId) {
+    const t = arr.find((x) => x && String(x.id) === String(tarjetaCreditoId));
+    if (t) return patronMensualDesdeTarjeta(t, 'corte');
+  }
   return patronMensualDesdeTarjeta(arr[0], 'corte');
+}
+
+/**
+ * Gasto cargado a TC: pertenece a `idTarjeta` si trae `tarjetaCreditoId` o (legacy) solo a la primera fila de Saldo.
+ */
+function gastoCargaPerteneceATarjeta(g, idTarjeta, data) {
+  if (normalizarOrigenCuenta(g?.origen) !== 'tarjetaCredito') return false;
+  if (!idTarjeta) return false;
+  if (g.tarjetaCreditoId) return String(g.tarjetaCreditoId) === String(idTarjeta);
+  const prim = idPrimeraTarjetaCreditoEnData(data);
+  return prim != null && prim === String(idTarjeta);
 }
 
 /** n-ésima fecha de corte (1 = primer corte estrictamente posterior a la compra). */
@@ -841,12 +866,13 @@ function fechaCorteNDesdeGasto(fechaGasto, pat, n) {
 /**
  * Fechas (una por cuota) en que “cae” el cargo según ciclos de corte. Sin tarjeta con corte en Saldo, mes a mes
  * desde la compra.
+ * @param {string} [tarjetaCreditoId] - Corte alineado a esa fila en Saldo; si falta, se usa la primera (gastos antiguos).
  */
-export function fechasCortesParaGastoTarjeta(fechaGasto, nCuotas, data) {
+export function fechasCortesParaGastoTarjeta(fechaGasto, nCuotas, data, tarjetaCreditoId) {
   const n = Math.max(0, parseInt(nCuotas, 10) || 0);
   if (n < 1) return [];
   const r0 = parseFechaHoraLocal(fechaGasto) || new Date();
-  const pat = patCortePrimeraTarjeta(data);
+  const pat = patCorteParaTarjetaId(data, tarjetaCreditoId);
   if (!pat) {
     return Array.from(
       { length: n },
@@ -873,9 +899,34 @@ function corteCivilAplicaHastaFecha(fechaCorte, ref) {
 }
 
 /**
- * Suma acumulada (por movimientos en Gastos) de lo que ya “corre” a deuda: cada cuota cuyo corte
- * es hoy o ya ocurrió, más el contado en su primer corte. Se suma al cupo usado de Saldo para el
- * cupo libre; evita doble conteo: si anotas lo mismo en Saldo y en Gastos, ajusta el cupo usado.
+ * Suma de deuda por mov. en Gastos solo para la tarjeta `tarjetaId` (cortes a la fecha de `ref`). No mezcla otras.
+ */
+export function deudaGastosTarjetaAcumuladaHastaCorteParaTarjeta(tarjetaId, data, ref = new Date()) {
+  const gastos = data.gastos || [];
+  let sum = 0;
+  for (const g of gastos) {
+    if (normalizarOrigenCuenta(g.origen) !== 'tarjetaCredito') continue;
+    if (!gastoCargaPerteneceATarjeta(g, tarjetaId, data)) continue;
+    const q = Math.max(1, parseInt(g.cuotas, 10) || 1);
+    const fechas = fechasCortesParaGastoTarjeta(g.fecha, q, data, g.tarjetaCreditoId);
+    if (fechas.length === 0) continue;
+    const cuo = q > 1 ? nNum(g.cuotaMensual) || nNum(g.cantidad) / q : nNum(g.cantidad);
+    let nCortesYa = 0;
+    for (const d of fechas) {
+      if (corteCivilAplicaHastaFecha(d, ref)) nCortesYa++;
+    }
+    if (q > 1) {
+      sum += nCortesYa * cuo;
+    } else if (nCortesYa >= 1) {
+      sum += nNum(g.cantidad);
+    }
+  }
+  return sum;
+}
+
+/**
+ * Suma acumulada (global) por movimientos en Gastos con origen TC; cada gasto usa el corte de su `tarjetaCreditoId`
+ * (o el de la primera tarjeta si es legacy).
  */
 export function deudaGastosTarjetaAcumuladaHastaCorte(data, ref = new Date()) {
   const gastos = data.gastos || [];
@@ -883,7 +934,7 @@ export function deudaGastosTarjetaAcumuladaHastaCorte(data, ref = new Date()) {
   for (const g of gastos) {
     if (normalizarOrigenCuenta(g.origen) !== 'tarjetaCredito') continue;
     const q = Math.max(1, parseInt(g.cuotas, 10) || 1);
-    const fechas = fechasCortesParaGastoTarjeta(g.fecha, q, data);
+    const fechas = fechasCortesParaGastoTarjeta(g.fecha, q, data, g.tarjetaCreditoId);
     if (fechas.length === 0) continue;
     const cuo = q > 1 ? nNum(g.cuotaMensual) || nNum(g.cantidad) / q : nNum(g.cantidad);
     let nCortesYa = 0;
@@ -916,7 +967,7 @@ export function montoGastoAfectaSaldoEnMes(g, data, mes, año) {
   }
   const q = parseInt(g.cuotas, 10) || 1;
   const cuo = q > 1 ? nNum(g.cuotaMensual) || nNum(g.cantidad) / q : nNum(g.cantidad);
-  const pat = patCortePrimeraTarjeta(data);
+  const pat = patCorteParaTarjetaId(data, g.tarjetaCreditoId);
   const r0 = parseFechaHoraLocal(g.fecha) || new Date();
   if (!pat) {
     for (let i = 0; i < q; i++) {
@@ -944,7 +995,7 @@ export function aniosMesesDondeAfectaGasto(g, data) {
     return m.mes < 0 ? [] : [{ mes: m.mes, año: m.año }];
   }
   const q = Math.max(1, parseInt(g.cuotas, 10) || 1);
-  const f = fechasCortesParaGastoTarjeta(g.fecha, q, data);
+  const f = fechasCortesParaGastoTarjeta(g.fecha, q, data, g.tarjetaCreditoId);
   if (f.length === 0) {
     const m = obtenerMesAño(g.fecha);
     return m.mes < 0 ? [] : [{ mes: m.mes, año: m.año }];
@@ -1323,6 +1374,7 @@ function lineasMovimientosCorteDia(t, data, ref) {
   const out = [];
   for (const g of data.gastos || []) {
     if (normalizarOrigenCuenta(g.origen) !== 'tarjetaCredito') continue;
+    if (!gastoCargaPerteneceATarjeta(g, t.id, data)) continue;
     const q = Math.max(1, parseInt(g.cuotas, 10) || 1);
     const fechas = fechasCortesParaGastoYPat(g.fecha, q, pat);
     const cuo = q > 1 ? nNum(g.cuotaMensual) || nNum(g.cantidad) / q : nNum(g.cantidad);
@@ -1371,7 +1423,7 @@ export function construirExtractoBancarioTarjeta(t, data, ref = new Date()) {
   const limS = limiteTotalTarjetasCredito(data);
   const cupoU = nNum(t.cupoUtilizado);
   const frac = fraccionCupoDeTarjeta(t, data);
-  const deudaMovG = nNum(deudaGastosTarjetaAcumuladaHastaCorte(data, ref)) * frac;
+  const deudaMovG = nNum(deudaGastosTarjetaAcumuladaHastaCorteParaTarjeta(t.id, data, ref));
   const abonosPart = nNum(totalAbonosDeudaTarjetaDesdeGastos(data)) * frac;
   const deudaEfect = Math.min(
     limT > 0 ? limT : limS,
