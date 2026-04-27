@@ -14,6 +14,7 @@ const ITEMS = [
     icon: 'receipt',
   },
   { key: 'Categorias', title: 'Categorías', sub: 'Organiza tus gastos', icon: 'grid' },
+  { key: 'MisBolsillos', title: 'Mis bolsillos', sub: 'Ahorro separado de tu patrimonio', icon: 'wallet' },
   { key: 'Metas', title: 'Metas', sub: 'Ahorro y objetivos', icon: 'flag' },
   { key: 'PagosProgramados', title: 'Pagos programados', sub: 'Suscripciones y recordatorios', icon: 'calendar' },
   { key: 'Movimientos', title: 'Movimientos', sub: 'Ingresos, gastos, tarjeta y metas', icon: 'swap-vertical' },

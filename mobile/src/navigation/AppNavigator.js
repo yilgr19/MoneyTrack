@@ -15,6 +15,7 @@ import IngresosScreen from '../screens/IngresosScreen';
 import CategoriasScreen from '../screens/CategoriasScreen';
 import MetasScreen from '../screens/MetasScreen';
 import ExtractosTarjetasScreen from '../screens/ExtractosTarjetasScreen';
+import MisBolsillosScreen from '../screens/MisBolsillosScreen';
 import PagosScreen from '../screens/PagosScreen';
 import ReportesScreen from '../screens/ReportesScreen';
 import AdminScreen from '../screens/AdminScreen';
@@ -62,6 +63,7 @@ function MoreStack() {
         component={ExtractosTarjetasScreen}
         options={{ title: 'Extractos de tarjeta' }}
       />
+      <Stack.Screen name="MisBolsillos" component={MisBolsillosScreen} options={{ title: 'Mis bolsillos' }} />
       <Stack.Screen name="Categorias" component={CategoriasScreen} options={{ title: 'Categorías' }} />
       <Stack.Screen name="Metas" component={MetasScreen} options={{ title: 'Metas' }} />
       <Stack.Screen name="PagosProgramados" component={PagosScreen} options={{ title: 'Pagos programados' }} />

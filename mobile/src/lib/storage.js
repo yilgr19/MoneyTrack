@@ -22,6 +22,7 @@ const KEYS = [
   'saldoBanco',
   'saldoInicialNota',
   'extractosTarjetasHistorial',
+  'bolsillos',
 ];
 
 export function emptySaldosCuentas() {
@@ -65,6 +66,7 @@ export async function loadAppState() {
     plataformasDetalle: parseJson(map.plataformasDetalle, []),
     tarjetasCredito: parseJson(map.tarjetasCredito, []),
     extractosTarjetasHistorial: parseJson(map.extractosTarjetasHistorial, []),
+    bolsillos: parseJson(map.bolsillos, []),
   };
 }
 
@@ -86,6 +88,7 @@ export async function persistAppState(state) {
     ['plataformasDetalle', JSON.stringify(state.plataformasDetalle || [])],
     ['tarjetasCredito', JSON.stringify(state.tarjetasCredito || [])],
     ['extractosTarjetasHistorial', JSON.stringify(state.extractosTarjetasHistorial || [])],
+    ['bolsillos', JSON.stringify(state.bolsillos || [])],
   ];
   await AsyncStorage.multiSet(pairs);
 }
@@ -120,6 +123,7 @@ export async function clearStorageFull() {
     ['metas', '[]'],
     ['contribucionesMetas', '[]'],
     ['extractosTarjetasHistorial', '[]'],
+    ['bolsillos', '[]'],
   ]);
 }
 

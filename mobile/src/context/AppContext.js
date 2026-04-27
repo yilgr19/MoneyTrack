@@ -46,6 +46,7 @@ function normalizeState(raw) {
     extractosTarjetasHistorial: Array.isArray(raw.extractosTarjetasHistorial)
       ? raw.extractosTarjetasHistorial.filter((r) => r && typeof r === 'object' && r.id)
       : [],
+    bolsillos: Array.isArray(raw.bolsillos) ? raw.bolsillos.filter((r) => r && typeof r === 'object' && r.id) : [],
   };
 }
 

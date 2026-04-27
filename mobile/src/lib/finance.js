@@ -1022,6 +1022,7 @@ export function deudaGastosTarjetaAcumuladaHastaCorte(data, ref = new Date()) {
 export function montoGastoAfectaSaldoEnMes(g, data, mes, año) {
   if (!g) return 0;
   if (g.esAbonoDeudaTarjeta) return 0;
+  if (g.esTransferenciaBolsillo) return 0;
   const orig = normalizarOrigenCuenta(g.origen);
   if (orig !== 'tarjetaCredito') {
     const m = obtenerMesAño(g.fecha);
@@ -1835,6 +1836,17 @@ export function generarIdPagoProgramado() {
   return `pago_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+export function generarIdBolsillo() {
+  return `bol_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/** Suma saldos en bolsillos (ahorro aparte del patrimonio en cajas). */
+export function totalSaldoBolsillos(data) {
+  const arr = data?.bolsillos;
+  if (!Array.isArray(arr)) return 0;
+  return redondear2(arr.reduce((s, b) => s + nNum(b?.saldo), 0));
+}
+
 const TOL_MONTO_PAGO_PROG = 0.02;
 
 function nombrePagoCoincideConGasto(nombreGasto, conceptoPago) {
@@ -1847,6 +1859,7 @@ function nombrePagoCoincideConGasto(nombreGasto, conceptoPago) {
  */
 export function pagoProgramadoCumplidoPorGasto(gasto, pago) {
   if (!gasto || !pago) return false;
+  if (gasto.esTransferenciaBolsillo) return false;
   if (pago.activo === false) return false;
   if (pago.esRecordatorioTarjeta || pago.esCuotaDiferida) return false;
   if (!nombrePagoCoincideConGasto(gasto.nombre, pago.concepto)) return false;

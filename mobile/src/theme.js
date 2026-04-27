@@ -42,6 +42,25 @@ export const colors = {
   barTrack: 'rgba(167, 216, 222, 0.12)',
 };
 
+/**
+ * Colores vivos y distinguibles para bolsillos (no apagados).
+ * Elegidos para no solaparse con la paleta por defecto de categorías.
+ */
+export const COLORES_BOLSILLO = [
+  '#2dd4bf',
+  '#4ade80',
+  '#a78bfa',
+  '#fbbf24',
+  '#fb7185',
+  '#38bdf8',
+  '#34d399',
+  '#fb923c',
+  '#c026d3',
+  '#8b5cf6',
+  '#22d3ee',
+  '#e879f9',
+];
+
 export const spacing = {
   xs: 6,
   sm: 10,

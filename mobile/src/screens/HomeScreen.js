@@ -21,6 +21,7 @@ import {
   verificarAlertaTarjetaCredito,
   normalizarCategoria,
   normalizarMeta,
+  totalSaldoBolsillos,
 } from '../lib/finance';
 import { colors, spacing, radii, typography, layoutStyles } from '../theme';
 
@@ -65,10 +66,12 @@ export default function HomeScreen() {
         estadoDetalle: '',
         estadoKind: 'info',
         cuentasInicio: [],
+        totalEnBolsillos: 0,
       };
     }
 
     const ahora = new Date();
+    const totalEnBolsillos = totalSaldoBolsillos(state);
     const mesActual = ahora.getMonth();
     const añoActual = ahora.getFullYear();
     const nombreMes = [
@@ -86,6 +89,7 @@ export default function HomeScreen() {
 
     const ingresosMesActual = ingresos
       .filter((i) => {
+        if (i.esRetiroBolsillo) return false;
         const { mes, año } = obtenerMesAño(i.fecha);
         return mes === mesActual && año === añoActual;
       })
@@ -96,7 +100,10 @@ export default function HomeScreen() {
       0
     );
 
-    const totalGastos = gastos.reduce((s, g) => s + (parseFloat(g.cantidad) || 0), 0);
+    const totalGastos = gastos.reduce(
+      (s, g) => s + (g.esTransferenciaBolsillo ? 0 : parseFloat(g.cantidad) || 0),
+      0
+    );
     const flujoMes = ingresosMesActual - gastosMesActual;
     const alertaTc = verificarAlertaTarjetaCredito(state);
     const presupuestoMensual = state.presupuestoMensual || 0;
@@ -163,6 +170,7 @@ export default function HomeScreen() {
 
     return {
       saldosPorCuenta,
+      totalEnBolsillos,
       cuentasInicio,
       topeTarjeta,
       deudaTarjeta,
@@ -200,6 +208,7 @@ export default function HomeScreen() {
     state?.gastos,
     state?.ingresos,
     state?.contribucionesMetas,
+    state?.bolsillos,
   ]);
 
   if (!ready || !state) {
@@ -270,6 +279,11 @@ export default function HomeScreen() {
         >
           {formatearNumero(derived.saldoActual)} <Text style={styles.heroMoneda}>{moneda}</Text>
         </Text>
+        {derived.totalEnBolsillos > 0 ? (
+          <Text style={[typography.small, { color: colors.textFaint, marginTop: 6, lineHeight: 18 }]}>
+            En bolsillos (ahorro, no suma arriba): {formatearNumero(derived.totalEnBolsillos)} {moneda}
+          </Text>
+        ) : null}
         <View style={styles.heroRow}>
           <Text style={styles.heroMeta}>
             +{formatearNumero(derived.ingresosMesActual)} {moneda} ingresos mes
