@@ -78,8 +78,8 @@ export default function IngresosScreen() {
         <Text style={styles.lab}>Cuenta destino</Text>
         {cuentasDestino.length === 0 ? (
           <Text style={styles.warn}>
-            No hay cuentas con saldo disponible. Define saldo inicial (y cuentas en banco o plataformas si aplica) en Más →
-            Saldo.
+            Aún no hay cajas listadas. Elige moneda en Más → Saldo y, si aplica, bancos o plataformas, para
+            asignar el ingreso.
           </Text>
         ) : (
           <View style={styles.pickerWrap}>

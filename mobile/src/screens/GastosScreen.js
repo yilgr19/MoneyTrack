@@ -15,6 +15,7 @@ import {
   montoGastoAfectaSaldo,
   pagoDebeMostrarseParaPagar,
   obtenerCuentasOrigenGastoElegible,
+  obtenerCuentasDestinoIngreso,
   obtenerSaldoDisponibleParaOrigenMovimiento,
   totalSaldoLiquido,
 } from '../lib/finance';
@@ -62,6 +63,12 @@ export default function GastosScreen() {
     }
     return 'No alcanza el monto con el saldo que la app en efectivo, bancos y billeteras. Revisa Saldo, suma un ingreso o ajusta el monto o la cuenta (incluida la tarjeta en cuota).';
   }, [state, cantNum, cuentasDisponibles.length]);
+
+  /** Saldos por línea (incl. 0,00) para ver cajas aunque no alcance el gasto. */
+  const lineasSaldosReferencia = useMemo(
+    () => obtenerCuentasDestinoIngreso(state || {}),
+    [state]
+  );
 
   useEffect(() => {
     if (origen && !cuentasDisponibles.some((c) => c.value === origen)) {
@@ -299,6 +306,25 @@ export default function GastosScreen() {
           </>
         )}
 
+        {lineasSaldosReferencia.length > 0 ? (
+          <View style={styles.refSaldosBlock}>
+            <Text style={typography.label}>Saldos actuales (referencia)</Text>
+            <Text style={styles.refSaldosHint}>
+              Aunque una caja esté en 0,00 o no alcance el monto, sigues viendo dónde está cada parte; añade ingresos
+              en Más → Ingresos o ajusta en Saldo.
+            </Text>
+            {lineasSaldosReferencia.map((row) => (
+              <Text key={row.value} style={styles.refSaldosLinea}>
+                • {row.label}
+              </Text>
+            ))}
+            <Text style={styles.refSaldosLinea}>
+              Líquido (sin cupo de tarjeta en esta suma): {formatearNumero(totalSaldoLiquido(state || {}), 0)}{' '}
+              {moneda}
+            </Text>
+          </View>
+        ) : null}
+
         <FieldLabel>Nota (opcional)</FieldLabel>
         <TextInput
           style={styles.input}
@@ -350,4 +376,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.12)',
   },
   warn: { color: colors.danger, marginVertical: spacing.sm, fontSize: 14 },
+  refSaldosBlock: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderWidth: 1,
+    borderColor: colors.stroke,
+  },
+  refSaldosHint: { ...typography.small, color: colors.textFaint, marginTop: spacing.xs, lineHeight: 18 },
+  refSaldosLinea: { ...typography.small, color: colors.textSecondary, marginTop: 4, lineHeight: 19 },
 });

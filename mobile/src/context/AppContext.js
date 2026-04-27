@@ -43,8 +43,12 @@ function normalizeState(raw) {
   };
 }
 
-/** Instalaciones anteriores al onboarding: si ya había actividad, no forzar el recorrido. */
-function tieneDatosPrevios(n) {
+/**
+ * Indicios de que el usuario ya empezó (moneda, movimientos, metas, presupuesto, filas de banco, etc.).
+ * Si la plata se acabó, sigue en true: el Inicio no vuelve a la pantalla mínima “Bienvenido”.
+ */
+export function tieneDatosPrevios(n) {
+  if (!n || typeof n !== 'object') return false;
   if (String(n.moneda || '').trim()) return true;
   const saldos = n.saldosCuentas || {};
   if (Object.values(saldos).some((v) => (parseFloat(v) || 0) > 0)) return true;
@@ -53,6 +57,11 @@ function tieneDatosPrevios(n) {
   if (Array.isArray(n.categorias) && n.categorias.length > 0) return true;
   if (Array.isArray(n.metas) && n.metas.length > 0) return true;
   if (String(n.saldoInicialNota || '').trim()) return true;
+  if (parseFloat(n.presupuestoMensual) > 0) return true;
+  if (Array.isArray(n.bancosDetalle) && n.bancosDetalle.length > 0) return true;
+  if (Array.isArray(n.plataformasDetalle) && n.plataformasDetalle.length > 0) return true;
+  if (Array.isArray(n.tarjetasCredito) && n.tarjetasCredito.length > 0) return true;
+  if (parseFloat(n.limiteTarjetaCredito) > 0) return true;
   return false;
 }
 

@@ -21,8 +21,9 @@ export default function ReportesScreen() {
     const contrib = state.contribucionesMetas || [];
     const set = new Set();
     const add = (f) => {
-      if (!f) return;
+      if (f == null || String(f).trim() === '') return;
       const { mes, año } = obtenerMesAño(f);
+      if (mes < 0) return;
       set.add(JSON.stringify({ mes, año }));
     };
     ingresos.forEach((i) => add(i.fecha));
@@ -50,7 +51,7 @@ export default function ReportesScreen() {
               const k = obtenerMesAño(i.fecha);
               return k.mes === mes && k.año === año;
             })
-            .reduce((s, i) => s + i.cantidad, 0);
+            .reduce((s, i) => s + (parseFloat(i.cantidad) || 0), 0);
           const gasMes = (state.gastos || [])
             .filter((g) => {
               const k = obtenerMesAño(g.fecha);

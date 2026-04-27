@@ -336,13 +336,26 @@ export function cuentaBucketMovimiento(origen, data) {
   return normalizarOrigenCuenta(origen);
 }
 
-/** Suma de cupos totales configurados; si no hay tarjetas detalladas, usa limiteTarjetaCredito legacy. */
+/**
+ * Suma de cupos totales. Con filas en Saldo, si la suma de cupo por entidad queda 0, se usa aún
+ * `limiteTarjetaCredito` (total guardado al confirmar) para no perder el tope y que Inicio muestre bien el saldo.
+ */
 export function limiteTotalTarjetasCredito(data) {
   const arr = data.tarjetasCredito;
+  const legacy = parseFloat(data.limiteTarjetaCredito) || 0;
   if (Array.isArray(arr) && arr.length > 0) {
-    return arr.reduce((s, t) => s + (parseFloat(t.cupoTotal) || 0), 0);
+    const sumCupo = arr.reduce((s, t) => s + (parseFloat(t.cupoTotal) || 0), 0);
+    if (sumCupo > 0) return sumCupo;
+    if (legacy > 0) return legacy;
   }
-  return parseFloat(data.limiteTarjetaCredito) || 0;
+  return legacy;
+}
+
+/** Suma de «Cupo utilizado (deuda)» por tarjeta en Saldo; afecta el cupo libre para pagar. */
+export function totalCupoUtilizadoTarjetasCredito(data) {
+  const arr = data.tarjetasCredito;
+  if (!Array.isArray(arr) || arr.length === 0) return 0;
+  return arr.reduce((s, t) => s + (parseFloat(t.cupoUtilizado) || 0), 0);
 }
 
 export function generarIdTarjetaCredito() {
@@ -537,6 +550,11 @@ export function resumenAlertasTarjetasCredito(data, ref = new Date()) {
   };
 }
 
+function nNum(v) {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : 0;
+}
+
 export function calcularSaldosPorCuenta(data) {
   const saldosIni = obtenerSaldosIniciales(data);
   const ingresos = data.ingresos || [];
@@ -548,7 +566,7 @@ export function calcularSaldosPorCuenta(data) {
   CUENTAS.forEach((c) => {
     const ing = ingresos
       .filter((i) => cuentaBucketMovimiento(i.origen, data) === c.id)
-      .reduce((s, i) => s + i.cantidad, 0);
+      .reduce((s, i) => s + nNum(i.cantidad), 0);
     const gast = gastos
       .filter((g) => {
         const b = cuentaBucketMovimiento(g.origen, data);
@@ -558,23 +576,27 @@ export function calcularSaldosPorCuenta(data) {
         return b === c.id;
       })
       .reduce((s, g) => {
+        const q = parseInt(g.cuotas, 10) || 1;
         const monto =
-          c.id === 'tarjetaCredito' && g.cuotas > 1
-            ? g.cuotaMensual || (g.cantidad || 0) / g.cuotas
-            : g.cantidad || 0;
+          c.id === 'tarjetaCredito' && q > 1
+            ? nNum(g.cuotaMensual) || nNum(g.cantidad) / q
+            : nNum(g.cantidad);
         return s + monto;
       }, 0);
     const contrib = contribuciones
       .filter((x) => cuentaBucketMovimiento(x.origen, data) === c.id)
-      .reduce((s, x) => s + x.cantidad, 0);
+      .reduce((s, x) => s + nNum(x.cantidad), 0);
     if (c.id === 'tarjetaCredito' && limiteTc > 0) {
-      saldos[c.id] = Math.max(0, limiteTc - gast - contrib);
+      const deuda = totalCupoUtilizadoTarjetasCredito(data);
+      /** Cupo disponible = tope de línea(s) − «cupo usado (deuda)» en Saldo. La deuda es la verdad: no se resta además el sumatorio de gastos (evita doble conteo). */
+      saldos[c.id] = Math.max(0, nNum(limiteTc) - nNum(deuda));
     } else {
-      saldos[c.id] = saldosIni[c.id] + ing - gast - contrib;
+      saldos[c.id] = nNum(saldosIni[c.id]) + ing - gast - contrib;
     }
   });
-  saldos.total = Object.values(saldos).reduce((a, b) => a + b, 0);
-  saldos.totalReservado = contribuciones.reduce((s, c) => s + c.cantidad, 0);
+  /** Solo cuentas de CUENTAS, siempre numérico (Object.values mezclaba strings si hubo 0 + "100" en reservas). */
+  saldos.total = CUENTAS.reduce((s, c) => s + nNum(saldos[c.id]), 0);
+  saldos.totalReservado = contribuciones.reduce((s, c) => s + nNum(c.cantidad), 0);
   return saldos;
 }
 
@@ -773,37 +795,39 @@ export function liquidacionLineasPlataforma(data) {
 }
 
 /**
- * Cuentas con saldo > 0 para elegir destino de un ingreso (etiqueta con monto y moneda).
+ * Cuentas para destino de un ingreso (y vista de referencia de saldos en Gastos).
+ * Incluye saldo 0,00 o negativo, para que sigas viendo cajas y elijas a dónde entra plata aunque estés en cero.
  */
 export function obtenerCuentasDestinoIngreso(data) {
   const saldos = calcularSaldosPorCuenta(data);
+  const limiteTc = limiteTotalTarjetasCredito(data);
   const moneda = (data.moneda && String(data.moneda).trim()) || '';
   const suf = moneda ? ` ${moneda}` : '';
   const out = [];
 
   const push = (value, nombreDisplay, saldo) => {
-    if (saldo > 0) {
-      out.push({
-        value,
-        label: `${nombreDisplay} (${formatearNumero(saldo)}${suf})`,
-        saldo,
-      });
-    }
+    const n = parseFloat(saldo);
+    const v = Number.isNaN(n) ? 0 : n;
+    out.push({
+      value,
+      label: `${nombreDisplay} (${formatearNumero(v)}${suf})`,
+      saldo: v,
+    });
   };
 
-  if (saldos.efectivo > 0) push('efectivo', 'Efectivo', saldos.efectivo);
+  push('efectivo', 'Efectivo', saldos.efectivo);
 
   const bancos = data.bancosDetalle || [];
   if (bancos.length > 0) {
     liquidacionLineasBanco(data).forEach((row) => {
       push(`${PREFIJO_ORIGEN_BANCO}${row.id}`, row.nombre, row.saldo);
     });
-  } else if (saldos.banco > 0) {
+  } else {
     const nombre = CUENTAS.find((c) => c.id === 'banco')?.nombre || 'Banco';
     push('banco', nombre, saldos.banco);
   }
 
-  if (saldos.tarjetaCredito > 0) {
+  if (limiteTc > 0) {
     const nombre = CUENTAS.find((c) => c.id === 'tarjetaCredito')?.nombre || 'Tarjeta de crédito';
     push('tarjetaCredito', nombre, saldos.tarjetaCredito);
   }
@@ -814,12 +838,10 @@ export function obtenerCuentasDestinoIngreso(data) {
       push(`${PREFIJO_ORIGEN_PLATAFORMA}${row.id}`, row.nombre, row.saldo);
     });
   } else {
-    if (saldos.nequi > 0) push('nequi', 'Nequi', saldos.nequi);
-    if (saldos.daviplata > 0) push('daviplata', 'Daviplata', saldos.daviplata);
-    if (saldos.billeteras > 0) {
-      const nombre = CUENTAS.find((c) => c.id === 'billeteras')?.nombre || 'Otras plataformas';
-      push('billeteras', nombre, saldos.billeteras);
-    }
+    push('nequi', 'Nequi', saldos.nequi);
+    push('daviplata', 'Daviplata', saldos.daviplata);
+    const nb = CUENTAS.find((c) => c.id === 'billeteras')?.nombre || 'Otras plataformas';
+    push('billeteras', nb, saldos.billeteras);
   }
 
   return out;
@@ -929,8 +951,24 @@ export function verificarAlertaTarjetaCredito(data) {
   };
 }
 
+/**
+ * Mes/año calendario del movimiento. Para `YYYY-MM-DD` (como en Ingresos/Gastos) se lee el mes desde el
+ * texto para no depender de `Date` y zonas horarias (p. ej. 27 → 26 al parsear en UTC).
+ */
 export function obtenerMesAño(fechaStr) {
-  const d = new Date(fechaStr && fechaStr.includes('T') ? fechaStr : `${fechaStr || ''}T12:00:00`);
+  if (fechaStr == null) return { mes: -1, año: -1 };
+  const s = String(fechaStr).trim();
+  if (!s) return { mes: -1, año: -1 };
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const y = parseInt(m[1], 10);
+    const mon = parseInt(m[2], 10) - 1;
+    if (Number.isFinite(y) && mon >= 0 && mon <= 11) {
+      return { mes: mon, año: y };
+    }
+  }
+  const d = new Date(s.includes('T') ? s : `${s}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return { mes: -1, año: -1 };
   return { mes: d.getMonth(), año: d.getFullYear() };
 }
 

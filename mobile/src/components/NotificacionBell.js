@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
+import { useNotificacionLectura } from '../context/NotificacionLecturaContext';
 import { reunirNotificacionesApp } from '../lib/notificacionesApp';
-import {
-  contarNoLeidas,
-  firmaNotificacion,
-  loadFirmasLectura,
-  marcarAvisosActualesComoVistos,
-  saveFirmasLectura,
-} from '../lib/notificacionesLectura';
+import { contarNoLeidas, firmaNotificacion } from '../lib/notificacionesLectura';
 import { colors, spacing, radii, typography } from '../theme';
 
 const SEV = {
@@ -37,19 +32,8 @@ const TIPO_ACENTO = {
 export function NotificacionBell() {
   const insets = useSafeAreaInsets();
   const { state } = useApp();
+  const { firmasLeidas, marcarVistosAhora } = useNotificacionLectura();
   const [open, setOpen] = useState(false);
-  /** null = cargando; Record = firmas leídas por id */
-  const [firmasLeidas, setFirmasLeidas] = useState(null);
-
-  useEffect(() => {
-    let active = true;
-    loadFirmasLectura().then((m) => {
-      if (active) setFirmasLeidas(m);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const { items, total: totalAvisos } = useMemo(() => {
     if (!state) return { items: [], total: 0 };
@@ -61,20 +45,14 @@ export function NotificacionBell() {
     return contarNoLeidas(items, firmasLeidas);
   }, [items, firmasLeidas]);
 
-  const abrirYMarcarComoVistas = useCallback(async () => {
+  const abrirYMarcarComoVistas = useCallback(() => {
     if (!state) {
       setOpen(true);
       return;
     }
-    const cur = reunirNotificacionesApp(state, new Date()).items;
-    setFirmasLeidas((prev) => {
-      const base = prev === null ? {} : prev;
-      const next = marcarAvisosActualesComoVistos(cur, base);
-      saveFirmasLectura(next).catch(() => {});
-      return next;
-    });
+    marcarVistosAhora();
     setOpen(true);
-  }, [state]);
+  }, [state, marcarVistosAhora]);
 
   return (
     <>

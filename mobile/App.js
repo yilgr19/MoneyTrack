@@ -15,6 +15,7 @@ import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
+import { NotificacionLecturaProvider } from './src/context/NotificacionLecturaContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import { colors, spacing, typography } from './src/theme';
@@ -108,7 +109,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <Root />
+        <NotificacionLecturaProvider>
+          <Root />
+        </NotificacionLecturaProvider>
       </AppProvider>
     </SafeAreaProvider>
   );

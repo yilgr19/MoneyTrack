@@ -337,7 +337,23 @@ export default function SaldoScreen() {
     state.saldoInicialNota,
   ]);
 
-  const saldosActuales = calcularSaldosPorCuenta(state);
+  /**
+   * Incluye borrador de esta pantalla (saldos, tarjetas, tope) para que la tarjeta muestre
+   * cupo total − deuda, no el «saldo inicial» a 0 si no se rellenó ese campo.
+   */
+  const dataCalculoBorrador = useMemo(
+    () => ({
+      ...state,
+      saldosCuentas: { ...emptySaldosCuentas(), ...state.saldosCuentas, ...saldos },
+      tarjetasCredito: tarjetasCredito || [],
+      limiteTarjetaCredito: parseFloat(limiteTc) || 0,
+    }),
+    [state, saldos, tarjetasCredito, limiteTc]
+  );
+  const saldosActuales = useMemo(
+    () => calcularSaldosPorCuenta(dataCalculoBorrador),
+    [dataCalculoBorrador]
+  );
 
   const monedaLabel = useMemo(() => MONEDAS.find((m) => m.value === moneda)?.label || 'Sin definir', [moneda]);
 
@@ -466,10 +482,25 @@ export default function SaldoScreen() {
   }
 
   function applyTarjetasCredito() {
+    const montoTarjetaCta = parseFloat(draftMonto) || 0;
     if (tcModalLines.length === 0) {
       setTarjetasCredito([]);
       setLimiteTc('0');
       setSaldos((prev) => ({ ...prev, tarjetaCredito: draftMonto }));
+      replaceState((s) => ({
+        ...s,
+        tarjetasCredito: [],
+        limiteTarjetaCredito: 0,
+        saldosCuentas: {
+          ...s.saldosCuentas,
+          tarjetaCredito: montoTarjetaCta,
+        },
+        pagosProgramados: reemplazarPagosRecordatorioTarjetas(
+          s.pagosProgramados || [],
+          [],
+          s.categorias || []
+        ),
+      }));
       closeSheet();
       return;
     }
@@ -494,9 +525,40 @@ export default function SaldoScreen() {
       cleaned.push(draftToTc(row));
     }
     const sumCupos = cleaned.reduce((s, t) => s + t.cupoTotal, 0);
-    setTarjetasCredito(cleaned);
+    const tarjetasClean = cleaned.map((t) => {
+      const fc = soloFechaGuardada(t.fechaHoraCorte);
+      const fl = soloFechaGuardada(t.fechaHoraLimitePago);
+      const corteOk = parseFechaHoraLocal(fc);
+      const limOk = parseFechaHoraLocal(fl);
+      return {
+        id: t.id || generarIdTarjetaCredito(),
+        nombreEntidad: String(t.nombreEntidad || '').trim(),
+        tasaEA: parseFloat(t.tasaEA) || 0,
+        cupoTotal: parseFloat(t.cupoTotal) || 0,
+        cupoUtilizado: parseFloat(t.cupoUtilizado) || 0,
+        fechaHoraCorte: corteOk ? fc : '',
+        fechaHoraLimitePago: limOk ? fl : '',
+        diaCorte: corteOk ? Math.min(28, corteOk.getDate()) : 15,
+        diaLimitePago: limOk ? Math.min(28, limOk.getDate()) : 5,
+      };
+    });
+    setTarjetasCredito(tarjetasClean);
     setLimiteTc(String(sumCupos));
     setSaldos((prev) => ({ ...prev, tarjetaCredito: draftMonto }));
+    replaceState((s) => ({
+      ...s,
+      tarjetasCredito: tarjetasClean,
+      limiteTarjetaCredito: sumCupos,
+      saldosCuentas: {
+        ...s.saldosCuentas,
+        tarjetaCredito: montoTarjetaCta,
+      },
+      pagosProgramados: reemplazarPagosRecordatorioTarjetas(
+        s.pagosProgramados || [],
+        tarjetasClean,
+        s.categorias || []
+      ),
+    }));
     closeSheet();
   }
 
@@ -776,16 +838,20 @@ export default function SaldoScreen() {
           }
           const raw = saldos[c.id];
           const num = parseFloat(raw) || 0;
+          const subTarjeta =
+            `${formatearNumero(saldosActuales.tarjetaCredito || 0)} ${moneda || '—'}`;
           const sub =
-            raw !== '' && raw !== undefined && String(raw).trim() !== ''
-              ? `${formatearNumero(num)} ${moneda || '—'}`
-              : 'Toca para ingresar saldo inicial';
+            c.id === 'tarjetaCredito'
+              ? subTarjeta
+              : raw !== '' && raw !== undefined && String(raw).trim() !== ''
+                ? `${formatearNumero(num)} ${moneda || '—'}`
+                : 'Toca para ingresar saldo inicial';
           const hint = c.id === 'tarjetaCredito' ? tcTarjetaHint : null;
           return (
             <EditCard
               key={c.id}
               icon={CUENTA_ICONS[c.id] || 'ellipse-outline'}
-              title={c.nombre}
+              title={c.id === 'tarjetaCredito' ? `${c.nombre} · cupo libre` : c.nombre}
               subtitle={sub}
               hint={hint}
               onPress={() => openCuenta(c.id)}
