@@ -29,7 +29,15 @@
     },
     "scheme": "moneytrack",
     "plugins": [
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-navigation-bar",
+        {
+          "visibility": "hidden",
+          "behavior": "overlay-swipe",
+          "backgroundColor": "#08060e"
+        }
+      ]
     ]
   }
 }
