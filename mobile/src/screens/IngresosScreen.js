@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
@@ -6,7 +6,7 @@ import ScreenWrap from '../components/ScreenWrap';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
-import { CUENTAS } from '../lib/finance';
+import { obtenerCuentasDestinoIngreso } from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
 function pad(n) {
@@ -20,6 +20,14 @@ export default function IngresosScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [origen, setOrigen] = useState('');
   const [nota, setNota] = useState('');
+
+  const cuentasDestino = useMemo(() => obtenerCuentasDestinoIngreso(state || {}), [state]);
+
+  useEffect(() => {
+    if (origen && !cuentasDestino.some((c) => c.value === origen)) {
+      setOrigen('');
+    }
+  }, [cuentasDestino, origen]);
 
   function guardar() {
     const c = parseFloat(cantidad) || 0;
@@ -68,14 +76,21 @@ export default function IngresosScreen() {
           />
         )}
         <Text style={styles.lab}>Cuenta destino</Text>
-        <View style={styles.pickerWrap}>
-          <Picker selectedValue={origen} onValueChange={setOrigen} style={{ color: colors.text }}>
-            <Picker.Item label="Selecciona…" value="" />
-            {CUENTAS.map((c) => (
-              <Picker.Item key={c.id} label={c.nombre} value={c.id} />
-            ))}
-          </Picker>
-        </View>
+        {cuentasDestino.length === 0 ? (
+          <Text style={styles.warn}>
+            No hay cuentas con saldo disponible. Define saldo inicial (y cuentas en banco o plataformas si aplica) en Más →
+            Saldo.
+          </Text>
+        ) : (
+          <View style={styles.pickerWrap}>
+            <Picker selectedValue={origen} onValueChange={setOrigen} style={{ color: colors.text }}>
+              <Picker.Item label="Selecciona…" value="" />
+              {cuentasDestino.map((c) => (
+                <Picker.Item key={c.value} label={c.label} value={c.value} />
+              ))}
+            </Picker>
+          </View>
+        )}
         <Text style={styles.lab}>Nota (opcional)</Text>
         <TextInput style={styles.input} value={nota} onChangeText={setNota} placeholderTextColor={colors.textFaint} />
         <PrimaryButton title="Guardar ingreso" onPress={guardar} style={{ marginTop: spacing.lg }} />
@@ -107,5 +122,11 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     overflow: 'hidden',
     backgroundColor: 'rgba(0,0,0,0.12)',
+  },
+  warn: {
+    marginTop: spacing.xs,
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
@@ -254,6 +256,61 @@ export default function SaldoScreen() {
   /** null | { idx: number, field: 'corte' | 'limite' } */
   const [tcPicker, setTcPicker] = useState(null);
 
+  const sheetDragY = useRef(new Animated.Value(0)).current;
+  /** Offset Y del ScrollView del modal; si es ~0, el arrastre hacia abajo cierra desde cualquier zona */
+  const sheetScrollY = useRef(0);
+
+  const closeSheet = useCallback(() => {
+    setTcPicker(null);
+    setSheet(null);
+  }, []);
+
+  useEffect(() => {
+    if (sheet !== null) {
+      sheetDragY.setValue(0);
+      sheetScrollY.current = 0;
+    }
+  }, [sheet, sheetDragY]);
+
+  const sheetPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponderCapture: (_, g) => {
+          if (g.dy < 14 || g.dy < Math.abs(g.dx) * 0.55) return false;
+          return sheetScrollY.current <= 2;
+        },
+        onMoveShouldSetPanResponder: (_, g) => {
+          if (g.dy < 14 || g.dy < Math.abs(g.dx) * 0.55) return false;
+          return sheetScrollY.current <= 2;
+        },
+        onPanResponderMove: (_, g) => {
+          if (g.dy > 0) sheetDragY.setValue(g.dy);
+        },
+        onPanResponderRelease: (_, g) => {
+          const dismiss = g.dy > 80 || (g.vy > 0 && g.vy > 0.5);
+          if (dismiss) {
+            Animated.timing(sheetDragY, {
+              toValue: 900,
+              duration: 220,
+              useNativeDriver: true,
+            }).start(() => {
+              sheetDragY.setValue(0);
+              closeSheet();
+            });
+          } else {
+            Animated.spring(sheetDragY, {
+              toValue: 0,
+              friction: 8,
+              tension: 80,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+      }),
+    [closeSheet, sheetDragY]
+  );
+
   useEffect(() => {
     setMoneda(state.moneda || '');
     setSaldos({ ...emptySaldosCuentas(), ...state.saldosCuentas });
@@ -342,11 +399,6 @@ export default function SaldoScreen() {
       })
     );
   }, [sheet, plataformaOptions]);
-
-  function closeSheet() {
-    setTcPicker(null);
-    setSheet(null);
-  }
 
   function openMoneda() {
     setDraftMoneda(moneda);
@@ -802,14 +854,24 @@ export default function SaldoScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.modalAvoid}
           >
-            <View style={styles.modalSheet}>
-              <View style={styles.modalHandle} />
-              <Text style={styles.modalTitle}>{sheetTitle}</Text>
+            <Animated.View
+              style={[styles.modalSheet, { transform: [{ translateY: sheetDragY }] }]}
+              {...sheetPanResponder.panHandlers}
+              accessibilityLabel="Arrastra hacia abajo para cerrar"
+            >
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHandle} />
+                <Text style={styles.modalTitle}>{sheetTitle}</Text>
+              </View>
 
               <ScrollView
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 style={modalScrollTall ? styles.modalScrollTall : styles.modalScroll}
+                onScroll={(e) => {
+                  sheetScrollY.current = e.nativeEvent.contentOffset.y;
+                }}
+                scrollEventThrottle={16}
               >
                 {sheet === 'moneda' && (
                   <>
@@ -1160,7 +1222,7 @@ export default function SaldoScreen() {
                 style={{ marginTop: spacing.md }}
               />
               <GhostButton title="Cancelar" onPress={closeSheet} style={{ marginTop: spacing.sm }} />
-            </View>
+            </Animated.View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -1232,6 +1294,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     borderTopWidth: 1,
     borderColor: colors.stroke,
+  },
+  modalHeader: {
+    marginBottom: 0,
   },
   modalHandle: {
     alignSelf: 'center',

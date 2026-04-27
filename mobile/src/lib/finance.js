@@ -315,6 +315,27 @@ export function normalizarOrigenCuenta(origen) {
   return c ? c.id : o;
 }
 
+/** Valor guardado en ingresos/aportes cuando el destino es una fila de «Cuentas en banco». */
+export const PREFIJO_ORIGEN_BANCO = 'banco:';
+/** Valor guardado cuando el destino es una fila de «Mis plataformas». */
+export const PREFIJO_ORIGEN_PLATAFORMA = 'plataforma:';
+
+/**
+ * Bucket de cuenta agregada (efectivo, banco, nequi…) para movimientos.
+ * Reconoce orígenes detallados `banco:id` y `plataforma:id`.
+ */
+export function cuentaBucketMovimiento(origen, data) {
+  if (!origen || typeof origen !== 'string') return '';
+  const o = origen.trim();
+  if (o.startsWith(PREFIJO_ORIGEN_BANCO)) return 'banco';
+  if (o.startsWith(PREFIJO_ORIGEN_PLATAFORMA)) {
+    const id = o.slice(PREFIJO_ORIGEN_PLATAFORMA.length);
+    const row = (data?.plataformasDetalle || []).find((r) => r && r.id === id);
+    return row ? cuentaSaldoPlataforma(row.platformValue || PLATAFORMA_OTRO_VALUE) : 'billeteras';
+  }
+  return normalizarOrigenCuenta(origen);
+}
+
 /** Suma de cupos totales configurados; si no hay tarjetas detalladas, usa limiteTarjetaCredito legacy. */
 export function limiteTotalTarjetasCredito(data) {
   const arr = data.tarjetasCredito;
@@ -526,7 +547,7 @@ export function calcularSaldosPorCuenta(data) {
   const saldos = {};
   CUENTAS.forEach((c) => {
     const ing = ingresos
-      .filter((i) => normalizarOrigenCuenta(i.origen) === c.id)
+      .filter((i) => cuentaBucketMovimiento(i.origen, data) === c.id)
       .reduce((s, i) => s + i.cantidad, 0);
     const gast = gastos
       .filter((g) => {
@@ -541,7 +562,7 @@ export function calcularSaldosPorCuenta(data) {
         return s + monto;
       }, 0);
     const contrib = contribuciones
-      .filter((x) => normalizarOrigenCuenta(x.origen) === c.id)
+      .filter((x) => cuentaBucketMovimiento(x.origen, data) === c.id)
       .reduce((s, x) => s + x.cantidad, 0);
     if (c.id === 'tarjetaCredito' && limiteTc > 0) {
       saldos[c.id] = Math.max(0, limiteTc - gast - contrib);
@@ -566,6 +587,225 @@ export function montoGastoAfectaSaldo(g) {
   const orig = normalizarOrigenCuenta(g.origen);
   if (orig !== 'tarjetaCredito') return g.cantidad || 0;
   return g.cuotas > 1 ? g.cuotaMensual || (g.cantidad || 0) / g.cuotas : g.cantidad || 0;
+}
+
+/**
+ * Saldo estimado por cada fila de banco (detalle en Saldo), repartiendo ingresos/gastos
+ * genéricos al bucket «banco» entre líneas según su peso.
+ */
+export function liquidacionLineasBanco(data) {
+  const lines = data.bancosDetalle || [];
+  if (!lines.length) return [];
+
+  const ingresos = data.ingresos || [];
+  const gastos = data.gastos || [];
+  const contrib = data.contribucionesMetas || [];
+
+  const ingEsp = {};
+  let ingGen = 0;
+  for (const i of ingresos) {
+    const o = String(i.origen || '');
+    if (o.startsWith(PREFIJO_ORIGEN_BANCO)) {
+      const id = o.slice(PREFIJO_ORIGEN_BANCO.length);
+      ingEsp[id] = (ingEsp[id] || 0) + (parseFloat(i.cantidad) || 0);
+    } else if (cuentaBucketMovimiento(o, data) === 'banco') {
+      ingGen += parseFloat(i.cantidad) || 0;
+    }
+  }
+
+  const contribEsp = {};
+  let contribGen = 0;
+  for (const x of contrib) {
+    const o = String(x.origen || '');
+    if (o.startsWith(PREFIJO_ORIGEN_BANCO)) {
+      const id = o.slice(PREFIJO_ORIGEN_BANCO.length);
+      contribEsp[id] = (contribEsp[id] || 0) + (parseFloat(x.cantidad) || 0);
+    } else if (cuentaBucketMovimiento(o, data) === 'banco') {
+      contribGen += parseFloat(x.cantidad) || 0;
+    }
+  }
+
+  let gastGen = 0;
+  for (const g of gastos) {
+    if (cuentaBucketMovimiento(g.origen, data) === 'banco') {
+      gastGen += montoGastoAfectaSaldo(g);
+    }
+  }
+
+  const base = lines.map((r) => ({
+    id: r.id,
+    nombre: String(r.nombre || '').trim() || 'Banco',
+    ini: parseFloat(r.saldo) || 0,
+    ingEsp: ingEsp[r.id] || 0,
+    contribEsp: contribEsp[r.id] || 0,
+  }));
+
+  const peso = base.map((b) => Math.max(0, b.ini + b.ingEsp));
+  const sumPeso = peso.reduce((a, b) => a + b, 0);
+  function distribuir(monto) {
+    if (!monto) return base.map(() => 0);
+    if (sumPeso > 0) return peso.map((p) => monto * (p / sumPeso));
+    const n = base.length;
+    return base.map(() => monto / n);
+  }
+  const addIngGen = distribuir(ingGen);
+
+  const pre = base.map((b, i) => b.ini + b.ingEsp + addIngGen[i]);
+  const peso2 = pre.map((p) => Math.max(0, p));
+  const sum2 = peso2.reduce((a, b) => a + b, 0);
+  function distribuir2(monto) {
+    if (!monto) return base.map(() => 0);
+    if (sum2 > 0) return peso2.map((p) => monto * (p / sum2));
+    const n = base.length;
+    return base.map(() => monto / n);
+  }
+  const subGast = distribuir2(gastGen);
+  const subContribG = distribuir2(contribGen);
+
+  return base.map((b, i) => ({
+    id: b.id,
+    nombre: b.nombre,
+    saldo: pre[i] - subGast[i] - b.contribEsp - subContribG[i],
+  }));
+}
+
+function liquidacionSubPlataformaBucket(data, bucket) {
+  const lines = (data.plataformasDetalle || []).filter(
+    (r) => r && cuentaSaldoPlataforma(r.platformValue || PLATAFORMA_OTRO_VALUE) === bucket
+  );
+  if (!lines.length) return [];
+
+  const ingresos = data.ingresos || [];
+  const gastos = data.gastos || [];
+  const contrib = data.contribucionesMetas || [];
+
+  const ingEsp = {};
+  let ingGen = 0;
+  for (const i of ingresos) {
+    const o = String(i.origen || '');
+    if (o.startsWith(PREFIJO_ORIGEN_PLATAFORMA)) {
+      const id = o.slice(PREFIJO_ORIGEN_PLATAFORMA.length);
+      ingEsp[id] = (ingEsp[id] || 0) + (parseFloat(i.cantidad) || 0);
+    } else if (cuentaBucketMovimiento(o, data) === bucket) {
+      ingGen += parseFloat(i.cantidad) || 0;
+    }
+  }
+
+  const contribEsp = {};
+  let contribGen = 0;
+  for (const x of contrib) {
+    const o = String(x.origen || '');
+    if (o.startsWith(PREFIJO_ORIGEN_PLATAFORMA)) {
+      const id = o.slice(PREFIJO_ORIGEN_PLATAFORMA.length);
+      contribEsp[id] = (contribEsp[id] || 0) + (parseFloat(x.cantidad) || 0);
+    } else if (cuentaBucketMovimiento(o, data) === bucket) {
+      contribGen += parseFloat(x.cantidad) || 0;
+    }
+  }
+
+  let gastGen = 0;
+  for (const g of gastos) {
+    if (cuentaBucketMovimiento(g.origen, data) === bucket) {
+      gastGen += montoGastoAfectaSaldo(g);
+    }
+  }
+
+  const base = lines.map((r) => ({
+    id: r.id,
+    nombre: String(r.nombre || '').trim() || getPlataformaLabelByValue(r.platformValue) || 'Plataforma',
+    ini: parseFloat(r.saldo) || 0,
+    ingEsp: ingEsp[r.id] || 0,
+    contribEsp: contribEsp[r.id] || 0,
+  }));
+
+  const peso = base.map((b) => Math.max(0, b.ini + b.ingEsp));
+  const sumPeso = peso.reduce((a, b) => a + b, 0);
+  function distribuir(monto) {
+    if (!monto) return base.map(() => 0);
+    if (sumPeso > 0) return peso.map((p) => monto * (p / sumPeso));
+    const n = base.length;
+    return base.map(() => monto / n);
+  }
+  const addIngGen = distribuir(ingGen);
+
+  const pre = base.map((b, i) => b.ini + b.ingEsp + addIngGen[i]);
+  const peso2 = pre.map((p) => Math.max(0, p));
+  const sum2 = peso2.reduce((a, b) => a + b, 0);
+  function distribuir2(monto) {
+    if (!monto) return base.map(() => 0);
+    if (sum2 > 0) return peso2.map((p) => monto * (p / sum2));
+    const n = base.length;
+    return base.map(() => monto / n);
+  }
+  const subGast = distribuir2(gastGen);
+  const subContribG = distribuir2(contribGen);
+
+  return base.map((b, i) => ({
+    id: b.id,
+    nombre: b.nombre,
+    saldo: pre[i] - subGast[i] - b.contribEsp - subContribG[i],
+  }));
+}
+
+export function liquidacionLineasPlataforma(data) {
+  const out = [];
+  for (const bucket of ['nequi', 'daviplata', 'billeteras']) {
+    out.push(...liquidacionSubPlataformaBucket(data, bucket));
+  }
+  return out;
+}
+
+/**
+ * Cuentas con saldo > 0 para elegir destino de un ingreso (etiqueta con monto y moneda).
+ */
+export function obtenerCuentasDestinoIngreso(data) {
+  const saldos = calcularSaldosPorCuenta(data);
+  const moneda = (data.moneda && String(data.moneda).trim()) || '';
+  const suf = moneda ? ` ${moneda}` : '';
+  const out = [];
+
+  const push = (value, nombreDisplay, saldo) => {
+    if (saldo > 0) {
+      out.push({
+        value,
+        label: `${nombreDisplay} (${formatearNumero(saldo)}${suf})`,
+        saldo,
+      });
+    }
+  };
+
+  if (saldos.efectivo > 0) push('efectivo', 'Efectivo', saldos.efectivo);
+
+  const bancos = data.bancosDetalle || [];
+  if (bancos.length > 0) {
+    liquidacionLineasBanco(data).forEach((row) => {
+      push(`${PREFIJO_ORIGEN_BANCO}${row.id}`, row.nombre, row.saldo);
+    });
+  } else if (saldos.banco > 0) {
+    const nombre = CUENTAS.find((c) => c.id === 'banco')?.nombre || 'Banco';
+    push('banco', nombre, saldos.banco);
+  }
+
+  if (saldos.tarjetaCredito > 0) {
+    const nombre = CUENTAS.find((c) => c.id === 'tarjetaCredito')?.nombre || 'Tarjeta de crédito';
+    push('tarjetaCredito', nombre, saldos.tarjetaCredito);
+  }
+
+  const plt = data.plataformasDetalle || [];
+  if (plt.length > 0) {
+    liquidacionLineasPlataforma(data).forEach((row) => {
+      push(`${PREFIJO_ORIGEN_PLATAFORMA}${row.id}`, row.nombre, row.saldo);
+    });
+  } else {
+    if (saldos.nequi > 0) push('nequi', 'Nequi', saldos.nequi);
+    if (saldos.daviplata > 0) push('daviplata', 'Daviplata', saldos.daviplata);
+    if (saldos.billeteras > 0) {
+      const nombre = CUENTAS.find((c) => c.id === 'billeteras')?.nombre || 'Otras plataformas';
+      push('billeteras', nombre, saldos.billeteras);
+    }
+  }
+
+  return out;
 }
 
 export function obtenerGastadoTarjetaCredito(data) {
