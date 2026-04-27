@@ -551,8 +551,11 @@ export function calcularSaldosPorCuenta(data) {
       .reduce((s, i) => s + i.cantidad, 0);
     const gast = gastos
       .filter((g) => {
-        const orig = normalizarOrigenCuenta(g.origen);
-        return orig === c.id || (c.id === 'tarjetaCredito' && (orig === 'tarjetaCredito' || g.origen === 'Tarjeta de crédito'));
+        const b = cuentaBucketMovimiento(g.origen, data);
+        if (c.id === 'tarjetaCredito' && limiteTc > 0) {
+          return b === 'tarjetaCredito' || g.origen === 'Tarjeta de crédito';
+        }
+        return b === c.id;
       })
       .reduce((s, g) => {
         const monto =
@@ -573,6 +576,20 @@ export function calcularSaldosPorCuenta(data) {
   saldos.total = Object.values(saldos).reduce((a, b) => a + b, 0);
   saldos.totalReservado = contribuciones.reduce((s, c) => s + c.cantidad, 0);
   return saldos;
+}
+
+/**
+ * Suma efectivo, banco, Nequi, Daviplata y billeteras. No incluye el cupo disponible de tarjeta (eso es otra caja).
+ */
+export function totalSaldoLiquido(data) {
+  const s = calcularSaldosPorCuenta(data);
+  return (
+    (s.efectivo || 0) +
+    (s.banco || 0) +
+    (s.nequi || 0) +
+    (s.daviplata || 0) +
+    (s.billeteras || 0)
+  );
 }
 
 export function montoGastoPorCuenta(g, cuentaId) {
@@ -802,6 +819,92 @@ export function obtenerCuentasDestinoIngreso(data) {
     if (saldos.billeteras > 0) {
       const nombre = CUENTAS.find((c) => c.id === 'billeteras')?.nombre || 'Otras plataformas';
       push('billeteras', nombre, saldos.billeteras);
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Saldo disponible hoy en la cuenta/ línea con la que se registra un gasto o ingreso (misma idea que en Saldo por fila).
+ */
+export function obtenerSaldoDisponibleParaOrigenMovimiento(data, origen) {
+  const o = String(origen || '').trim();
+  if (o === 'Tarjeta de crédito') {
+    return Math.max(0, calcularSaldosPorCuenta(data).tarjetaCredito || 0);
+  }
+  if (o === 'efectivo' || o === 'tarjetaCredito' || o === 'banco' || o === 'nequi' || o === 'daviplata' || o === 'billeteras') {
+    return Math.max(0, calcularSaldosPorCuenta(data)[o] || 0);
+  }
+  if (o.startsWith(PREFIJO_ORIGEN_BANCO)) {
+    const id = o.slice(PREFIJO_ORIGEN_BANCO.length);
+    const row = (liquidacionLineasBanco(data) || []).find((r) => r.id === id);
+    return row ? Math.max(0, row.saldo) : 0;
+  }
+  if (o.startsWith(PREFIJO_ORIGEN_PLATAFORMA)) {
+    const id = o.slice(PREFIJO_ORIGEN_PLATAFORMA.length);
+    const row = (liquidacionLineasPlataforma(data) || []).find((r) => r.id === id);
+    return row ? Math.max(0, row.saldo) : 0;
+  }
+  const b = normalizarOrigenCuenta(o) || o;
+  if (b === 'tarjetaCredito' || b === 'efectivo' || b === 'banco' || b === 'nequi' || b === 'daviplata' || b === 'billeteras') {
+    return Math.max(0, calcularSaldosPorCuenta(data)[b] || 0);
+  }
+  return 0;
+}
+
+/**
+ * Cuentas desde las que se puede pagar un gasto de `monto` (una sola carga) o, en TC, la cuota mensual indicada.
+ * Incluye filas de banco y plataforma con saldo por línea, como en Ingresos.
+ */
+export function obtenerCuentasOrigenGastoElegible(data, monto, cuotaMensualTarjeta) {
+  const m = Math.max(0, parseFloat(monto) || 0);
+  const s = calcularSaldosPorCuenta(data);
+  const moneda = (data.moneda && String(data.moneda).trim()) || '';
+  const suf = moneda ? ` ${moneda}` : '';
+  const requiereTc = Math.max(0, parseFloat(cuotaMensualTarjeta) || 0) || m;
+  const out = [];
+  const pushGasto = (value, nombreDisplay, saldo, esTarjeta) => {
+    const requiere = esTarjeta ? requiereTc : m;
+    if (requiere === 0) {
+      if (saldo > 0) {
+        out.push({ value, label: `${nombreDisplay} (${formatearNumero(saldo)}${suf})`, saldo, esTarjeta: !!esTarjeta });
+      }
+      return;
+    }
+    if (saldo > 0 && saldo >= requiere) {
+      out.push({ value, label: `${nombreDisplay} (${formatearNumero(saldo)}${suf})`, saldo, esTarjeta: !!esTarjeta });
+    }
+  };
+
+  if (s.efectivo > 0) pushGasto('efectivo', 'Efectivo', s.efectivo, false);
+
+  const bancos = data.bancosDetalle || [];
+  if (bancos.length > 0) {
+    liquidacionLineasBanco(data).forEach((row) => {
+      pushGasto(`${PREFIJO_ORIGEN_BANCO}${row.id}`, row.nombre, row.saldo, false);
+    });
+  } else if (s.banco > 0) {
+    const nb = CUENTAS.find((c) => c.id === 'banco')?.nombre || 'Banco';
+    pushGasto('banco', nb, s.banco, false);
+  }
+
+  if (s.tarjetaCredito > 0) {
+    const ntc = CUENTAS.find((c) => c.id === 'tarjetaCredito')?.nombre || 'Tarjeta de crédito';
+    pushGasto('tarjetaCredito', ntc, s.tarjetaCredito, true);
+  }
+
+  const plt = data.plataformasDetalle || [];
+  if (plt.length > 0) {
+    liquidacionLineasPlataforma(data).forEach((row) => {
+      pushGasto(`${PREFIJO_ORIGEN_PLATAFORMA}${row.id}`, row.nombre, row.saldo, false);
+    });
+  } else {
+    if (s.nequi > 0) pushGasto('nequi', 'Nequi', s.nequi, false);
+    if (s.daviplata > 0) pushGasto('daviplata', 'Daviplata', s.daviplata, false);
+    if (s.billeteras > 0) {
+      const nb = CUENTAS.find((c) => c.id === 'billeteras')?.nombre || 'Otras plataformas';
+      pushGasto('billeteras', nb, s.billeteras, false);
     }
   }
 

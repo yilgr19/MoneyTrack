@@ -22,9 +22,16 @@ import {
 import { colors, spacing, radii, typography } from '../theme';
 
 const SEV = {
-  danger: { icon: 'alert-circle', color: colors.danger, bg: 'rgba(199, 123, 136, 0.15)' },
-  warning: { icon: 'warning', color: colors.warning, bg: 'rgba(217, 180, 74, 0.12)' },
-  info: { icon: 'information-circle', color: colors.chartBlue, bg: 'rgba(167, 216, 222, 0.1)' },
+  danger: { icon: 'heart-outline', color: colors.danger, bg: 'rgba(199, 123, 136, 0.18)' },
+  warning: { icon: 'partly-sunny-outline', color: colors.warning, bg: 'rgba(217, 180, 74, 0.14)' },
+  info: { icon: 'sparkles', color: colors.chartBlue, bg: 'rgba(167, 216, 222, 0.14)' },
+};
+
+const TIPO_ACENTO = {
+  pago: { icon: 'calendar-outline', color: colors.mint },
+  categoria: { icon: 'color-palette-outline', color: colors.accent },
+  tc: { icon: 'card-outline', color: colors.mint },
+  saldo: { icon: 'wallet-outline', color: colors.mint },
 };
 
 export function NotificacionBell() {
@@ -101,21 +108,27 @@ export function NotificacionBell() {
           <View style={[styles.sheet, { paddingTop: insets.top > 0 ? 0 : spacing.md, paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <View style={styles.handle} />
           <View style={styles.sheetHead}>
-            <Text style={typography.title}>Avisos</Text>
+            <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.sm }}>
+              <Text style={typography.label}>Avisos y consejos</Text>
+              <Text style={typography.title}>Para que lleves el mes con calma</Text>
+            </View>
             <TouchableOpacity onPress={() => setOpen(false)} hitSlop={10}>
               <Ionicons name="close" size={28} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
-            <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.md }]}>
-            Al abrir, los avisos actuales se marcan como leídos. El contador solo sube con avisos nuevos o
-            actualizados.
+            <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.md, lineHeight: 20 }]}>
+            Arriba lo más reciente/urgente. Al abrir, lo de ahora cuenta como leído; el badge vuelve si cambia
+            algo.
           </Text>
 
           {items.length === 0 ? (
             <View style={styles.empty}>
-              <Ionicons name="checkmark-done-outline" size={48} color={colors.mint} />
-              <Text style={[typography.body, { marginTop: spacing.md, textAlign: 'center' }]}>
-                No hay avisos por ahora.
+              <Ionicons name="cafe-outline" size={50} color={colors.mint} />
+              <Text style={[typography.body, { marginTop: spacing.md, textAlign: 'center', lineHeight: 24 }]}>
+                Todo en orden por ahora. Cuando pase algo que te interese, lo verás aquí.
+              </Text>
+              <Text style={[typography.small, { marginTop: spacing.sm, textAlign: 'center', color: colors.textFaint }]}>
+                Es como un recordatorio de un amigo: solo cuando toca.
               </Text>
             </View>
           ) : (
@@ -127,16 +140,20 @@ export function NotificacionBell() {
             >
               {items.map((it) => {
                 const s = SEV[it.severidad] || SEV.info;
+                const ac = TIPO_ACENTO[it.tipo] || TIPO_ACENTO.pago;
                 const visto = firmasLeidas != null && firmasLeidas[it.id] === firmaNotificacion(it);
                 return (
                   <View
                     key={it.id}
                     style={[
                       styles.item,
-                      { backgroundColor: s.bg, borderColor: colors.stroke, opacity: visto ? 0.72 : 1 },
+                      { backgroundColor: s.bg, borderColor: colors.stroke, opacity: visto ? 0.7 : 1 },
                     ]}
                   >
-                    <Ionicons name={s.icon} size={22} color={s.color} style={styles.itemIcon} />
+                    <View style={styles.dobleIcono}>
+                      <Ionicons name={ac.icon} size={20} color={ac.color} />
+                      <Ionicons name={s.icon} size={20} color={s.color} style={{ marginTop: 4 }} />
+                    </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.itemTit}>{it.titulo}</Text>
                       <Text style={styles.itemSub}>{it.detalle}</Text>
@@ -204,7 +221,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  itemIcon: { marginRight: spacing.md, marginTop: 2, flexShrink: 0 },
+  dobleIcono: { marginRight: spacing.md, marginTop: 2, flexShrink: 0, alignItems: 'center' },
   itemTit: { color: colors.text, fontWeight: '700', fontSize: 15, lineHeight: 20 },
   itemSub: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 4 },
 });

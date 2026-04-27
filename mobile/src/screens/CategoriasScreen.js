@@ -103,6 +103,8 @@ export default function CategoriasScreen() {
   const [color, setColor] = useState(PALETA_COLORES[0]);
   const [icono, setIcono] = useState(ICONOS_CATEGORIA[0]);
   const [limite, setLimite] = useState('');
+  /** Nombre de la fila al abrir "Editar" (estable, para guardar o renombrar y migrar movimientos). */
+  const [categoriaEnEdicion, setCategoriaEnEdicion] = useState(null);
 
   const anchoPaletas = Math.min(winW, 480);
   const margenPunto = 6;
@@ -112,14 +114,69 @@ export default function CategoriasScreen() {
 
   const categorias = (state.categorias || []).map(normalizarCategoria);
 
-  function agregar() {
+  function formularioLimpioNuevo() {
+    setCategoriaEnEdicion(null);
+    setNombre('');
+    setLimite('');
+    setColor(PALETA_COLORES[0]);
+    setIcono(ICONOS_CATEGORIA[0]);
+  }
+
+  function abrirEdicion(c) {
+    const n = normalizarCategoria(c);
+    setCategoriaEnEdicion(n.nombre);
+    setNombre(n.nombre);
+    setColor(n.color);
+    setIcono(n.icono);
+    setLimite(n.limite != null && n.limite !== '' ? String(n.limite) : '');
+  }
+
+  function guardarOAgregar() {
     const n = nombre.trim();
-    if (!n) return;
+    if (!n) {
+      Alert.alert('Nombre', 'Escribe un nombre para la categoría.');
+      return;
+    }
+    const l = limite.trim() ? parseFloat(limite) : null;
+    if (limite.trim() && Number.isNaN(l)) {
+      Alert.alert('Límite', 'Escribe un número válido o deja el límite vacío.');
+      return;
+    }
+
+    if (categoriaEnEdicion) {
+      const otros = categorias.filter((c) => c.nombre !== categoriaEnEdicion);
+      if (otros.some((c) => c.nombre.toLowerCase() === n.toLowerCase())) {
+        Alert.alert('Duplicado', 'Ya existe otra categoría con ese nombre.');
+        return;
+      }
+      const nombreAnterior = categoriaEnEdicion;
+      replaceState((s) => {
+        const raw = s.categorias || [];
+        const nextCats = raw.map((row) => {
+          const c = normalizarCategoria(row);
+          if (c.nombre === nombreAnterior) {
+            return { nombre: n, color, limite: l, icono };
+          }
+          return row;
+        });
+        const gastos = (s.gastos || []).map((g) => {
+          if (g.categoria === nombreAnterior) return { ...g, categoria: n };
+          return g;
+        });
+        const pagosProgramados = (s.pagosProgramados || []).map((p) => {
+          if (p.categoria === nombreAnterior) return { ...p, categoria: n };
+          return p;
+        });
+        return { ...s, categorias: nextCats, gastos, pagosProgramados };
+      });
+      formularioLimpioNuevo();
+      return;
+    }
+
     if (categorias.some((c) => c.nombre.toLowerCase() === n.toLowerCase())) {
       Alert.alert('Duplicado', 'Ya existe esa categoría.');
       return;
     }
-    const l = limite.trim() ? parseFloat(limite) : null;
     replaceState((s) => ({
       ...s,
       categorias: [...(s.categorias || []), { nombre: n, color, limite: l, icono }],
@@ -129,17 +186,20 @@ export default function CategoriasScreen() {
   }
 
   function eliminar(index) {
+    const c = categorias[index];
     Alert.alert('Eliminar', '¿Quitar esta categoría?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
         style: 'destructive',
-        onPress: () =>
+        onPress: () => {
+          if (c && c.nombre === categoriaEnEdicion) formularioLimpioNuevo();
           replaceState((s) => {
             const cats = [...(s.categorias || [])].map(normalizarCategoria);
             cats.splice(index, 1);
             return { ...s, categorias: cats };
-          }),
+          });
+        },
       },
     ]);
   }
@@ -163,7 +223,13 @@ export default function CategoriasScreen() {
       <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>Etiquetas para tus gastos</Text>
 
       <UICard>
-        <Text style={typography.label}>Nueva categoría</Text>
+        <Text style={typography.label}>{categoriaEnEdicion ? 'Editar categoría' : 'Nueva categoría'}</Text>
+        {categoriaEnEdicion ? (
+          <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.sm }]}>
+            Estás editando “{categoriaEnEdicion}”. Si cambias el nombre, los gastos y pagos programados
+            vinculados se actualizan a nombre nuevo.
+          </Text>
+        ) : null}
         <Text style={styles.lab}>Nombre</Text>
         <TextInput style={styles.input} value={nombre} onChangeText={setNombre} placeholderTextColor={colors.textFaint} />
         <Text style={styles.lab}>Color</Text>
@@ -238,8 +304,17 @@ export default function CategoriasScreen() {
           keyboardType="decimal-pad"
           placeholderTextColor={colors.textFaint}
         />
-        <PrimaryButton title="Agregar categoría" onPress={agregar} style={{ marginTop: spacing.md }} />
-        <GhostButton title="Añadir categorías sugeridas" onPress={addDefaults} style={{ marginTop: spacing.sm }} />
+        <PrimaryButton
+          title={categoriaEnEdicion ? 'Guardar cambios' : 'Agregar categoría'}
+          onPress={guardarOAgregar}
+          style={{ marginTop: spacing.md }}
+        />
+        {categoriaEnEdicion ? (
+          <GhostButton title="Cancelar edición" onPress={formularioLimpioNuevo} style={{ marginTop: spacing.sm }} />
+        ) : null}
+        {!categoriaEnEdicion ? (
+          <GhostButton title="Añadir categorías sugeridas" onPress={addDefaults} style={{ marginTop: spacing.sm }} />
+        ) : null}
       </UICard>
 
       <UICard style={{ marginBottom: 0 }}>
@@ -247,20 +322,28 @@ export default function CategoriasScreen() {
         {categorias.length === 0 ? (
           <Text style={typography.small}>Sin categorías aún.</Text>
         ) : (
-          categorias.map((c, i) => (
-            <View key={c.nombre + i} style={styles.row}>
-              <View style={[styles.swatch, { backgroundColor: c.color }]}>
-                <Text style={styles.swatchIcono}>{c.icono}</Text>
+          categorias.map((c, i) => {
+            const esEditando = c.nombre === categoriaEnEdicion;
+            return (
+              <View key={c.nombre + i} style={[styles.row, esEditando && styles.rowEdicion]}>
+                <View style={[styles.swatch, { backgroundColor: c.color }]}>
+                  <Text style={styles.swatchIcono}>{c.icono}</Text>
+                </View>
+                <Text style={styles.catText} numberOfLines={2}>
+                  {c.nombre}
+                  {c.limite ? ` · lím. ${formatearNumero(parseFloat(c.limite))}` : ''}
+                </Text>
+                <View style={styles.rowAcc}>
+                  <TouchableOpacity onPress={() => abrirEdicion(c)} hitSlop={10}>
+                    <Text style={styles.ed}>Editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => eliminar(i)} hitSlop={10}>
+                    <Text style={styles.del}>Quitar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <Text style={styles.catText}>
-                {c.nombre}
-                {c.limite ? ` · lím. ${formatearNumero(parseFloat(c.limite))}` : ''}
-              </Text>
-              <TouchableOpacity onPress={() => eliminar(i)} hitSlop={12}>
-                <Text style={styles.del}>Quitar</Text>
-              </TouchableOpacity>
-            </View>
-          ))
+            );
+          })
         )}
       </UICard>
     </ScreenWrap>
@@ -300,8 +383,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   swatchIcono: { fontSize: 20 },
+  rowEdicion: { backgroundColor: 'rgba(217, 180, 74, 0.08)' },
   catText: { color: colors.textSecondary, flex: 1, minWidth: 0, fontSize: 15, flexShrink: 1 },
-  del: { color: colors.danger, fontWeight: '600', fontSize: 13, flexShrink: 0, marginLeft: spacing.sm },
+  rowAcc: { flexDirection: 'row', alignItems: 'center', flexShrink: 0, marginLeft: spacing.xs },
+  ed: { color: colors.accent, fontWeight: '600', fontSize: 13, marginRight: spacing.sm },
+  del: { color: colors.danger, fontWeight: '600', fontSize: 13 },
   hint: {
     ...typography.small,
     color: colors.textFaint,

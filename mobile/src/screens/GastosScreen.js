@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
@@ -9,12 +9,14 @@ import { PrimaryButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
 import {
   formatearNumero,
-  CUENTAS,
   calcularSaldosPorCuenta,
   normalizarOrigenCuenta,
   normalizarCategoria,
   montoGastoAfectaSaldo,
   pagoDebeMostrarseParaPagar,
+  obtenerCuentasOrigenGastoElegible,
+  obtenerSaldoDisponibleParaOrigenMovimiento,
+  totalSaldoLiquido,
 } from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
@@ -43,25 +45,29 @@ export default function GastosScreen() {
     [state.categorias]
   );
 
-  const saldos = useMemo(() => calcularSaldosPorCuenta(state), [state]);
   const cantNum = parseFloat(cantidad) || 0;
   const cuotaMensualTc = cantNum > 0 && cuotas > 0 ? cantNum / cuotas : cantNum;
 
-  const cuentasDisponibles = useMemo(() => {
-    const list = [];
-    CUENTAS.forEach((c) => {
-      let saldo = saldos[c.id] || 0;
-      let puede = false;
-      if (c.id === 'tarjetaCredito') {
-        saldo = Math.max(0, saldos.tarjetaCredito || 0);
-        puede = saldo > 0 && (cantNum === 0 || saldo >= cuotaMensualTc);
-      } else {
-        puede = saldo > 0 && (cantNum === 0 || saldo >= cantNum);
-      }
-      if (puede) list.push({ ...c, saldo });
-    });
-    return list;
-  }, [saldos, cantNum, cuotaMensualTc]);
+  const cuentasDisponibles = useMemo(
+    () => obtenerCuentasOrigenGastoElegible(state || {}, cantNum, cuotaMensualTc),
+    [state, cantNum, cuotaMensualTc]
+  );
+
+  const avisoCuentaContexto = useMemo(() => {
+    if (cuentasDisponibles.length > 0 || cantNum <= 0) return null;
+    const liq = totalSaldoLiquido(state || {});
+    const tTxt = formatearNumero(liq, 0);
+    if (liq >= cantNum) {
+      return `En efectivo, bancos y billeteras (sin cupo de tarjeta) tenías unos ${tTxt} en total: alcanza el monto, pero en ninguna cuenta o línea suelta hay el valor completo. Mueve plata, usa tarjeta, o anota el gasto en dos partes.`;
+    }
+    return 'No alcanza el monto con el saldo que la app en efectivo, bancos y billeteras. Revisa Saldo, suma un ingreso o ajusta el monto o la cuenta (incluida la tarjeta en cuota).';
+  }, [state, cantNum, cuentasDisponibles.length]);
+
+  useEffect(() => {
+    if (origen && !cuentasDisponibles.some((c) => c.value === origen)) {
+      setOrigen('');
+    }
+  }, [cuentasDisponibles, origen]);
 
   const ahora = new Date();
   const pagosPendientes = (state.pagosProgramados || []).filter(
@@ -87,7 +93,7 @@ export default function GastosScreen() {
     const saldosAct = calcularSaldosPorCuenta(state);
     const cuotasVal = origen === 'tarjetaCredito' ? cuotas : 1;
     const cuotaMensualVal = origen === 'tarjetaCredito' ? cantNum / cuotasVal : cantNum;
-    const saldoOrigen = Math.max(0, saldosAct[origen] || 0);
+    const saldoOrigen = obtenerSaldoDisponibleParaOrigenMovimiento(state, origen);
     const montoAValidar = origen === 'tarjetaCredito' ? cuotaMensualVal : cantNum;
     const saldoTotal = saldosAct.total || 0;
 
@@ -261,17 +267,15 @@ export default function GastosScreen() {
 
         <FieldLabel>Cuenta</FieldLabel>
         {cuentasDisponibles.length === 0 ? (
-          <Text style={styles.warn}>No hay saldo suficiente en una cuenta para este monto.</Text>
+          <Text style={styles.warn}>
+            {avisoCuentaContexto || 'Escribe un monto o ajusta: no hay saldo en una sola línea o cuenta que alcance, o aún faltan datos en Saldo.'}
+          </Text>
         ) : (
           <View style={styles.pickerWrap}>
             <Picker selectedValue={origen} onValueChange={setOrigen} style={{ color: colors.text }}>
               <Picker.Item label="Selecciona…" value="" />
               {cuentasDisponibles.map((c) => (
-                <Picker.Item
-                  key={c.id}
-                  label={`${c.nombre} (${formatearNumero(c.saldo)} ${moneda})`}
-                  value={c.id}
-                />
+                <Picker.Item key={c.value} label={c.label} value={c.value} />
               ))}
             </Picker>
           </View>
