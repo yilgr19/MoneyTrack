@@ -15,7 +15,7 @@ const ITEMS = [
 
 export default function MoreMenuScreen({ navigation }) {
   return (
-    <ScreenWrap includeTopInset={false} contentStyle={{ paddingTop: spacing.xs }}>
+    <ScreenWrap contentStyle={{ paddingTop: spacing.xs }}>
       <Text style={typography.label}>Explora</Text>
       <Text style={typography.hero}>Más</Text>
       <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>Accesos rápidos</Text>

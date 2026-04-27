@@ -51,7 +51,7 @@ const stackOptions = {
 function MoreStack() {
   return (
     <Stack.Navigator screenOptions={stackOptions}>
-      <Stack.Screen name="MoreMenu" component={MoreMenuScreen} options={{ title: 'Más' }} />
+      <Stack.Screen name="MoreMenu" component={MoreMenuScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Ingresos" component={IngresosScreen} options={{ title: 'Ingresos' }} />
       <Stack.Screen name="Categorias" component={CategoriasScreen} options={{ title: 'Categorías' }} />
       <Stack.Screen name="Metas" component={MetasScreen} options={{ title: 'Metas' }} />
