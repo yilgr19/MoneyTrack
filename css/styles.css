@@ -13,6 +13,9 @@
 body {
     font-family: Arial, Helvetica, sans-serif; /* Fuente principal*/
     line-height: 1.6; /* espacio entre lineas*/
+    overflow-x: hidden;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
 }
 
 .header {
@@ -1741,6 +1744,7 @@ body {
 }
 .reportes-intro h2 {
     margin-bottom: 0.25rem;
+    color: purple;
 }
 .reportes-intro p {
     color: #666;
@@ -2304,8 +2308,30 @@ a.btn-accion {
 
 @media (max-width: 768px) {
     .nav ul {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
         align-items: center;
+        gap: 0.35rem;
+        padding: 0.5rem 0.25rem;
+    }
+
+    .nav li {
+        margin: 0 6px;
+    }
+
+    .nav a {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
+
+    .section {
+        padding: 28px 14px;
+    }
+
+    .header {
+        min-height: auto;
+        padding: 1.25rem 1rem;
     }
 
     .row {
@@ -2315,5 +2341,29 @@ a.btn-accion {
     .article {
         width: 100%;
         min-height: 150px;
+    }
+
+    .fab {
+        bottom: 16px;
+        right: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .section {
+        padding: 22px 12px;
+    }
+
+    .nav a {
+        padding: 8px 10px;
+        font-size: 0.85rem;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.25rem;
     }
 }

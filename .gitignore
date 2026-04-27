@@ -17,3 +17,8 @@ desktop.ini
 
 # Cursor / assets locales (si tienes imágenes guardadas localmente)
 # .cursor/
+
+# Expo (app móvil)
+mobile/node_modules/
+mobile/.expo/
+mobile/.expo-home/
