@@ -841,6 +841,19 @@ export function normalizarCategoria(cat) {
   };
 }
 
+/** Nombre de icono Ionicons (contorno) — distinto al emoji de categorías. */
+export const ICONO_META_POR_DEFECTO = 'trophy-outline';
+
+export function normalizarMeta(meta) {
+  if (!meta || typeof meta !== 'object') {
+    return { id: '', nombre: '', objetivo: 0, plazo: null, icono: ICONO_META_POR_DEFECTO };
+  }
+  return {
+    ...meta,
+    icono: typeof meta.icono === 'string' && meta.icono.trim() ? meta.icono.trim() : ICONO_META_POR_DEFECTO,
+  };
+}
+
 export function generarIdMeta() {
   return `meta_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }

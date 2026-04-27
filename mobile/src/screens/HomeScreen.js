@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
@@ -13,6 +14,7 @@ import {
   montoGastoAfectaSaldo,
   verificarAlertaTarjetaCredito,
   normalizarCategoria,
+  normalizarMeta,
 } from '../lib/finance';
 import { colors, spacing, radii, typography, layoutStyles } from '../theme';
 
@@ -434,15 +436,26 @@ export default function HomeScreen() {
           <Text style={typography.small}>Sin metas aún.</Text>
         ) : (
           derived.metasData.slice(0, 4).map((meta) => {
+            const m = normalizarMeta(meta);
             const acum = (state.contribucionesMetas || [])
-              .filter((c) => c.metaId === meta.id)
+              .filter((c) => c.metaId === m.id)
               .reduce((s, c) => s + c.cantidad, 0);
-            const obj = parseFloat(meta.objetivo) || 0;
+            const obj = parseFloat(m.objetivo) || 0;
             const pct = obj > 0 ? Math.min(100, (acum / obj) * 100) : 0;
             return (
-              <View key={meta.id} style={{ marginBottom: spacing.md }}>
+              <View key={m.id} style={{ marginBottom: spacing.md }}>
                 <View style={layoutStyles.rowBetween}>
-                  <Text style={[typography.body, layoutStyles.rowLabel]}>{meta.nombre}</Text>
+                  <View style={styles.metaInicioFila}>
+                    <View style={styles.metaInicioIcono}>
+                      <Ionicons name={m.icono} size={19} color={colors.mint} />
+                    </View>
+                    <Text
+                      style={[typography.body, layoutStyles.rowLabel, { flex: 1, minWidth: 0 }]}
+                      numberOfLines={2}
+                    >
+                      {m.nombre}
+                    </Text>
+                  </View>
                   <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
                     {formatearNumero(acum)} / {formatearNumero(obj)}
                   </Text>
@@ -615,5 +628,24 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  metaInicioFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    marginRight: spacing.sm,
+  },
+  metaInicioIcono: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(125, 193, 145, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(125, 193, 145, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    flexShrink: 0,
   },
 });
