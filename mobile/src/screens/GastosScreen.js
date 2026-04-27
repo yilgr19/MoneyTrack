@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import ScreenWrap from '../components/ScreenWrap';
@@ -44,6 +44,8 @@ export default function GastosScreen() {
   const [cuotas, setCuotas] = useState(1);
   const [nota, setNota] = useState('');
   const [pagoProgramadoEnUso, setPagoProgramadoEnUso] = useState(null);
+  /** Abono/liquidación de tarjeta: solo cajas con dinero, no cargo nuevo a la TC. */
+  const [abonoDeudaTarjeta, setAbonoDeudaTarjeta] = useState(false);
 
   const categorias = useMemo(
     () => (state.categorias || []).map(normalizarCategoria),
@@ -54,8 +56,11 @@ export default function GastosScreen() {
   const cuotaMensualTc = cantNum > 0 && cuotas > 0 ? cantNum / cuotas : cantNum;
 
   const cuentasDisponibles = useMemo(
-    () => obtenerCuentasOrigenGastoElegible(state || {}, cantNum, cuotaMensualTc),
-    [state, cantNum, cuotaMensualTc]
+    () =>
+      obtenerCuentasOrigenGastoElegible(state || {}, cantNum, cuotaMensualTc, {
+        excluirTarjetaComoOrigen: abonoDeudaTarjeta,
+      }),
+    [state, cantNum, cuotaMensualTc, abonoDeudaTarjeta]
   );
 
   const avisoCuentaContexto = useMemo(() => {
@@ -63,10 +68,16 @@ export default function GastosScreen() {
     const liq = totalSaldoLiquido(state || {});
     const tTxt = formatearNumero(liq, 0);
     if (liq >= cantNum) {
+      if (abonoDeudaTarjeta) {
+        return `En efectivo, bancos y billeteras tenías unos ${tTxt} en total: alcanza el monto, pero en ninguna línea suelta hay el valor completo. Mueve plata o divide el pago.`;
+      }
       return `En efectivo, bancos y billeteras (sin cupo de tarjeta) tenías unos ${tTxt} en total: alcanza el monto, pero en ninguna cuenta o línea suelta hay el valor completo. Mueve plata, usa tarjeta, o anota el gasto en dos partes.`;
     }
+    if (abonoDeudaTarjeta) {
+      return 'No alcanza el monto con el saldo en efectivo, bancos y billeteras. Revisa Saldo, agrega un ingreso o ajusta el monto o la cuenta (no aplica abonar con la propia tarjeta).';
+    }
     return 'No alcanza el monto con el saldo que la app en efectivo, bancos y billeteras. Revisa Saldo, suma un ingreso o ajusta el monto o la cuenta (incluida la tarjeta en cuota).';
-  }, [state, cantNum, cuentasDisponibles.length]);
+  }, [state, cantNum, cuentasDisponibles.length, abonoDeudaTarjeta]);
 
   /** Saldos por línea (incl. 0,00) para ver cajas aunque no alcance el gasto. */
   const lineasSaldosReferencia = useMemo(
@@ -80,6 +91,15 @@ export default function GastosScreen() {
     }
   }, [cuentasDisponibles, origen]);
 
+  useEffect(() => {
+    if (abonoDeudaTarjeta && normalizarOrigenCuenta(origen) === 'tarjetaCredito') {
+      setOrigen('');
+    }
+    if (abonoDeudaTarjeta) {
+      setCuotas(1);
+    }
+  }, [abonoDeudaTarjeta, origen]);
+
   const ahora = new Date();
   const pagosPendientes = (state.pagosProgramados || []).filter(
     (p) => p.activo !== false && pagoDebeMostrarseParaPagar(p, ahora)
@@ -89,10 +109,19 @@ export default function GastosScreen() {
     setNombre(p.concepto || '');
     setCantidad(String(p.monto ?? ''));
     setCategoria(p.categoria || (categorias[0]?.nombre ?? ''));
-    setOrigen(normalizarOrigenCuenta(p.cuenta) || p.cuenta || '');
     setCuotas(1);
     setNota(p.nota || '');
     setPagoProgramadoEnUso(p.id);
+    const esPagoDeuda =
+      !!p.esRecordatorioTarjeta ||
+      !!p.esCuotaDiferida ||
+      (p.concepto && /l[ií]mite pago|corte tc|pago corte/i.test(String(p.concepto)));
+    setAbonoDeudaTarjeta(esPagoDeuda);
+    if (esPagoDeuda) {
+      setOrigen('');
+    } else {
+      setOrigen(normalizarOrigenCuenta(p.cuenta) || p.cuenta || '');
+    }
   }
 
   function onSubmit() {
@@ -114,6 +143,10 @@ export default function GastosScreen() {
     }
     if (montoAValidar > saldoOrigen) {
       Alert.alert('Saldo', 'No hay suficiente saldo en la cuenta seleccionada.');
+      return;
+    }
+    if (abonoDeudaTarjeta && normalizarOrigenCuenta(origen) === 'tarjetaCredito') {
+      Alert.alert('Cuenta', 'Para abonar o pagar la deuda, elige efectivo, bancos o apps; no un nuevo cargo a la tarjeta.');
       return;
     }
 
@@ -155,6 +188,7 @@ export default function GastosScreen() {
       nota: nota.trim() || null,
       cuotas: origen === 'tarjetaCredito' ? cuotasVal : 1,
       cuotaMensual: origen === 'tarjetaCredito' ? cuotaMensualVal : cantNum,
+      ...(abonoDeudaTarjeta ? { esAbonoDeudaTarjeta: true } : {}),
     };
 
     replaceState((s) => {
@@ -200,6 +234,7 @@ export default function GastosScreen() {
     setNota('');
     setCuotas(1);
     setPagoProgramadoEnUso(null);
+    setAbonoDeudaTarjeta(false);
     setFecha(new Date());
   }
 
@@ -283,6 +318,22 @@ export default function GastosScreen() {
           </View>
         )}
 
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.md }}>
+            <Text style={styles.fieldLab}>Pago o abono a la tarjeta (sin cargo nuevo a la TC)</Text>
+            <Text style={typography.small}>
+              Actívalo para liquidar o abonar deuda: solo verás cajas con dinero (efectivo, bancos, Nequi, etc.), no
+              la tarjeta.
+            </Text>
+          </View>
+          <Switch
+            value={abonoDeudaTarjeta}
+            onValueChange={setAbonoDeudaTarjeta}
+            trackColor={{ false: colors.stroke, true: colors.accentDeep }}
+            thumbColor={abonoDeudaTarjeta ? colors.accentBright : colors.textFaint}
+          />
+        </View>
+
         <FieldLabel>Cuenta</FieldLabel>
         {cuentasDisponibles.length === 0 ? (
           <Text style={styles.warn}>
@@ -299,7 +350,7 @@ export default function GastosScreen() {
           </View>
         )}
 
-        {origen === 'tarjetaCredito' && (
+        {!abonoDeudaTarjeta && origen === 'tarjetaCredito' && (
           <>
             <FieldLabel>Cuotas</FieldLabel>
             <View style={styles.pickerWrap}>
@@ -391,6 +442,16 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     overflow: 'hidden',
     backgroundColor: 'rgba(0,0,0,0.12)',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.stroke,
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   warn: { color: colors.danger, marginVertical: spacing.sm, fontSize: 14 },
   refSaldosBlock: {

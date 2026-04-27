@@ -359,6 +359,22 @@ export function totalCupoUtilizadoTarjetasCredito(data) {
 }
 
 /**
+ * Suma de abonos a deuda de TC registrados en Gastos (pago/liquidación desde caja, no cargo nuevo a la tarjeta).
+ * Reduce la deuda neta de forma acorde a `esAbonoDeudaTarjeta` en el movimiento.
+ */
+export function totalAbonosDeudaTarjetaDesdeGastos(data) {
+  const gastos = data.gastos || [];
+  let sum = 0;
+  for (const g of gastos) {
+    if (!g || g.esAbonoDeudaTarjeta !== true) continue;
+    if (normalizarOrigenCuenta(g.origen) === 'tarjetaCredito') continue;
+    const x = parseFloat(g.cantidad);
+    sum += Number.isFinite(x) ? x : 0;
+  }
+  return sum;
+}
+
+/**
  * Fila «Por cuenta» en Inicio: mostrar si hay saldo, ingresos a esa caja, o se dejó
  * fijado saldo inicial o detalle (bancos, plataformas, tarjeta).
  */
@@ -665,8 +681,14 @@ export function agregarOFusionarPagoProgramadoCuotaCorte(pagos, p) {
  * Alertas y “reloj” por tarjeta + totales (gasto registrado en la app vs cupo).
  */
 export function resumenAlertasTarjetasCredito(data, ref = new Date()) {
-  const gastadoTotal = obtenerGastadoTarjetaCredito(data);
   const limiteTotal = limiteTotalTarjetasCredito(data);
+  const deudaSal = totalCupoUtilizadoTarjetasCredito(data);
+  const deudaMov = deudaGastosTarjetaAcumuladaHastaCorte(data, ref);
+  const abonos = totalAbonosDeudaTarjetaDesdeGastos(data);
+  const gastadoTotal =
+    limiteTotal > 0
+      ? Math.min(limiteTotal, Math.max(0, deudaSal + deudaMov - abonos))
+      : Math.max(0, deudaSal + deudaMov - abonos);
   const pctGlobal = limiteTotal > 0 ? (gastadoTotal / limiteTotal) * 100 : 0;
   const arr = Array.isArray(data.tarjetasCredito) ? data.tarjetasCredito : [];
 
@@ -759,8 +781,10 @@ export function calcularSaldosPorCuenta(data) {
     if (c.id === 'tarjetaCredito' && limiteTc > 0) {
       const deudaSaldo = totalCupoUtilizadoTarjetasCredito(data);
       const deudaMov = deudaGastosTarjetaAcumuladaHastaCorte(data);
-      /** Tope − (cupo usado en Saldo + tramos con corte ≤ hoy desde Gastos). */
-      const deuda = Math.min(nNum(limiteTc), nNum(deudaSaldo) + nNum(deudaMov));
+      const abonos = totalAbonosDeudaTarjetaDesdeGastos(data);
+      /** Tope − (cupo usado en Saldo + tramos con corte ≤ hoy desde Gastos − abonos desde caja). */
+      const deudaBruta = nNum(deudaSaldo) + nNum(deudaMov);
+      const deuda = Math.min(nNum(limiteTc), Math.max(0, deudaBruta - nNum(abonos)));
       saldos[c.id] = Math.max(0, nNum(limiteTc) - deuda);
     } else {
       saldos[c.id] = nNum(saldosIni[c.id]) + ing - gast - contrib;
@@ -1185,8 +1209,10 @@ export function obtenerSaldoDisponibleParaOrigenMovimiento(data, origen) {
 /**
  * Cuentas desde las que se puede pagar un gasto de `monto` (una sola carga) o, en TC, la cuota mensual indicada.
  * Incluye filas de banco y plataforma con saldo por línea, como en Ingresos.
+ * @param {object} [opts] - `excluirTarjetaComoOrigen`: no ofrecer TC (p. ej. abono/liquidación de deuda, no un cargo nuevo).
  */
-export function obtenerCuentasOrigenGastoElegible(data, monto, cuotaMensualTarjeta) {
+export function obtenerCuentasOrigenGastoElegible(data, monto, cuotaMensualTarjeta, opts) {
+  const excluirTc = opts && opts.excluirTarjetaComoOrigen === true;
   const m = Math.max(0, parseFloat(monto) || 0);
   const s = calcularSaldosPorCuenta(data);
   const moneda = (data.moneda && String(data.moneda).trim()) || '';
@@ -1218,7 +1244,7 @@ export function obtenerCuentasOrigenGastoElegible(data, monto, cuotaMensualTarje
     pushGasto('banco', nb, s.banco, false);
   }
 
-  if (s.tarjetaCredito > 0) {
+  if (!excluirTc && s.tarjetaCredito > 0) {
     const ntc = CUENTAS.find((c) => c.id === 'tarjetaCredito')?.nombre || 'Tarjeta de crédito';
     pushGasto('tarjetaCredito', ntc, s.tarjetaCredito, true);
   }
@@ -1240,7 +1266,10 @@ export function obtenerCuentasOrigenGastoElegible(data, monto, cuotaMensualTarje
   return out;
 }
 
-/** Suma de tramos con corte ≤ hoy (coherente con el cupo libre y fechas de corte). */
+/**
+ * Suma de tramos con corte ≤ hoy solo por compras con origen TC (no incluye abonos `esAbonoDeudaTarjeta`).
+ * Para deuda neta use `calcularSaldosPorCuenta` (cupo libre) o reste `totalAbonosDeudaTarjetaDesdeGastos`.
+ */
 export function obtenerGastadoTarjetaCredito(data, ref) {
   return deudaGastosTarjetaAcumuladaHastaCorte(data, ref || new Date());
 }
@@ -1343,7 +1372,11 @@ export function construirExtractoBancarioTarjeta(t, data, ref = new Date()) {
   const cupoU = nNum(t.cupoUtilizado);
   const frac = fraccionCupoDeTarjeta(t, data);
   const deudaMovG = nNum(deudaGastosTarjetaAcumuladaHastaCorte(data, ref)) * frac;
-  const deudaEfect = Math.min(limT > 0 ? limT : limS, cupoU + deudaMovG);
+  const abonosPart = nNum(totalAbonosDeudaTarjetaDesdeGastos(data)) * frac;
+  const deudaEfect = Math.min(
+    limT > 0 ? limT : limS,
+    Math.max(0, nNum(cupoU) + nNum(deudaMovG) - nNum(abonosPart))
+  );
   const disp = limT > 0 ? Math.max(0, limT - deudaEfect) : 0;
   const lineas = lineasMovimientosCorteDia(t, data, ref);
   const capitalCierreLineas = redondear2(lineas.reduce((s, l) => s + nNum(l.capitalMes), 0));
@@ -1424,7 +1457,8 @@ export function proyeccionEficienciaInicio(data, ref = new Date()) {
   const limS = limiteTotalTarjetasCredito(data);
   const dSal = totalCupoUtilizadoTarjetasCredito(data);
   const dG = deudaGastosTarjetaAcumuladaHastaCorte(data, ref);
-  const deudaE = limS > 0 ? Math.min(limS, dSal + dG) : 0;
+  const ab = totalAbonosDeudaTarjetaDesdeGastos(data);
+  const deudaE = limS > 0 ? Math.min(limS, Math.max(0, dSal + dG - ab)) : 0;
   const ea = nNum(t.tasaEA) || 0;
   if (deudaE <= 0) return null;
   const t3 = proyeccionCostoTotalCuotasFijas(deudaE, ea, 3);
