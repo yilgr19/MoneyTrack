@@ -358,6 +358,51 @@ export function totalCupoUtilizadoTarjetasCredito(data) {
   return arr.reduce((s, t) => s + (parseFloat(t.cupoUtilizado) || 0), 0);
 }
 
+/**
+ * Fila «Por cuenta» en Inicio: mostrar si hay saldo, ingresos a esa caja, o se dejó
+ * fijado saldo inicial o detalle (bancos, plataformas, tarjeta).
+ */
+export function cuentaVisibleEnResumenInicio(cuentaId, data, saldosPorCuenta) {
+  const nN = (v) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : 0;
+  };
+  const saldo = nN(saldosPorCuenta?.[cuentaId]);
+  if (Math.abs(saldo) > 1e-9) return true;
+
+  const ingresos = data.ingresos || [];
+  if (
+    ingresos.some(
+      (i) => cuentaBucketMovimiento(i?.origen, data) === cuentaId && nN(i?.cantidad) !== 0
+    )
+  ) {
+    return true;
+  }
+
+  const s = data.saldosCuentas || {};
+  if (cuentaId === 'efectivo') return nN(s.efectivo) !== 0;
+  if (cuentaId === 'banco') {
+    if ((data.bancosDetalle || []).length > 0) return true;
+    return nN(s.banco) !== 0;
+  }
+  if (cuentaId === 'tarjetaCredito') {
+    if (limiteTotalTarjetasCredito(data) > 0) return true;
+    if ((data.tarjetasCredito || []).length > 0) return true;
+    return nN(s.tarjetaCredito) !== 0;
+  }
+  if (cuentaId === 'nequi' || cuentaId === 'daviplata' || cuentaId === 'billeteras') {
+    if (
+      (data.plataformasDetalle || []).some(
+        (r) => cuentaSaldoPlataforma(r?.platformValue || PLATAFORMA_OTRO_VALUE) === cuentaId
+      )
+    ) {
+      return true;
+    }
+    return nN(s[cuentaId]) !== 0;
+  }
+  return true;
+}
+
 export function generarIdTarjetaCredito() {
   return `tc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }

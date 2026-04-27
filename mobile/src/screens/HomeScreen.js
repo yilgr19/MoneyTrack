@@ -12,6 +12,7 @@ import {
   formatearNumero,
   CUENTAS,
   calcularSaldosPorCuenta,
+  cuentaVisibleEnResumenInicio,
   limiteTotalTarjetasCredito,
   totalCupoUtilizadoTarjetasCredito,
   obtenerMesAño,
@@ -61,6 +62,7 @@ export default function HomeScreen() {
         estadoMsg: '',
         estadoDetalle: '',
         estadoKind: 'info',
+        cuentasInicio: [],
       };
     }
 
@@ -158,8 +160,13 @@ export default function HomeScreen() {
       }
     }
 
+    const cuentasInicio = CUENTAS.filter((c) =>
+      cuentaVisibleEnResumenInicio(c.id, state, saldosPorCuenta)
+    );
+
     return {
       saldosPorCuenta,
+      cuentasInicio,
       topeTarjeta,
       deudaTarjeta,
       saldoActual,
@@ -189,6 +196,8 @@ export default function HomeScreen() {
     state,
     moneda,
     state?.saldosCuentas,
+    state?.bancosDetalle,
+    state?.plataformasDetalle,
     state?.tarjetasCredito,
     state?.limiteTarjetaCredito,
     state?.gastos,
@@ -352,32 +361,39 @@ export default function HomeScreen() {
 
       <UICard>
         <Text style={typography.label}>Por cuenta</Text>
-        {CUENTAS.map((c) => (
-          <View key={c.id} style={{ marginBottom: spacing.sm }}>
-            <View style={layoutStyles.rowBetween}>
-              <Text style={[typography.body, layoutStyles.rowLabel]}>
-                {c.id === 'tarjetaCredito' ? `${c.nombre} (cupo libre)` : c.nombre}
-              </Text>
-              <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
-                {formatearNumero(derived.saldosPorCuenta[c.id] ?? 0)} {moneda}
-              </Text>
+        {derived.cuentasInicio.length === 0 ? (
+          <Text style={[typography.small, { color: colors.textFaint, marginTop: 4 }]}>
+            Aquí verás las cuentas con saldo o que hayas usado (ingreso a esa caja o dato en Saldo inicial en Saldo).
+            Configura al menos una cuenta o registra un ingreso.
+          </Text>
+        ) : (
+          derived.cuentasInicio.map((c) => (
+            <View key={c.id} style={{ marginBottom: spacing.sm }}>
+              <View style={layoutStyles.rowBetween}>
+                <Text style={[typography.body, layoutStyles.rowLabel]}>
+                  {c.id === 'tarjetaCredito' ? `${c.nombre} (cupo libre)` : c.nombre}
+                </Text>
+                <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
+                  {formatearNumero(derived.saldosPorCuenta[c.id] ?? 0)} {moneda}
+                </Text>
+              </View>
+              {c.id === 'tarjetaCredito' && (derived.topeTarjeta > 0 || derived.deudaTarjeta > 0) ? (
+                <Text style={[typography.small, { marginTop: 4, color: colors.textFaint, paddingRight: 4 }]}>
+                  Tope: {formatearNumero(derived.topeTarjeta)} {moneda} · Deuda:{' '}
+                  {formatearNumero(derived.deudaTarjeta)} {moneda} · arriba: tope − deuda (cupo usado) = cupo
+                  libre. Actualiza la deuda en Saldo cuando el banco cambie.
+                </Text>
+              ) : c.id === 'tarjetaCredito' && (state.tarjetasCredito || []).length > 0 ? (
+                <Text style={[typography.small, { marginTop: 4, color: colors.textFaint, paddingRight: 4 }]}>
+                  En Saldo → Tarjeta: cupo total y cupo usado (deuda). El importe de arriba = cupo total − deuda.
+                </Text>
+              ) : null}
             </View>
-            {c.id === 'tarjetaCredito' && (derived.topeTarjeta > 0 || derived.deudaTarjeta > 0) ? (
-              <Text style={[typography.small, { marginTop: 4, color: colors.textFaint, paddingRight: 4 }]}>
-                Tope: {formatearNumero(derived.topeTarjeta)} {moneda} · Deuda:{' '}
-                {formatearNumero(derived.deudaTarjeta)} {moneda} · arriba: tope − deuda (cupo usado) = cupo libre. Actualiza
-                la deuda en Saldo cuando el banco cambie.
-              </Text>
-            ) : c.id === 'tarjetaCredito' && (state.tarjetasCredito || []).length > 0 ? (
-              <Text style={[typography.small, { marginTop: 4, color: colors.textFaint, paddingRight: 4 }]}>
-                En Saldo → Tarjeta: cupo total y cupo usado (deuda). El importe de arriba = cupo total − deuda.
-              </Text>
-            ) : null}
-          </View>
-        ))}
+          ))
+        )}
         <Text style={[typography.small, { marginTop: spacing.sm, color: colors.textFaint }]}>
-          Incluye saldo 0,00: así ves cada caja aunque te hayas quedado sin plata; suma un ingreso en Ingresos o
-          ajusta en Saldo.
+          Solo se listan cajas con saldo, con ingresos a esa cuenta o con datos en Saldo inicial (o detalle banco /
+          plataformas / tarjeta) en la pantalla Saldo.
         </Text>
         <Text style={[typography.small, { marginTop: spacing.sm }]}>
           {derived.nombreMes}: ingresos {formatearNumero(derived.ingresosMesActual)} {moneda} · gastos{' '}
