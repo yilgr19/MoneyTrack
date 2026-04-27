@@ -17,7 +17,7 @@ import { PrimaryButton, GhostButton } from '../components/Buttons';
 import UICard from '../components/UICard';
 import { useApp } from '../context/AppContext';
 import { construirExtractoBancarioTarjeta, formatearNumero, refUltimaHoraDiaEnMes } from '../lib/finance';
-import { colors, spacing, radii, typography } from '../theme';
+import { colors, spacing, radii, typography, iconSemantic } from '../theme';
 
 const MESES_ATRAS = 36;
 
@@ -190,8 +190,17 @@ export default function ExtractosTarjetasScreen() {
               onLongPress={() => eliminarItem(it)}
               activeOpacity={0.75}
             >
-              <View style={styles.rowIcon}>
-                <Ionicons name="receipt-outline" size={24} color={colors.accentBright} />
+              <View
+                style={[
+                  styles.rowIcon,
+                  { backgroundColor: iconSemantic.moreMenu.ExtractosTarjetas.bg },
+                ]}
+              >
+                <Ionicons
+                  name="receipt-outline"
+                  size={24}
+                  color={iconSemantic.moreMenu.ExtractosTarjetas.fg}
+                />
               </View>
               <View style={styles.rowBody}>
                 <Text style={styles.rowTitle}>

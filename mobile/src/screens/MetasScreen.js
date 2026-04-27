@@ -16,7 +16,7 @@ import {
   normalizarMeta,
   ICONO_META_POR_DEFECTO,
 } from '../lib/finance';
-import { colors, spacing, radii, typography } from '../theme';
+import { colors, spacing, radii, typography, colorIconoMetaDesdeNombre } from '../theme';
 
 /**
  * Iconos vectoriales (Ionicons, estilo contorno) — criterio visual distinto a la rejilla de emojis de categorías.
@@ -196,7 +196,7 @@ export default function MetasScreen() {
                 <Ionicons
                   name={ionName}
                   size={24}
-                  color={sel ? colors.mint : colors.textMuted}
+                  color={sel ? colors.mint : colorIconoMetaDesdeNombre(ionName)}
                 />
               </TouchableOpacity>
             );
@@ -204,7 +204,7 @@ export default function MetasScreen() {
         </ScrollView>
         <View style={styles.metaVistaPrevia} accessibilityRole="text">
           <View style={styles.metaVistaPreviaRing}>
-            <Ionicons name={iconoMeta} size={26} color={colors.mint} />
+            <Ionicons name={iconoMeta} size={26} color={colorIconoMetaDesdeNombre(iconoMeta)} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={typography.label}>Vista previa</Text>
@@ -267,7 +267,7 @@ export default function MetasScreen() {
               <View key={meta.id} style={styles.metaRow}>
                 <View style={styles.metaFilaTit}>
                   <View style={styles.metaIconoLista}>
-                    <Ionicons name={m.icono} size={22} color={colors.mint} />
+                    <Ionicons name={m.icono} size={22} color={colorIconoMetaDesdeNombre(m.icono)} />
                   </View>
                   <Text style={styles.metaTit}>{m.nombre}</Text>
                 </View>

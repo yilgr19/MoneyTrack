@@ -24,9 +24,9 @@ const SEV = {
 };
 
 const TIPO_ACENTO = {
-  pago: { icon: 'calendar-outline', color: colors.mint },
+  pago: { icon: 'calendar-outline', color: colors.accentGold },
   categoria: { icon: 'color-palette-outline', color: colors.accent },
-  tc: { icon: 'card-outline', color: colors.mint },
+  tc: { icon: 'card-outline', color: colors.chartBlue },
   saldo: { icon: 'wallet-outline', color: colors.mint },
 };
 
@@ -82,7 +82,7 @@ export function NotificacionBell() {
         }
         accessibilityRole="button"
       >
-        <Ionicons name="notifications-outline" size={26} color={colors.accentBright} />
+        <Ionicons name="notifications-outline" size={26} color={colors.accentGold} />
         {noLeidas > 0 ? (
           <View style={styles.badge} accessibilityElementsHidden>
             <Text style={styles.badgeTxt}>{noLeidas > 9 ? '9+' : String(noLeidas)}</Text>

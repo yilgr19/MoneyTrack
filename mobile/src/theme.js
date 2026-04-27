@@ -61,6 +61,63 @@ export const COLORES_BOLSILLO = [
   '#e879f9',
 ];
 
+/**
+ * Acentos de icono por contexto: más significado, menos “todo lavanda”.
+ * `fg` = color del glifo; `bg` = mancha suave bajo el icono (menú Más).
+ */
+export const iconSemantic = {
+  moreMenu: {
+    Ingresos: { fg: '#34d399', bg: 'rgba(52, 211, 153, 0.16)' },
+    ExtractosTarjetas: { fg: colors.chartBlue, bg: 'rgba(167, 216, 222, 0.12)' },
+    Categorias: { fg: '#a78bfa', bg: 'rgba(167, 139, 250, 0.14)' },
+    MisBolsillos: { fg: '#2dd4bf', bg: 'rgba(45, 212, 191, 0.12)' },
+    Metas: { fg: colors.accentGold, bg: 'rgba(217, 180, 74, 0.18)' },
+    PagosProgramados: { fg: '#fb923c', bg: 'rgba(251, 146, 60, 0.14)' },
+    Movimientos: { fg: '#22d3ee', bg: 'rgba(34, 211, 238, 0.12)' },
+    Administrar: { fg: '#94a3b8', bg: 'rgba(148, 163, 184, 0.12)' },
+  },
+  /** Pestaña activa (la inactiva sigue en gris de React Navigation) */
+  tabActive: {
+    Inicio: '#c4b5fd',
+    Gastos: '#fb7185',
+    Saldo: '#4ade80',
+    Mas: '#7dd3fc',
+  },
+  /** Metas — giro de colores vivos (Inicio, Metas, carrusel) */
+  metasIconPalette: [
+    '#fbbf24',
+    '#fb7185',
+    '#a78bfa',
+    '#2dd4bf',
+    '#4ade80',
+    '#fb923c',
+    '#c026d3',
+    '#22d3ee',
+    '#e879f9',
+  ],
+  /** Saldo inicial — glifo + fondo del círculo */
+  saldoEdit: {
+    'cash-outline': { fg: '#facc15', bg: 'rgba(250, 204, 21, 0.12)' },
+    'wallet-outline': { fg: '#4ade80', bg: 'rgba(74, 222, 128, 0.12)' },
+    'business-outline': { fg: '#60a5fa', bg: 'rgba(96, 165, 250, 0.12)' },
+    'card-outline': { fg: '#c084fc', bg: 'rgba(192, 132, 252, 0.12)' },
+    'apps-outline': { fg: '#f472b6', bg: 'rgba(244, 114, 182, 0.12)' },
+    'pie-chart-outline': { fg: '#34d399', bg: 'rgba(52, 211, 153, 0.12)' },
+    'document-text-outline': { fg: '#a8a29e', bg: 'rgba(168, 162, 158, 0.1)' },
+  },
+};
+
+/** Color estable por nombre de icono de meta (Inicio, Metas, carrusel). */
+export function colorIconoMetaDesdeNombre(ionName) {
+  const s = String(ionName || 'meta');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  }
+  const p = iconSemantic.metasIconPalette;
+  return p[Math.abs(h) % p.length];
+}
+
 export const spacing = {
   xs: 6,
   sm: 10,

@@ -43,7 +43,7 @@ import {
   reemplazarPagosRecordatorioTarjetas,
 } from '../lib/finance';
 import { emptySaldosCuentas } from '../lib/storage';
-import { colors, spacing, radii, typography, layoutStyles } from '../theme';
+import { colors, spacing, radii, typography, layoutStyles, iconSemantic } from '../theme';
 
 const MONEDAS = [
   { value: '', label: 'Selecciona…' },
@@ -213,10 +213,13 @@ function emptyTcDraft() {
 }
 
 function EditCard({ icon, title, subtitle, onPress, hint }) {
+  const kit = iconSemantic.saldoEdit[icon];
+  const iconFg = kit?.fg ?? colors.accentBright;
+  const iconCellBg = kit?.bg ?? colors.surfaceHighlight;
   return (
     <TouchableOpacity style={styles.editCard} onPress={onPress} activeOpacity={0.75}>
-      <View style={styles.editCardIcon}>
-        <Ionicons name={icon} size={22} color={colors.accentBright} />
+      <View style={[styles.editCardIcon, { backgroundColor: iconCellBg }]}>
+        <Ionicons name={icon} size={22} color={iconFg} />
       </View>
       <View style={styles.editCardBody}>
         <Text style={styles.editCardTitle}>{title}</Text>

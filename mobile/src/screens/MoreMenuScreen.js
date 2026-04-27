@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
 import { HeaderConCampana } from '../components/HeaderConCampana';
-import { colors, spacing, radii, typography } from '../theme';
+import { colors, spacing, radii, typography, iconSemantic } from '../theme';
 
 const ITEMS = [
   { key: 'Ingresos', title: 'Ingresos', sub: 'Registrar entradas de dinero', icon: 'trending-up' },
@@ -33,8 +33,17 @@ export default function MoreMenuScreen({ navigation }) {
           onPress={() => navigation.navigate(it.key)}
           activeOpacity={0.72}
         >
-          <View style={styles.iconCircle}>
-            <Ionicons name={it.icon} size={22} color={colors.accentBright} />
+          <View
+            style={[
+              styles.iconCircle,
+              { backgroundColor: iconSemantic.moreMenu[it.key]?.bg ?? colors.surfaceHighlight },
+            ]}
+          >
+            <Ionicons
+              name={it.icon}
+              size={22}
+              color={iconSemantic.moreMenu[it.key]?.fg ?? colors.accentBright}
+            />
           </View>
           <View style={styles.textBlock}>
             <Text style={styles.title}>{it.title}</Text>

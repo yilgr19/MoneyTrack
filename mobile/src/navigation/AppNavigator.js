@@ -6,7 +6,7 @@ import { rootNavigationRef } from './rootNavigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { colors, iconSemantic } from '../theme';
 import HomeScreen from '../screens/HomeScreen';
 import GastosScreen from '../screens/GastosScreen';
 import SaldoScreen from '../screens/SaldoScreen';
@@ -154,13 +154,16 @@ export default function AppNavigator() {
           tabBarActiveTintColor: colors.accentBright,
           tabBarInactiveTintColor: colors.textFaint,
           tabBarLabelStyle: { fontSize: 11, fontWeight: '600', letterSpacing: 0.2 },
-          tabBarIcon: ({ color, size }) => {
+          tabBarIcon: ({ color, size, focused }) => {
             let icon = 'ellipse';
             if (route.name === 'Inicio') icon = 'home';
             if (route.name === 'Gastos') icon = 'card';
             if (route.name === 'Saldo') icon = 'wallet';
             if (route.name === 'Mas') icon = 'apps';
-            return <Ionicons name={icon} size={size} color={color} />;
+            const tint = focused
+              ? (iconSemantic.tabActive[route.name] ?? color)
+              : color;
+            return <Ionicons name={icon} size={size} color={tint} />;
           },
         })}
       >

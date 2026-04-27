@@ -23,7 +23,15 @@ import {
   normalizarMeta,
   totalSaldoBolsillos,
 } from '../lib/finance';
-import { colors, spacing, radii, typography, layoutStyles } from '../theme';
+import {
+  colors,
+  spacing,
+  radii,
+  typography,
+  layoutStyles,
+  iconSemantic,
+  colorIconoMetaDesdeNombre,
+} from '../theme';
 
 export default function HomeScreen() {
   const { state, ready, replaceState } = useApp();
@@ -367,7 +375,11 @@ export default function HomeScreen() {
             style={styles.btnIrExtractos}
             activeOpacity={0.85}
           >
-            <Ionicons name="receipt-outline" size={18} color={colors.accentBright} />
+            <Ionicons
+              name="receipt-outline"
+              size={18}
+              color={iconSemantic.moreMenu.ExtractosTarjetas.fg}
+            />
             <Text style={styles.btnIrExtractosTxt}>Abrir extractos y archivo por mes</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
           </TouchableOpacity>
@@ -675,7 +687,7 @@ export default function HomeScreen() {
                 <View style={layoutStyles.rowBetween}>
                   <View style={styles.metaInicioFila}>
                     <View style={styles.metaInicioIcono}>
-                      <Ionicons name={m.icono} size={19} color={colors.mint} />
+                      <Ionicons name={m.icono} size={19} color={colorIconoMetaDesdeNombre(m.icono)} />
                     </View>
                     <Text
                       style={[typography.body, layoutStyles.rowLabel, { flex: 1, minWidth: 0 }]}
