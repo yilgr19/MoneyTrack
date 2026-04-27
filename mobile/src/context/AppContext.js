@@ -47,6 +47,9 @@ function normalizeState(raw) {
       ? raw.extractosTarjetasHistorial.filter((r) => r && typeof r === 'object' && r.id)
       : [],
     bolsillos: Array.isArray(raw.bolsillos) ? raw.bolsillos.filter((r) => r && typeof r === 'object' && r.id) : [],
+    recordatoriosPagoRegistrado: Array.isArray(raw.recordatoriosPagoRegistrado)
+      ? raw.recordatoriosPagoRegistrado.filter((k) => typeof k === 'string' && k.trim())
+      : [],
   };
 }
 

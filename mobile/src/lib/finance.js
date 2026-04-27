@@ -522,7 +522,19 @@ export function diasHastaProximoDiaCalendario(diaDelMes, ref = new Date()) {
  * @param {object} data - Estado de la app (gastos, saldos, tarjetas, categorías, …).
  * @param {Date} [ref] - Hoy: alinear extracto con corte y movimientos.
  */
+/**
+ * Clave para no volver a mostrar un recordatorio TC tras registrar el gasto correspondiente
+ * (mismo `id` sintético `tc-…-corte|limite` y misma `fechaInicio` del vencimiento).
+ */
+export function claveRecordatorioPagoCumplido(p) {
+  if (!p || !p.id) return '';
+  return `${p.id}|${String(p.fechaInicio || '').trim().slice(0, 10)}`;
+}
+
 export function reemplazarPagosRecordatorioTarjetas(pagosExistentes, data, ref = new Date()) {
+  const exclR = new Set(
+    Array.isArray(data?.recordatoriosPagoRegistrado) ? data.recordatoriosPagoRegistrado : []
+  );
   const filtrados = (pagosExistentes || []).filter((p) => !p.esRecordatorioTarjeta);
   /** `tarjetaId|YYYY-MM-DD` con cuota diferida desde Gastos (por entidad; legacy = sin id en datos viejos). */
   const corteDiasConCuotaDif = new Set();
@@ -566,8 +578,10 @@ export function reemplazarPagosRecordatorioTarjetas(pagosExistentes, data, ref =
       const cuentaFila = tipo === 'limite' ? 'banco' : 'tarjetaCredito';
       const notaF =
         `Estim. capital cierre + int. aprox. (E.A. ${(t.tasaEA && String(t.tasaEA).trim()) || 0}%). ${notaMovs} Pago: ${formatearNumero(montoVal, 0)}. Confirma en Gastos.`;
+      const rId = `tc-${t.id}-${idSuf}`;
+      if (exclR.has(`${rId}|${fi}`)) return;
       extras.push({
-        id: `tc-${t.id}-${idSuf}`,
+        id: rId,
         esRecordatorioTarjeta: true,
         tipoRecordatorioTarjeta: tipo,
         tarjetaId: t.id,

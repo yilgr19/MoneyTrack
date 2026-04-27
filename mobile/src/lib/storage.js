@@ -23,6 +23,7 @@ const KEYS = [
   'saldoInicialNota',
   'extractosTarjetasHistorial',
   'bolsillos',
+  'recordatoriosPagoRegistrado',
 ];
 
 export function emptySaldosCuentas() {
@@ -67,6 +68,7 @@ export async function loadAppState() {
     tarjetasCredito: parseJson(map.tarjetasCredito, []),
     extractosTarjetasHistorial: parseJson(map.extractosTarjetasHistorial, []),
     bolsillos: parseJson(map.bolsillos, []),
+    recordatoriosPagoRegistrado: parseJson(map.recordatoriosPagoRegistrado, []),
   };
 }
 
@@ -89,6 +91,7 @@ export async function persistAppState(state) {
     ['tarjetasCredito', JSON.stringify(state.tarjetasCredito || [])],
     ['extractosTarjetasHistorial', JSON.stringify(state.extractosTarjetasHistorial || [])],
     ['bolsillos', JSON.stringify(state.bolsillos || [])],
+    ['recordatoriosPagoRegistrado', JSON.stringify(state.recordatoriosPagoRegistrado || [])],
   ];
   await AsyncStorage.multiSet(pairs);
 }
@@ -115,7 +118,13 @@ export async function clearStoragePartial() {
 
 export async function clearStorageFull() {
   await clearStoragePartial();
-  await AsyncStorage.multiRemove(['moneda', 'pagosProgramados', KEY_ONBOARDING_COMPLETADO, NOTIFICACIONES_LECTURA_KEY]);
+  await AsyncStorage.multiRemove([
+    'moneda',
+    'pagosProgramados',
+    'recordatoriosPagoRegistrado',
+    KEY_ONBOARDING_COMPLETADO,
+    NOTIFICACIONES_LECTURA_KEY,
+  ]);
   await AsyncStorage.multiSet([
     ['gastos', '[]'],
     ['ingresos', '[]'],

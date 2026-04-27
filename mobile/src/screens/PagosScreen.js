@@ -14,6 +14,7 @@ import {
   generarIdPagoProgramado,
   fechaALocalISO,
   parseFechaHoraLocal,
+  claveRecordatorioPagoCumplido,
 } from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
@@ -25,6 +26,19 @@ export default function PagosScreen() {
   const { state, replaceState } = useApp();
   const moneda = state.moneda || '';
   const categorias = useMemo(() => (state.categorias || []).map(normalizarCategoria), [state.categorias]);
+
+  /** Alineada con Gastos: no mostrar recordatorios TC ya atendidos (evita duplicar tras reemplazar). */
+  const pagosListaVisible = useMemo(() => {
+    const excl = new Set(state?.recordatoriosPagoRegistrado || []);
+    return (state?.pagosProgramados || []).filter((p) => {
+      if (!p) return false;
+      if (p.esRecordatorioTarjeta) {
+        const k = claveRecordatorioPagoCumplido(p);
+        if (k && excl.has(k)) return false;
+      }
+      return true;
+    });
+  }, [state?.pagosProgramados, state?.recordatoriosPagoRegistrado]);
 
   const [concepto, setConcepto] = useState('');
   const [monto, setMonto] = useState('');
@@ -108,10 +122,20 @@ export default function PagosScreen() {
         text: 'Eliminar',
         style: 'destructive',
         onPress: () =>
-          replaceState((s) => ({
-            ...s,
-            pagosProgramados: (s.pagosProgramados || []).filter((x) => x.id !== id),
-          })),
+          replaceState((s) => {
+            const list = s.pagosProgramados || [];
+            const p = list.find((x) => x && String(x.id) === String(id));
+            let rpr = [...(s.recordatoriosPagoRegistrado || [])];
+            if (p && p.esRecordatorioTarjeta) {
+              const k = claveRecordatorioPagoCumplido(p);
+              if (k && !rpr.includes(k)) rpr.push(k);
+            }
+            return {
+              ...s,
+              pagosProgramados: list.filter((x) => x && String(x.id) !== String(id)),
+              recordatoriosPagoRegistrado: rpr,
+            };
+          }),
       },
     ]);
   }
@@ -232,10 +256,10 @@ export default function PagosScreen() {
 
       <UICard style={{ marginBottom: 0 }}>
         <Text style={typography.label}>Lista</Text>
-        {(state.pagosProgramados || []).length === 0 ? (
+        {pagosListaVisible.length === 0 ? (
           <Text style={typography.small}>Sin pagos programados.</Text>
         ) : (
-          (state.pagosProgramados || []).map((p) => (
+          pagosListaVisible.map((p) => (
             <View key={p.id} style={styles.item}>
               <Text style={styles.itemTit}>{p.concepto}</Text>
               <Text style={typography.small}>

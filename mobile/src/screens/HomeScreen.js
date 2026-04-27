@@ -7,6 +7,8 @@ import ScreenWrap from '../components/ScreenWrap';
 import { HeaderConCampana } from '../components/HeaderConCampana';
 import { NotificacionBell } from '../components/NotificacionBell';
 import UICard from '../components/UICard';
+import DonutChart from '../components/charts/DonutChart';
+import CategoriaGastoBarFun from '../components/CategoriaGastoBarFun';
 import { PrimaryButton } from '../components/Buttons';
 import { useApp, tieneDatosPrevios } from '../context/AppContext';
 import {
@@ -31,11 +33,13 @@ import {
   layoutStyles,
   iconSemantic,
   colorIconoMetaDesdeNombre,
+  shadows,
 } from '../theme';
 
 export default function HomeScreen() {
   const { state, ready, replaceState } = useApp();
   const navigation = useNavigation();
+  const { width: winW } = useWindowDimensions();
   const moneda = state?.moneda || '';
 
   const derived = useMemo(() => {
@@ -142,32 +146,28 @@ export default function HomeScreen() {
     let estadoDetalle = '';
     let estadoKind = 'info';
     if (presupuestoMensual <= 0) {
-      estadoMsg = 'Define un presupuesto mensual para saber si vas bien o mal.';
+      estadoMsg = 'Sin tope mensual no hay semáforo (abajo o Saldo).';
       if (ingresosMesActual > 0 || gastosMesActual > 0) {
-        estadoDetalle = `Ingresos del mes: +${formatearNumero(ingresosMesActual)} ${moneda}. Flujo: ${formatearNumero(flujoMes)} ${moneda} (ingresos − gastos).`;
+        estadoDetalle = `+${formatearNumero(ingresosMesActual)} / flujo ${formatearNumero(flujoMes)} ${moneda}`;
       }
     } else {
       const disponible = presupuestoMensual - gastosMesActual;
       const pctUsado = (gastosMesActual / presupuestoMensual) * 100;
-      const extraFlujo =
-        ingresosMesActual > 0
-          ? ` Ingresos del mes: +${formatearNumero(ingresosMesActual)} ${moneda}. Flujo: ${formatearNumero(flujoMes)} ${moneda} (ingresos − gastos).`
-          : '';
       if (disponible > 0 && pctUsado < 80) {
-        estadoMsg = '¡Vas bien!';
-        estadoDetalle = `Te quedan ${formatearNumero(disponible)} ${moneda} del tope de gasto que fijaste.${extraFlujo}`;
+        estadoMsg = '¡Dentro del tope!';
+        estadoDetalle = `Quedan ${formatearNumero(disponible)} ${moneda} de tu límite de gasto.`;
         estadoKind = 'ok';
       } else if (disponible > 0 && pctUsado >= 80) {
-        estadoMsg = 'Cuidado, te acercas al límite';
-        estadoDetalle = `Te quedan ${formatearNumero(disponible)} ${moneda} del tope de gasto.${extraFlujo}`;
+        estadoMsg = 'Cerca del tope del mes';
+        estadoDetalle = `Quedan ${formatearNumero(disponible)} ${moneda}.`;
         estadoKind = 'cuidado';
       } else if (disponible === 0) {
-        estadoMsg = 'Has agotado tu presupuesto mensual';
-        estadoDetalle = `Gastaste exactamente ${formatearNumero(presupuestoMensual)} ${moneda} este mes, según tu tope.${extraFlujo}`;
+        estadoMsg = 'Límite de gasto alcanzado';
+        estadoDetalle = `${formatearNumero(presupuestoMensual)} ${moneda} este mes.`;
         estadoKind = 'alerta';
       } else {
-        estadoMsg = 'Has superado tu presupuesto';
-        estadoDetalle = `Te has pasado en ${formatearNumero(Math.abs(disponible))} ${moneda} respecto al tope.${extraFlujo}`;
+        estadoMsg = 'Sobre el tope fijado';
+        estadoDetalle = `+${formatearNumero(Math.abs(disponible))} ${moneda} sobre límite.`;
         estadoKind = 'superado';
       }
     }
@@ -228,6 +228,62 @@ export default function HomeScreen() {
       ? Math.min(100, (derived.gastosMesActual / derived.presupuestoMensual) * 100)
       : 0;
 
+  const segmentosDonutCategorias = useMemo(() => {
+    const entries = Object.entries(derived.gastosMesPorCategoria || {})
+      .filter(([, v]) => (parseFloat(v) || 0) > 0)
+      .sort((a, b) => (parseFloat(b[1]) || 0) - (parseFloat(a[1]) || 0));
+    if (entries.length === 0) return [];
+    const top = entries.slice(0, 5);
+    const restSum = entries.slice(5).reduce((s, [, v]) => s + (parseFloat(v) || 0), 0);
+    const out = top.map(([nombre, monto]) => {
+      const c = (derived.categoriasData || []).find((x) => x.nombre === nombre);
+      return {
+        value: parseFloat(monto) || 0,
+        color: c?.color || colors.textMuted,
+        label: `${c?.icono ? `${c.icono} ` : ''}${nombre}`.trim(),
+      };
+    });
+    if (restSum > 0.01) {
+      out.push({ value: restSum, color: '#94a3b8', label: 'Otros' });
+    }
+    return out;
+  }, [derived.gastosMesPorCategoria, derived.categoriasData]);
+
+  const segmentosIngresoGasto = useMemo(() => {
+    const ing = derived.ingresosMesActual || 0;
+    const gas = derived.gastosMesActual || 0;
+    if (ing <= 0 && gas <= 0) return [];
+    return [
+      { value: Math.max(0, ing), color: colors.mint, label: 'Ingresos' },
+      { value: Math.max(0, gas), color: colors.danger, label: 'Gastos' },
+    ];
+  }, [derived.ingresosMesActual, derived.gastosMesActual]);
+
+  const centroDonutCategorias = useMemo(() => {
+    if (!segmentosDonutCategorias.length) return { line1: undefined, line2: undefined };
+    const g = derived.gastosMesActual || 0;
+    return {
+      line1: `${formatearNumero(g)} ${moneda}`.trim(),
+      line2: 'Total gastos (mes)',
+    };
+  }, [segmentosDonutCategorias, derived.gastosMesActual, moneda]);
+
+  const centroDonutFlujo = useMemo(() => {
+    const ing = derived.ingresosMesActual || 0;
+    const gas = derived.gastosMesActual || 0;
+    const t = ing + gas;
+    if (t <= 0) return { line1: undefined, line2: undefined };
+    const pi = Math.round((ing / t) * 100);
+    const pg = Math.round((gas / t) * 100);
+    return {
+      line1: `${pi}%  ·  ${pg}%`,
+      line2: 'Ingresos · gastos (mes)',
+    };
+  }, [derived.ingresosMesActual, derived.gastosMesActual]);
+
+  const chartsStack = winW < 400;
+  const chartSize = chartsStack ? 148 : 136;
+
   function guardarPresupuesto(val) {
     const n = parseFloat(val) || 0;
     replaceState((s) => ({
@@ -252,12 +308,12 @@ export default function HomeScreen() {
           </Text>
           <NotificacionBell />
         </View>
-        <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>Tu dinero, con claridad</Text>
+        <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>Tres pasos</Text>
         <UICard accent>
           <Text style={typography.label}>Primeros pasos</Text>
-          <Step n={1} text="Saldo o ingresos (Saldo / Más → Ingresos)" />
-          <Step n={2} text="Categorías en Más → Categorías" />
-          <Step n={3} text="Registra gastos en la pestaña Gastos" />
+          <Step n={1} text="Saldo o Ingresos (Más)" />
+          <Step n={2} text="Categorías (Más)" />
+          <Step n={3} text="Registrar en Gastos" />
         </UICard>
       </ScreenWrap>
     );
@@ -272,7 +328,7 @@ export default function HomeScreen() {
       />
 
       <LinearGradient
-        colors={['rgba(75, 36, 108, 0.42)', 'rgba(12, 8, 18, 0.45)']}
+        colors={['rgba(28, 26, 38, 0.98)', 'rgba(12, 11, 18, 1)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroCard}
@@ -288,28 +344,30 @@ export default function HomeScreen() {
           {formatearNumero(derived.saldoActual)} <Text style={styles.heroMoneda}>{moneda}</Text>
         </Text>
         {derived.totalEnBolsillos > 0 ? (
-          <Text style={[typography.small, { color: colors.textFaint, marginTop: 6, lineHeight: 18 }]}>
-            En bolsillos (ahorro, no suma arriba): {formatearNumero(derived.totalEnBolsillos)} {moneda}
+          <Text style={styles.heroBolsillos}>
+            Bolsillos: {formatearNumero(derived.totalEnBolsillos)} {moneda} · no al total
           </Text>
         ) : null}
         <View style={styles.heroRow}>
-          <Text style={styles.heroMeta}>
-            +{formatearNumero(derived.ingresosMesActual)} {moneda} ingresos mes
-          </Text>
-          <Text style={styles.heroMetaDot}>·</Text>
-          <Text style={styles.heroMeta}>
-            −{formatearNumero(derived.gastosMesActual)} {moneda} gastos mes
-          </Text>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLab}>Ingresos (mes)</Text>
+            <Text style={styles.heroStatVal}>
+              +{formatearNumero(derived.ingresosMesActual)} {moneda}
+            </Text>
+          </View>
+          <View style={styles.heroStatSep} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLab}>Gastos (mes)</Text>
+            <Text style={[styles.heroStatVal, { color: colors.danger }]}>
+              −{formatearNumero(derived.gastosMesActual)} {moneda}
+            </Text>
+          </View>
         </View>
       </LinearGradient>
 
       {derived.alertaTc.tarjetas && derived.alertaTc.tarjetas.length > 0 ? (
         <UICard style={{ marginBottom: spacing.md }}>
-          <Text style={typography.label}>Tarjetas de crédito · corte y calendario</Text>
-          <Text style={[typography.small, { marginBottom: spacing.md, color: colors.textFaint, lineHeight: 20 }]}>
-            Aquí solo fechas y avisos de corte. El extracto detallado (deuda, tramos) está en Más → Extractos de
-            tarjeta; si te llega una notificación con extracto, se abre al tocarla.
-          </Text>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>TC · corte y pago</Text>
           {derived.alertaTc.tarjetas.map((t, i) => (
             <View
               key={t.id || `tc-${i}`}
@@ -380,7 +438,7 @@ export default function HomeScreen() {
               size={18}
               color={iconSemantic.moreMenu.ExtractosTarjetas.fg}
             />
-            <Text style={styles.btnIrExtractosTxt}>Abrir extractos y archivo por mes</Text>
+            <Text style={styles.btnIrExtractosTxt}>Extractos de tarjeta</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
           </TouchableOpacity>
         </UICard>
@@ -398,8 +456,7 @@ export default function HomeScreen() {
         <Text style={typography.label}>Por cuenta</Text>
         {derived.cuentasInicio.length === 0 ? (
           <Text style={[typography.small, { color: colors.textFaint, marginTop: 4 }]}>
-            Aquí verás las cuentas con saldo o que hayas usado (ingreso a esa caja o dato en Saldo inicial en Saldo).
-            Configura al menos una cuenta o registra un ingreso.
+            Añade saldo o un ingreso (pestaña Saldo).
           </Text>
         ) : (
           derived.cuentasInicio.map((c) => (
@@ -414,22 +471,17 @@ export default function HomeScreen() {
               </View>
               {c.id === 'tarjetaCredito' && (derived.topeTarjeta > 0 || derived.deudaTarjeta > 0) ? (
                 <Text style={[typography.small, { marginTop: 4, color: colors.textFaint, paddingRight: 4 }]}>
-                  Tope: {formatearNumero(derived.topeTarjeta)} {moneda} · Deuda:{' '}
-                  {formatearNumero(derived.deudaTarjeta)} {moneda} · arriba: tope − deuda (cupo usado) = cupo
-                  libre. Actualiza la deuda en Saldo cuando el banco cambie.
+                  Tope {formatearNumero(derived.topeTarjeta)} · deuda {formatearNumero(derived.deudaTarjeta)}{' '}
+                  {moneda} · ajusta en Saldo
                 </Text>
               ) : c.id === 'tarjetaCredito' && (state.tarjetasCredito || []).length > 0 ? (
                 <Text style={[typography.small, { marginTop: 4, color: colors.textFaint, paddingRight: 4 }]}>
-                  En Saldo → Tarjeta: cupo total y cupo usado (deuda). El importe de arriba = cupo total − deuda.
+                  Saldo: cupo total − deuda (Saldo → Tarjeta)
                 </Text>
               ) : null}
             </View>
           ))
         )}
-        <Text style={[typography.small, { marginTop: spacing.sm, color: colors.textFaint }]}>
-          Solo se listan cajas con saldo, con ingresos a esa cuenta o con datos en Saldo inicial (o detalle banco /
-          plataformas / tarjeta) en la pantalla Saldo.
-        </Text>
         <Text style={[typography.small, { marginTop: spacing.sm }]}>
           {derived.nombreMes}: ingresos {formatearNumero(derived.ingresosMesActual)} {moneda} · gastos{' '}
           {formatearNumero(derived.gastosMesActual)} {moneda}
@@ -440,7 +492,126 @@ export default function HomeScreen() {
       </UICard>
 
       <UICard>
+        <Text style={styles.analisisSectionTit}>Análisis</Text>
+        <Text style={styles.analisisSectionSub}>
+          Periodo: mes en curso. Porcentajes respecto al total de cada anillo.
+        </Text>
+        <View style={[styles.chartsRow, chartsStack && styles.chartsRowStack]}>
+          <View style={[styles.chartPanel, chartsStack && styles.chartPanelFull]}>
+            <DonutChart
+              segments={segmentosDonutCategorias}
+              title="Gastos por categoría"
+              emptyHint="Sin gastos el mes"
+              size={chartSize}
+              centerLine1={centroDonutCategorias.line1}
+              centerLine2={centroDonutCategorias.line2}
+            />
+          </View>
+          <View style={[styles.chartPanel, chartsStack && styles.chartPanelFull]}>
+            <DonutChart
+              segments={segmentosIngresoGasto}
+              title="Ingreso y gasto"
+              emptyHint="Sin ingresos ni gastos"
+              size={chartSize}
+              centerLine1={centroDonutFlujo.line1}
+              centerLine2={centroDonutFlujo.line2}
+            />
+          </View>
+        </View>
+        {derived.mayorGasto ? (
+          <Text style={typography.body}>
+            Mayor gasto: <Text style={{ fontWeight: '700', color: colors.text }}>{derived.mayorGasto.nombre}</Text> —{' '}
+            {formatearNumero(derived.mayorGasto.cantidad)} {moneda}
+          </Text>
+        ) : (
+          <Text style={typography.small}>Sin gastos este mes.</Text>
+        )}
+        {(derived.topeTarjeta > 0 ||
+          derived.deudaTarjeta > 0 ||
+          (state.tarjetasCredito || []).length > 0 ||
+          (derived.saldosPorCuenta.tarjetaCredito || 0) > 0) && (
+          <View style={{ marginTop: spacing.sm }}>
+            <Text style={typography.body}>
+              Cupo libre:{' '}
+              <Text style={{ fontWeight: '700', color: colors.mint }}>
+                {formatearNumero(derived.saldosPorCuenta.tarjetaCredito ?? 0)} {moneda}
+              </Text>
+            </Text>
+            {derived.topeTarjeta > 0 || derived.deudaTarjeta > 0 ? (
+              <Text style={[typography.small, { marginTop: 4, color: colors.textFaint }]}>
+                Tope {formatearNumero(derived.topeTarjeta)} · deuda {formatearNumero(derived.deudaTarjeta)} {moneda}
+              </Text>
+            ) : null}
+          </View>
+        )}
+        <Text
+          style={[
+            styles.estado,
+            derived.estadoKind === 'ok' && styles.estadoOk,
+            derived.estadoKind === 'cuidado' && styles.estadoCuidado,
+            derived.estadoKind === 'alerta' && styles.estadoAlerta,
+            derived.estadoKind === 'superado' && styles.estadoSuperado,
+          ]}
+        >
+          {derived.estadoMsg}
+        </Text>
+        {!!derived.estadoDetalle && (
+          <Text style={[typography.body, { marginTop: 4, flexShrink: 1 }]}>{derived.estadoDetalle}</Text>
+        )}
+      </UICard>
+
+      <UICard>
+        <Text style={typography.label}>Gastos por categoría</Text>
+        <Text style={[typography.small, { color: colors.textMuted, marginBottom: spacing.md, lineHeight: 20 }]}>
+          Cómo repartieron tus salidas: medallas, colores y barras con ritmo. ¡A competir con el bolsillo!
+        </Text>
+        {derived.categoriasData.length === 0 ? (
+          <Text style={typography.small}>Crea categorías primero.</Text>
+        ) : (
+          derived.categoriasData
+            .sort(
+              (a, b) =>
+                (derived.gastosMesPorCategoria[b.nombre] || 0) -
+                (derived.gastosMesPorCategoria[a.nombre] || 0)
+            )
+            .slice(0, 6)
+            .map((cat, idx) => {
+              const monto = derived.gastosMesPorCategoria[cat.nombre] || 0;
+              const pct = derived.totalGastosMes > 0 ? (monto / derived.totalGastosMes) * 100 : 0;
+              const limiteCat =
+                cat.limite != null && String(cat.limite).trim() !== ''
+                  ? parseFloat(cat.limite)
+                  : NaN;
+              const tieneLimite = Number.isFinite(limiteCat) && limiteCat > 0;
+              const superadoCategoria = tieneLimite && monto > limiteCat;
+              return (
+                <CategoriaGastoBarFun
+                  key={cat.nombre}
+                  cat={cat}
+                  monto={monto}
+                  pct={pct}
+                  moneda={moneda}
+                  index={idx}
+                  superadoCategoria={superadoCategoria}
+                  limiteCat={limiteCat}
+                  formatearNumero={formatearNumero}
+                />
+              );
+            })
+        )}
+      </UICard>
+
+      <UICard>
         <Text style={typography.label}>Presupuesto mensual</Text>
+        <View style={styles.guiaPresup}>
+          <Text style={styles.guiaPresupTit}>Guía rápida</Text>
+          <Text style={styles.guiaPresupTxt}>
+            <Text style={styles.guiaPresupBold}>Tope</Text> = límite de gasto del mes (lo fijas tú).{' '}
+            <Text style={styles.guiaPresupBold}>Disponible</Text> = tope − gastos del mes.{' '}
+            <Text style={styles.guiaPresupBold}>Ingreso</Text> y <Text style={styles.guiaPresupBold}>flujo</Text> son
+            informativos (entradas y entradas − gastos); no suman al tope.
+          </Text>
+        </View>
         {derived.presupuestoMensual > 0 ? (
           <>
             <View style={layoutStyles.rowBetween}>
@@ -482,12 +653,11 @@ export default function HomeScreen() {
               </Text>
             </View>
             <Text style={[typography.small, { marginBottom: spacing.sm, color: colors.textFaint, marginTop: 2 }]}>
-              Flujo: ingresos − gastos del mes. Disponible (tope): tope fijado − gastos; el ingreso no suma a esa
-              cifra.
+              Disponible = tope − gastos (el ingreso no sube este saldo)
             </Text>
             <View style={styles.barBg}>
               <LinearGradient
-                colors={[colors.btnFrom, colors.accentDeep]}
+                colors={['rgba(88, 82, 108, 0.85)', 'rgba(60, 52, 78, 0.95)']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.barFill, { width: `${pctPresupuesto}%` }]}
@@ -514,148 +684,13 @@ export default function HomeScreen() {
       </UICard>
 
       <UICard>
-        <Text style={typography.label}>Análisis</Text>
-        {derived.mayorGasto ? (
-          <Text style={typography.body}>
-            Mayor gasto: <Text style={{ fontWeight: '700', color: colors.text }}>{derived.mayorGasto.nombre}</Text> —{' '}
-            {formatearNumero(derived.mayorGasto.cantidad)} {moneda}
-          </Text>
-        ) : (
-          <Text style={typography.small}>Sin gastos este mes.</Text>
-        )}
-        {derived.presupuestoMensual > 0 && (
-          <Text style={[typography.small, { marginTop: spacing.xs }]}>
-            {formatearNumero(derived.gastosMesActual)} / {formatearNumero(derived.presupuestoMensual)} {moneda}
-          </Text>
-        )}
-        {(derived.topeTarjeta > 0 ||
-          derived.deudaTarjeta > 0 ||
-          (state.tarjetasCredito || []).length > 0 ||
-          (derived.saldosPorCuenta.tarjetaCredito || 0) > 0) && (
-          <View style={{ marginTop: spacing.sm }}>
-            <Text style={typography.body}>
-              Cupo libre (tarjeta):{' '}
-              <Text style={{ fontWeight: '700', color: colors.mint }}>
-                {formatearNumero(derived.saldosPorCuenta.tarjetaCredito ?? 0)} {moneda}
-              </Text>
-            </Text>
-            {derived.topeTarjeta > 0 || derived.deudaTarjeta > 0 ? (
-              <Text style={[typography.small, { marginTop: 4, color: colors.textFaint }]}>
-                Tope {formatearNumero(derived.topeTarjeta)} {moneda} · Deuda {formatearNumero(derived.deudaTarjeta)}{' '}
-                {moneda} · cupo = tope − deuda
-              </Text>
-            ) : null}
-          </View>
-        )}
-        <Text
-          style={[
-            styles.estado,
-            derived.estadoKind === 'ok' && styles.estadoOk,
-            derived.estadoKind === 'cuidado' && styles.estadoCuidado,
-            derived.estadoKind === 'alerta' && styles.estadoAlerta,
-            derived.estadoKind === 'superado' && styles.estadoSuperado,
-          ]}
-        >
-          {derived.estadoMsg}
-        </Text>
-        {!!derived.estadoDetalle && (
-          <Text style={[typography.body, { marginTop: 4, flexShrink: 1 }]}>{derived.estadoDetalle}</Text>
-        )}
-      </UICard>
-
-      <UICard>
-        <Text style={typography.label}>Gastos por categoría</Text>
-        {derived.categoriasData.length === 0 ? (
-          <Text style={typography.small}>Crea categorías primero.</Text>
-        ) : (
-          derived.categoriasData
-            .sort(
-              (a, b) =>
-                (derived.gastosMesPorCategoria[b.nombre] || 0) -
-                (derived.gastosMesPorCategoria[a.nombre] || 0)
-            )
-            .slice(0, 6)
-            .map((cat) => {
-              const monto = derived.gastosMesPorCategoria[cat.nombre] || 0;
-              const pct = derived.totalGastosMes > 0 ? (monto / derived.totalGastosMes) * 100 : 0;
-              const limiteCat =
-                cat.limite != null && String(cat.limite).trim() !== ''
-                  ? parseFloat(cat.limite)
-                  : NaN;
-              const tieneLimite = Number.isFinite(limiteCat) && limiteCat > 0;
-              const superadoCategoria = tieneLimite && monto > limiteCat;
-              return (
-                <View
-                  key={cat.nombre}
-                  style={[
-                    { marginBottom: spacing.md },
-                    superadoCategoria && {
-                      padding: spacing.sm,
-                      borderRadius: radii.md,
-                      backgroundColor: 'rgba(199, 123, 136, 0.16)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(199, 123, 136, 0.55)',
-                    },
-                  ]}
-                >
-                  <View style={layoutStyles.rowBetween}>
-                    <Text
-                      style={[
-                        typography.body,
-                        layoutStyles.rowLabel,
-                        superadoCategoria && { color: colors.danger, fontWeight: '700' },
-                      ]}
-                    >
-                      {cat.icono} {cat.nombre}
-                    </Text>
-                    <Text
-                      style={[
-                        typography.monoAmount,
-                        layoutStyles.rowValue,
-                        superadoCategoria && { color: colors.danger },
-                      ]}
-                    >
-                      {formatearNumero(monto)} {moneda}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.barBg,
-                      superadoCategoria && { backgroundColor: 'rgba(199, 123, 136, 0.28)' },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.barFillCat,
-                        {
-                          width: `${Math.min(100, pct)}%`,
-                          backgroundColor: superadoCategoria ? colors.danger : cat.color,
-                        },
-                      ]}
-                    />
-                  </View>
-                  {superadoCategoria ? (
-                    <Text
-                      style={[typography.small, { marginTop: spacing.xs, color: colors.danger, fontWeight: '600' }]}
-                    >
-                      Sobre límite ({formatearNumero(limiteCat)} {moneda}): +{formatearNumero(monto - limiteCat)}{' '}
-                      {moneda}
-                    </Text>
-                  ) : null}
-                </View>
-              );
-            })
-        )}
-      </UICard>
-
-      <UICard>
         <Text style={typography.label}>Últimos movimientos</Text>
         {derived.gastos.length === 0 ? (
           <Text style={typography.small}>Aún no hay gastos.</Text>
         ) : (
           <>
-            <Text style={[typography.small, { marginBottom: spacing.sm }]}>
-              Histórico: {formatearNumero(derived.totalGastos)} {moneda}
+            <Text style={[typography.small, { marginBottom: spacing.sm, color: colors.textFaint }]}>
+              Total: {formatearNumero(derived.totalGastos)} {moneda}
             </Text>
             {derived.ultimosGastos.map((g, i) => (
               <View key={i} style={styles.moveRow}>
@@ -755,25 +790,106 @@ function PresupuestoQuickInput({ onSave }) {
 }
 
 const styles = StyleSheet.create({
+  guiaPresup: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(160, 140, 190, 0.55)',
+  },
+  guiaPresupTit: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+    color: colors.textMuted,
+  },
+  guiaPresupTxt: { ...typography.small, color: colors.textSecondary, lineHeight: 20 },
+  guiaPresupBold: { fontWeight: '600', color: colors.text },
+  analisisSectionTit: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+    marginBottom: 6,
+  },
+  analisisSectionSub: {
+    ...typography.small,
+    color: colors.textFaint,
+    marginBottom: spacing.md,
+    lineHeight: 18,
+  },
+  chartPanel: {
+    flex: 1,
+    minWidth: 148,
+    maxWidth: '48%',
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: 'rgba(0,0,0,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  chartPanelFull: { maxWidth: '100%', width: '100%' },
+  chartsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+    gap: spacing.md,
+  },
+  chartsRowStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   heroCard: {
     borderRadius: radii.xl,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.stroke,
+    borderColor: 'rgba(255,255,255,0.08)',
+    ...shadows.soft,
   },
-  heroLabel: { ...typography.label, marginBottom: spacing.xs },
+  heroLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textMuted,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
   heroAmount: {
     fontSize: 32,
     fontWeight: '700',
     color: colors.text,
-    letterSpacing: -1,
+    letterSpacing: -0.5,
     maxWidth: '100%',
   },
-  heroMoneda: { fontSize: 18, fontWeight: '600', color: colors.accent },
-  heroRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, flexWrap: 'wrap' },
-  heroMeta: { ...typography.small, fontSize: 12 },
-  heroMetaDot: { color: colors.textFaint, marginHorizontal: 6 },
+  heroMoneda: { fontSize: 17, fontWeight: '500', color: colors.textSecondary },
+  heroBolsillos: {
+    ...typography.small,
+    color: colors.textFaint,
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  heroStat: { flex: 1, minWidth: 0 },
+  heroStatLab: { fontSize: 10, fontWeight: '600', color: colors.textFaint, letterSpacing: 0.6, marginBottom: 4 },
+  heroStatVal: { fontSize: 14, fontWeight: '600', color: colors.mint, fontVariant: ['tabular-nums'] },
+  heroStatSep: { width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: spacing.md },
   alerta: {
     backgroundColor: colors.alertBg,
     borderWidth: 1,

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import ScreenWrap from '../components/ScreenWrap';
@@ -26,8 +28,9 @@ import {
   filtrarPagosProgramadosCumplidosPorGasto,
   pagoProgramadoCumplidoPorGasto,
   abonoCoindiceCorteMensual,
+  claveRecordatorioPagoCumplido,
 } from '../lib/finance';
-import { colors, spacing, radii, typography } from '../theme';
+import { colors, spacing, radii, typography, shadows } from '../theme';
 
 /** 5 títulos y 5 textos: se eligen al azar al mostrar el aviso (mismo tono que la campana). */
 const LIMITE_CAT_ALERT_TITULOS = [
@@ -47,6 +50,54 @@ const LIMITE_CAT_ALERT_MSGS = [
 
 const CUOTAS_OPTS = [1, 2, 3, 6, 12, 24];
 const FLASH_PAGO_OK_MS = 3200;
+
+/** Colores vivos que rotan por fila; si el concepto sugiere TC/corte, se prioriza el morado. */
+const PAGO_VISUAL_ROTATE = [
+  {
+    icon: 'calendar-outline',
+    accent: '#fb923c',
+    rowBg: 'rgba(251, 146, 60, 0.12)',
+    border: '#fb923c',
+    iconBg: 'rgba(251, 146, 60, 0.2)',
+  },
+  {
+    icon: 'wallet-outline',
+    accent: '#4ade80',
+    rowBg: 'rgba(74, 222, 128, 0.1)',
+    border: '#4ade80',
+    iconBg: 'rgba(74, 222, 128, 0.2)',
+  },
+  {
+    icon: 'flash-outline',
+    accent: colors.chartBlue,
+    rowBg: 'rgba(167, 216, 222, 0.1)',
+    border: '#7dd3fc',
+    iconBg: 'rgba(167, 216, 222, 0.2)',
+  },
+  {
+    icon: 'receipt-outline',
+    accent: '#a78bfa',
+    rowBg: 'rgba(167, 139, 250, 0.1)',
+    border: '#8b5cf6',
+    iconBg: 'rgba(167, 139, 250, 0.18)',
+  },
+];
+
+const PAGO_VISUAL_TARJETA = {
+  icon: 'card-outline',
+  accent: '#c084fc',
+  rowBg: 'rgba(192, 132, 252, 0.12)',
+  border: '#a855f7',
+  iconBg: 'rgba(192, 132, 252, 0.2)',
+};
+
+function estiloPagoProgramadoFila(p, index) {
+  const t = String(p.concepto || '');
+  if (/corte|tarjeta|\btc\b|abono|cr[eé]dito|pago corte|l[ií]mite pago/i.test(t)) {
+    return PAGO_VISUAL_TARJETA;
+  }
+  return PAGO_VISUAL_ROTATE[index % PAGO_VISUAL_ROTATE.length];
+}
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -299,7 +350,7 @@ export default function GastosScreen() {
     const refPagoCorte = new Date();
     let corteMsg = null;
     if (pagoProgramadoEnUso) {
-      const p0 = pagosPrev.find((x) => x && x.id === pagoProgramadoEnUso);
+      const p0 = pagosPrev.find((x) => x && String(x.id) === String(pagoProgramadoEnUso));
       if (p0 && p0.esRecordatorioTarjeta && p0.tipoRecordatorioTarjeta === 'corte' && p0.tarjetaId) {
         const t = (state?.tarjetasCredito || []).find((x) => x && String(x.id) === String(p0.tarjetaId));
         const nom = (t && String(t.nombreEntidad || '').trim()) || 'Tu tarjeta';
@@ -319,6 +370,7 @@ export default function GastosScreen() {
     replaceState((s) => {
       let gastos = [...(s.gastos || []), nuevo];
       let pagos = [...(s.pagosProgramados || [])];
+      const recordatoriosCum = [...(s.recordatoriosPagoRegistrado || [])];
 
       if (esTcCarga) {
         const tcs = s.tarjetasCredito || [];
@@ -347,12 +399,22 @@ export default function GastosScreen() {
       }
 
       if (pagoProgramadoEnUso) {
-        pagos = pagos.filter((p) => p.id !== pagoProgramadoEnUso);
+        const pRem = pagos.find((p) => p && String(p.id) === String(pagoProgramadoEnUso));
+        pagos = pagos.filter((p) => p && String(p.id) !== String(pagoProgramadoEnUso));
+        if (pRem && pRem.esRecordatorioTarjeta) {
+          const k = claveRecordatorioPagoCumplido(pRem);
+          if (k && !recordatoriosCum.includes(k)) recordatoriosCum.push(k);
+        }
       } else {
         pagos = filtrarPagosProgramadosCumplidosPorGasto(nuevo, pagos);
       }
 
-      const st = { ...s, gastos, pagosProgramados: pagos };
+      const st = {
+        ...s,
+        gastos,
+        pagosProgramados: pagos,
+        recordatoriosPagoRegistrado: recordatoriosCum,
+      };
       return {
         ...st,
         pagosProgramados: reemplazarPagosRecordatorioTarjetas(st.pagosProgramados, st, new Date()),
@@ -393,17 +455,56 @@ export default function GastosScreen() {
       />
 
       {pagosPendientes.length > 0 && (
-        <UICard accent>
-          <Text style={typography.label}>Pagos programados</Text>
-          {pagosPendientes.map((p) => (
-            <TouchableOpacity key={p.id} style={styles.pagoRow} onPress={() => aplicarPagoProgramado(p)}>
-              <Text style={[typography.body, styles.pagoConcepto]}>
-                {p.concepto} — {formatearNumero(p.monto)} {moneda}
-              </Text>
-              <Text style={styles.link}>Usar en formulario →</Text>
-            </TouchableOpacity>
-          ))}
-        </UICard>
+        <View style={styles.pagosCardOuter}>
+          <LinearGradient
+            colors={['rgba(251, 146, 60, 0.22)', 'rgba(125, 211, 252, 0.12)', 'rgba(34, 211, 238, 0.08)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.pagosCardGradient}
+          >
+            <View style={styles.pagosHeaderRow}>
+              <View style={styles.pagosHeaderIconWrap}>
+                <Ionicons name="calendar" size={22} color={colors.accentGold} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.pagosHeaderTit}>Pagos programados</Text>
+                <Text style={styles.pagosHeaderSub}>Toca un ítem y el formulario se rellenará</Text>
+              </View>
+            </View>
+            {pagosPendientes.map((p, idx) => {
+              const v = estiloPagoProgramadoFila(p, idx);
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  style={[
+                    styles.pagoRow,
+                    { marginTop: idx > 0 ? spacing.sm : 0, borderLeftColor: v.border, backgroundColor: v.rowBg },
+                  ]}
+                  onPress={() => aplicarPagoProgramado(p)}
+                  activeOpacity={0.86}
+                >
+                  <View style={[styles.pagoRowIcon, { backgroundColor: v.iconBg }]}>
+                    <Ionicons name={v.icon} size={20} color={v.accent} />
+                  </View>
+                  <View style={styles.pagoRowText}>
+                    <Text style={[typography.body, styles.pagoConcepto]} numberOfLines={2}>
+                      {p.concepto} — {formatearNumero(p.monto)} {moneda}
+                    </Text>
+                    <View style={styles.pagoCtaRow}>
+                      <Text style={[styles.pagoCta, { color: v.accent }]}>Usar en formulario</Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={v.accent}
+                        style={styles.pagoCtaChevron}
+                      />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </LinearGradient>
+        </View>
       )}
 
       <UICard style={{ marginBottom: 0 }}>
@@ -720,13 +821,64 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     letterSpacing: 0.8,
   },
-  pagoRow: {
-    marginTop: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.stroke,
+  pagosCardOuter: {
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    ...shadows.card,
   },
+  pagosCardGradient: {
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 146, 60, 0.35)',
+  },
+  pagosHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  pagosHeaderIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(217, 180, 74, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 180, 74, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  pagosHeaderTit: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  pagosHeaderSub: { ...typography.small, color: colors.textSecondary, marginTop: 3, lineHeight: 18 },
+  pagoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(199, 195, 227, 0.18)',
+  },
+  pagoRowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  pagoRowText: { flex: 1, minWidth: 0 },
   pagoConcepto: { flexShrink: 1, minWidth: 0 },
+  pagoCtaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  pagoCtaChevron: { marginLeft: 4 },
+  pagoCta: { fontWeight: '700', fontSize: 13 },
   link: { color: colors.accentBright, marginTop: 6, fontWeight: '600', fontSize: 13 },
   input: {
     borderWidth: 1,

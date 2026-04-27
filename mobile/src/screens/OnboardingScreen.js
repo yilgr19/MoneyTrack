@@ -7,7 +7,7 @@ import { PrimaryButton, GhostButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
 import { colors, spacing, radii, typography } from '../theme';
 
-const TOTAL_PASOS = 6;
+const TOTAL_PASOS = 8;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -33,8 +33,10 @@ export default function OnboardingScreen() {
     'Bienvenida',
     'Saldos iniciales',
     'Cómo se usan',
-    'La app en 4 pestañas',
-    'Categorías y metas',
+    'Las 4 pestañas',
+    'Inicio y análisis',
+    'Gastos y bolsillos',
+    'Metas, ingresos y Más',
     'Listo',
   ];
 
@@ -75,8 +77,10 @@ export default function OnboardingScreen() {
         {paso === 1 && <PasoSaldoDondeYQue />}
         {paso === 2 && <PasoPorQueSaldo />}
         {paso === 3 && <PasoTabs />}
-        {paso === 4 && <PasoExtras />}
-        {paso === 5 && <PasoListo />}
+        {paso === 4 && <PasoInicioYAnalisis />}
+        {paso === 5 && <PasoGastosYBolsillos />}
+        {paso === 6 && <PasoMetasIngresosYMas />}
+        {paso === 7 && <PasoListo />}
 
         <View style={styles.actions}>
           {paso > 0 && <GhostButton title="Atrás" onPress={atr} style={styles.btnGhost} />}
@@ -99,36 +103,48 @@ function PasoBienvenida({ ancho }) {
         <Ionicons name="wallet-outline" size={56} color={colors.mint} style={{ marginBottom: spacing.md }} />
         <Text style={typography.hero}>MoneyTrack</Text>
         <Text style={[typography.subtitle, { marginTop: spacing.md, lineHeight: 22 }]}>
-          Te explicamos lo esencial: para qué sirve el saldo base, qué hace cada sección y dónde encontrar
-          categorías, metas e ingresos. Los números de dinero <Text style={{ fontWeight: '600' }}>no se escriben
-          en este recorrido</Text>: al terminar te llevaremos a la pestaña <Text style={{ fontWeight: '600' }}>Saldo
-          </Text> para que allí indiques moneda y saldos iniciales.
+          <Text style={{ fontWeight: '600' }}>Inicio</Text> te muestra un resumen serio: patrimonio, ingresos y gastos
+          del mes, <Text style={{ fontWeight: '600' }}>gráficos en forma de anillo</Text> con porcentajes (gastos por
+          categoría e ingresos frente a gastos), <Text style={{ fontWeight: '600' }}>presupuesto mensual</Text> con barra
+          de uso, saldo <Text style={{ fontWeight: '600' }}>por cuenta</Text> y, si aplica, recordatorios de tarjeta de
+          crédito. En <Text style={{ fontWeight: '600' }}>Gastos</Text> registras movimientos, categorías,{' '}
+          <Text style={{ fontWeight: '600' }}>pagos programados</Text> y usas <Text style={{ fontWeight: '600' }}>bolsillos
+          </Text> (apartados con color). En <Text style={{ fontWeight: '600' }}>Más</Text> está ingresos, metas, reportes,{' '}
+          extractos de tarjeta, notificaciones y administración.
+        </Text>
+        <Text style={[typography.body, { marginTop: spacing.md, lineHeight: 22, color: colors.textSecondary }]}>
+          Los <Text style={{ fontWeight: '600', color: colors.text }}>montos de dinero no se escriben en este
+          recorrido</Text>. Al final te llevaremos a la pestaña <Text style={{ fontWeight: '600' }}>Saldo</Text> para que
+          indiques allí moneda, cuentas, bolsillos y lo demás.
         </Text>
       </View>
       <View style={[styles.logoHint, { maxWidth: box + 32 }]}>
         <Text style={typography.small}>
-          Siguiente: qué significa «Saldos iniciales» y dónde los cargarás.
+          Siguiente: dónde y qué cargarás en Saldo (incluido bolsillos y tarjeta).
         </Text>
       </View>
     </View>
   );
 }
 
-/** Sin campos: solo deja claro que la digitación es en la pantalla Saldo tras el tutorial. */
 function PasoSaldoDondeYQue() {
   return (
     <View style={styles.card}>
       <Ionicons name="create-outline" size={48} color={colors.mint} style={{ marginBottom: spacing.md }} />
-      <Text style={typography.title}>Dónde ingresarás tus saldos</Text>
+      <Text style={typography.title}>Dónde ingresarás saldos y reglas</Text>
       <Text style={[typography.body, { marginTop: spacing.md, lineHeight: 24 }]}>
-        No escribes montos en este tutorial. Cuando cierres el recorrido, la app abrirá la pestaña <Text
-        style={{ fontWeight: '600' }}>Saldo</Text>: allí elige <Text style={{ fontWeight: '600' }}>moneda
+        No escribes montos en este tutorial. Al cerrar el recorrido, la app abrirá <Text
+        style={{ fontWeight: '600' }}>Saldo</Text>: allí eliges <Text style={{ fontWeight: '600' }}>moneda
         </Text>, <Text style={{ fontWeight: '600' }}>efectivo</Text>, <Text style={{ fontWeight: '600' }}>bancos
-        </Text>, billeteras, tarjeta, presupuesto y nota, según lo que uses.
+        </Text>, billeteras y, si aplica, <Text style={{ fontWeight: '600' }}>tarjeta de crédito
+        </Text> (cupo, deuda, varias tarjetas) y <Text style={{ fontWeight: '600' }}>presupuesto mensual
+        </Text> (tope de gasto del mes) y nota. También podrás crear <Text style={{ fontWeight: '600' }}>bolsillos
+        </Text>: apartados con nombre y <Text style={{ fontWeight: '600' }}>color</Text>; el total en bolsillos se
+        muestra en Inicio, aparte del patrimonio general.
       </Text>
       <Text style={[typography.small, { marginTop: spacing.lg, lineHeight: 20, color: colors.textFaint }]}>
-        Tómate el tiempo: es la base para Inicio, alertas, gastos y metas. El resto del tutorial solo describe la
-        app; los datos van solo en Saldo.
+        Esa base alimenta gráficos, presupuesto, alertas y metas. El resto del tutorial solo describe la app; los datos
+        van en Saldo (y en los formularios de cada sección).
       </Text>
     </View>
   );
@@ -140,9 +156,10 @@ function PasoPorQueSaldo() {
       <Ionicons name="trending-up-outline" size={48} color={colors.chartBlue} style={{ marginBottom: spacing.md }} />
       <Text style={typography.title}>Para qué sirve lo que cargues en Saldo</Text>
       <Text style={[typography.body, { marginTop: spacing.md, lineHeight: 24 }]}>
-        El total que verás en Inicio, el seguimiento de categorías, alertas y metas se alimentan de los saldos y la
-        moneda que definas. Si un número no cuadra, cámbialo cuando quieras en <Text
-        style={{ fontWeight: '600' }}>Saldo</Text>.
+        El patrimonio y los totales de <Text style={{ fontWeight: '600' }}>Inicio</Text>, el reparto de las donas, la
+        barra de <Text style={{ fontWeight: '600' }}>presupuesto</Text> y el bloque de tarjeta se basan en moneda, cuentas
+        y tope que definas. Si un número no cuadra, ajústalo en <Text style={{ fontWeight: '600' }}>Saldo
+        </Text> cuando quieras.
       </Text>
     </View>
   );
@@ -164,31 +181,94 @@ function PasoTabs() {
       <Text style={[typography.subtitle, { marginTop: spacing.sm, marginBottom: spacing.md, lineHeight: 20 }]}>
         Toca el icono inferior para cambiar de pestaña.
       </Text>
-      <RowIcon icon="home-outline" text="Inicio: resumen del mes, movimientos recientes y progreso de metas." />
-      <RowIcon icon="card-outline" text="Gastos: registra cada salida, categoría, cuenta y fecha." />
+      <RowIcon
+        icon="home-outline"
+        text="Inicio: resumen con patrimonio, ingresos y gastos del mes, análisis (donas con %), presupuesto, por cuenta, recordatorios de tarjeta y metas al vuelo."
+      />
+      <RowIcon
+        icon="card-outline"
+        text="Gastos: registro de salidas con categoría, cuenta, bolsillo si aplica, fecha, y bloque de pagos programados con sus recordatorios."
+      />
       <RowIcon
         icon="wallet-outline"
-        text="Saldo: aquí cargarás y actualizarás moneda, cuentas, plataformas, tarjeta, presupuesto y nota."
+        text="Saldo: moneda, cuentas, bolsillos (color y saldo), plataformas, tarjeta, presupuesto tope y nota."
       />
-      <RowIcon icon="apps-outline" text="Más: ingresos, categorías, metas, pagos programados, reportes y administrar." />
+      <RowIcon
+        icon="apps-outline"
+        text="Más: ingresos, categorías, metas, pagos programados, movimientos, reportes, extractos de tarjeta, notificaciones y administrar."
+      />
     </View>
   );
 }
 
-function PasoExtras() {
+function PasoInicioYAnalisis() {
   return (
     <View style={styles.card}>
-      <Text style={typography.title}>Luego profundizas</Text>
+      <Ionicons name="pie-chart-outline" size={48} color={colors.mint} style={{ marginBottom: spacing.md }} />
+      <Text style={typography.title}>Inicio: resumen y análisis</Text>
       <Text style={[typography.subtitle, { marginTop: spacing.sm, marginBottom: spacing.md, lineHeight: 20 }]}>
-        Abajo, en Más, está casi todo lo demás.
+        Vistas pensadas para leer de un vistazo, con porcentajes y montos.
       </Text>
-      <RowIcon icon="grid-outline" text="Categorías: colores, iconos y límites para organizar gastos." />
       <RowIcon
-        icon="trending-up-outline"
-        text="Ingresos: añade entradas de dinero; afecta el saldo según la app."
+        icon="analytics-outline"
+        text="Bloque superior: patrimonio estimado, ingresos y gastos del mes en columnas, y bolsillos informativos si los usas."
       />
-      <RowIcon icon="flag-outline" text="Metas: define objetivos y aporta desde cuentas con saldo." />
-      <RowIcon icon="swap-vertical-outline" text="Movimientos: ingresos, gastos, tarjeta y aportes a metas en un solo listado." />
+      <RowIcon
+        icon="ellipse-outline"
+        text="Sección Análisis: una dona de gastos por categoría (leyenda con %; centro con total de gastos del mes) y otra de reparto ingreso vs gasto (centro con ambos %)."
+      />
+      <RowIcon
+        icon="speedometer-outline"
+        text="Presupuesto mensual: tope, ingresos, gastos, flujo, disponible y barra de avance. Guía de términos integrada en la tarjeta."
+      />
+      <RowIcon
+        icon="card-outline"
+        text="Recordatorios de tarjeta (corte y pago) e información de cupo, si configuraste crédito en Saldo."
+      />
+    </View>
+  );
+}
+
+function PasoGastosYBolsillos() {
+  return (
+    <View style={styles.card}>
+      <Ionicons name="pricetags-outline" size={48} color={colors.accentBright} style={{ marginBottom: spacing.md }} />
+      <Text style={typography.title}>Gastos y bolsillos</Text>
+      <Text style={[typography.subtitle, { marginTop: spacing.sm, marginBottom: spacing.md, lineHeight: 20 }]}>
+        Cada salida con contexto: categoría (con icono), fuente o destino, y bolsillos.
+      </Text>
+      <RowIcon
+        icon="add-circle-outline"
+        text="Nuevo gasto: cantidad, categoría, cuenta, fecha; opcional anotación y bolsillo—usa colores y nombres que definiste en Saldo o en Mis bolsillos."
+      />
+      <RowIcon
+        icon="calendar-outline"
+        text="Pagos programados: cargos o recordatorios recurrentes con avisos; puedes completarlos o gestionar recordatorios desde listas auxiliares."
+      />
+      <RowIcon
+        icon="color-palette-outline"
+        text="Categorías con icono semántico: en Más → Categorías ajustas colores, iconos y límites; se reflejan en listas e Inicio."
+      />
+    </View>
+  );
+}
+
+function PasoMetasIngresosYMas() {
+  return (
+    <View style={styles.card}>
+      <Text style={typography.title}>Metas, ingresos, reportes y Más</Text>
+      <Text style={[typography.subtitle, { marginTop: spacing.sm, marginBottom: spacing.md, lineHeight: 20 }]}>
+        Todo el detalle y los informes: pestaña Más o accesos desde otras pantallas.
+      </Text>
+      <RowIcon icon="trending-up-outline" text="Ingresos: entradas de dinero que afectan saldo y el resumen de Inicio; usa la moneda y cuentas que definiste en Saldo." />
+      <RowIcon icon="flag-outline" text="Metas: objetivos y aportes desde cuentas; resumen y progreso en Inicio y en la sección de metas." />
+      <RowIcon icon="swap-vertical-outline" text="Movimientos: listado unificado de ingresos, gastos, tarjeta y aportes a metas." />
+      <RowIcon icon="bar-chart-outline" text="Reportes: cortes y vistas por periodo, según lo que exponga la app." />
+      <RowIcon icon="receipt-outline" text="Extractos de tarjeta: desde Más, para alinear corte, pago y deuda con lo que cargaste en Saldo." />
+      <RowIcon
+        icon="notifications-outline"
+        text="Notificaciones: avisos de pagos, recordatorios y otras alertas que puedes revisar o ajustar según el menú de la app."
+      />
     </View>
   );
 }
@@ -200,8 +280,10 @@ function PasoListo() {
       <Text style={typography.title}>Siguiente: pestaña Saldo</Text>
       <Text style={[typography.body, { marginTop: spacing.md, lineHeight: 24 }]}>
         Al tocar <Text style={{ fontWeight: '600' }}>«Ir a Saldos iniciales»</Text> se cierra el tutorial y
-        se abre <Text style={{ fontWeight: '600' }}>Saldo</Text> para que indiques allí moneda y montos. Este
-        recorrido no se volverá a mostrar salvo que restablezcas todo en Administrar.
+        se abre <Text style={{ fontWeight: '600' }}>Saldo</Text> para que indiques allí moneda, cuentas, bolsillos,
+        crédito y presupuesto. Este recorrido no se volverá a mostrar salvo que restablezcas todo en Administrar. Luego
+        explora <Text style={{ fontWeight: '600' }}>Inicio</Text> (gráficos y análisis) y <Text
+        style={{ fontWeight: '600' }}>Gastos</Text> para registrar con categorías, bolsillos y programados a tu ritmo.
       </Text>
     </View>
   );
@@ -221,7 +303,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.stroke,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     marginVertical: 2,
   },
   dotOn: { backgroundColor: colors.mint, width: 20 },
