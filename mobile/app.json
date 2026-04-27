@@ -46,7 +46,8 @@
           "behavior": "overlay-swipe",
           "backgroundColor": "#0c0812"
         }
-      ]
+      ],
+      "expo-notifications"
     ]
   }
 }

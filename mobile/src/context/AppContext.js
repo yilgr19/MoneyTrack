@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   loadAppState,
   persistAppState,
@@ -9,6 +10,7 @@ import {
   setOnboardingCompletado,
 } from '../lib/storage';
 import { reemplazarPagosRecordatorioTarjetas } from '../lib/finance';
+import { notificacionesSistemaDisponibles } from '../lib/notificacionesLocalesEntorno';
 
 function normalizeState(raw) {
   const saldos = raw.saldosCuentas
@@ -73,10 +75,15 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [state, setState] = useState(null);
+  const stateRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
   /** Tras el primer tutorial: abrir pestaña Saldo para que el usuario digite saldos iniciales allí. */
   const [postOnboardingIrASaldo, setPostOnboardingIrASaldo] = useState(false);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +121,27 @@ export function AppProvider({ children }) {
       pagosProgramados: reemplazarPagosRecordatorioTarjetas(s.pagosProgramados || [], s, new Date()),
     }));
   }, [ready, lenG, nTc, cupoHash, replaceState, state?.moneda]);
+
+  useEffect(() => {
+    if (!ready || !state || mostrarOnboarding) return;
+    if (!notificacionesSistemaDisponibles()) return;
+    import('../lib/notificacionesLocalesPagosProgramados').then((m) =>
+      m.sincronizarNotificacionesLocalesPagosProgramados(state).catch(() => {})
+    );
+  }, [ready, mostrarOnboarding, state]);
+
+  useEffect(() => {
+    if (!ready || mostrarOnboarding) return;
+    if (!notificacionesSistemaDisponibles()) return;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && stateRef.current) {
+        import('../lib/notificacionesLocalesPagosProgramados').then((m) =>
+          m.sincronizarNotificacionesLocalesPagosProgramados(stateRef.current).catch(() => {})
+        );
+      }
+    });
+    return () => sub.remove();
+  }, [ready, mostrarOnboarding]);
 
   const clearPostOnboardingIrASaldo = useCallback(() => {
     setPostOnboardingIrASaldo(false);

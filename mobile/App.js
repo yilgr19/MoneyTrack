@@ -17,6 +17,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { NotificacionLecturaProvider } from './src/context/NotificacionLecturaContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import { notificacionesSistemaDisponibles } from './src/lib/notificacionesLocalesEntorno';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import { colors, spacing, typography } from './src/theme';
 
@@ -106,6 +107,12 @@ function Root() {
 
 export default function App() {
   useImmersiveSystemChrome();
+  useEffect(() => {
+    if (!notificacionesSistemaDisponibles()) return;
+    import('./src/lib/notificacionesLocalesPagosProgramados').then((m) =>
+      m.registrarHandlerNotificacionesLocales()
+    );
+  }, []);
   return (
     <SafeAreaProvider>
       <AppProvider>

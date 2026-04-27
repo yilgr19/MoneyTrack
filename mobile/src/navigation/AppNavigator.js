@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Platform, View } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { rootNavigationRef } from './rootNavigationRef';
@@ -18,6 +18,7 @@ import ExtractosTarjetasScreen from '../screens/ExtractosTarjetasScreen';
 import PagosScreen from '../screens/PagosScreen';
 import ReportesScreen from '../screens/ReportesScreen';
 import AdminScreen from '../screens/AdminScreen';
+import FabRegistrarGastos from '../components/FabRegistrarGastos';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -96,10 +97,33 @@ function NavegacionTrasOnboarding() {
   return null;
 }
 
+function tabActivaDesdeEstadoRoot(state) {
+  if (!state || !Array.isArray(state.routes) || state.index == null) return 'Inicio';
+  return state.routes[state.index]?.name ?? 'Inicio';
+}
+
 export default function AppNavigator() {
+  const [rutaPestaña, setRutaPestaña] = useState('Inicio');
+
+  const syncPestañaActiva = useCallback((state) => {
+    if (state == null) return;
+    setRutaPestaña(tabActivaDesdeEstadoRoot(state));
+  }, []);
+
   return (
-    <NavigationContainer ref={rootNavigationRef} theme={navTheme}>
+    <NavigationContainer
+      ref={rootNavigationRef}
+      theme={navTheme}
+      onReady={() => {
+        if (rootNavigationRef.isReady()) {
+          const s = rootNavigationRef.getRootState();
+          if (s) setRutaPestaña(tabActivaDesdeEstadoRoot(s));
+        }
+      }}
+      onStateChange={syncPestañaActiva}
+    >
       <NavegacionTrasOnboarding />
+      <View style={{ flex: 1 }}>
       <Tab.Navigator
         sceneContainerStyle={{ flex: 1, backgroundColor: colors.bg }}
         screenOptions={({ route }) => ({
@@ -143,6 +167,8 @@ export default function AppNavigator() {
         <Tab.Screen name="Saldo" component={SaldoScreen} options={{ headerShown: false }} />
         <Tab.Screen name="Mas" component={MoreStack} options={{ headerShown: false }} />
       </Tab.Navigator>
+      <FabRegistrarGastos visible={rutaPestaña !== 'Gastos'} />
+      </View>
     </NavigationContainer>
   );
 }

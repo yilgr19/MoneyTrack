@@ -114,7 +114,7 @@ export default function ReportesScreen() {
   };
 
   return (
-    <ScreenWrap includeTopInset={false} contentStyle={{ paddingTop: spacing.xs }}>
+    <ScreenWrap includeTopInset={false} scrollEnabled={false} contentStyle={{ paddingTop: spacing.xs }}>
       <Text style={typography.label}>Historial</Text>
       <Text style={typography.hero}>Movimientos</Text>
       <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>
@@ -128,6 +128,7 @@ export default function ReportesScreen() {
         <FlatList
           data={filas}
           keyExtractor={(it) => it.id}
+          style={styles.listaMovs}
           contentContainerStyle={{ paddingBottom: spacing.xl }}
           renderItem={({ item }) => (
             <View style={styles.row}>
@@ -164,6 +165,7 @@ export default function ReportesScreen() {
 }
 
 const styles = StyleSheet.create({
+  listaMovs: { flex: 1, minHeight: 0 },
   vacio: {
     padding: spacing.lg,
     backgroundColor: colors.surface,

@@ -1626,6 +1626,41 @@ export function generarIdPagoProgramado() {
   return `pago_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+const TOL_MONTO_PAGO_PROG = 0.02;
+
+function nombrePagoCoincideConGasto(nombreGasto, conceptoPago) {
+  return String(nombreGasto || '').trim().toLowerCase() === String(conceptoPago || '').trim().toLowerCase();
+}
+
+/**
+ * El gasto coincide con un pago creado en Más → Pagos programados (excl. recordatorios de tarjeta en la app).
+ * Si al guardar el gasto coincide, se puede eliminar ese pago programado.
+ */
+export function pagoProgramadoCumplidoPorGasto(gasto, pago) {
+  if (!gasto || !pago) return false;
+  if (pago.activo === false) return false;
+  if (pago.esRecordatorioTarjeta || pago.esCuotaDiferida) return false;
+  if (!nombrePagoCoincideConGasto(gasto.nombre, pago.concepto)) return false;
+  if (String(gasto.categoria || '') !== String(pago.categoria || '')) return false;
+  if (normalizarOrigenCuenta(gasto.origen) !== normalizarOrigenCuenta(pago.cuenta)) return false;
+  const pMonto = parseFloat(pago.monto) || 0;
+  const gCant = parseFloat(gasto.cantidad) || 0;
+  if (normalizarOrigenCuenta(gasto.origen) === 'tarjetaCredito') {
+    const q = Math.max(1, parseInt(gasto.cuotas, 10) || 1);
+    const cuo = q > 1 ? parseFloat(gasto.cuotaMensual) || gCant / q : gCant;
+    if (Math.abs(cuo - pMonto) > TOL_MONTO_PAGO_PROG) return false;
+  } else {
+    if (Math.abs(gCant - pMonto) > TOL_MONTO_PAGO_PROG) return false;
+  }
+  return true;
+}
+
+export function filtrarPagosProgramadosCumplidosPorGasto(nuevoGasto, pagosProgramados) {
+  const arr = Array.isArray(pagosProgramados) ? pagosProgramados : [];
+  if (!nuevoGasto) return arr;
+  return arr.filter((p) => !pagoProgramadoCumplidoPorGasto(nuevoGasto, p));
+}
+
 export function pagoVenceHoy(pago, hoy) {
   if (!pago.activo) return false;
   if (!pago.fechaInicio) return false;

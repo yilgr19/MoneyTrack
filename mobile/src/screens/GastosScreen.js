@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, Switch } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import ScreenWrap from '../components/ScreenWrap';
@@ -22,18 +23,40 @@ import {
   totalSaldoLiquido,
   agregarOFusionarPagoProgramadoCuotaCorte,
   reemplazarPagosRecordatorioTarjetas,
+  filtrarPagosProgramadosCumplidosPorGasto,
+  pagoProgramadoCumplidoPorGasto,
 } from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
+/** 5 títulos y 5 textos: se eligen al azar al mostrar el aviso (mismo tono que la campana). */
+const LIMITE_CAT_ALERT_TITULOS = [
+  'Uff, límite de categoría\n😱 😉',
+  'Uff, te pasas del tope de categoría\n😱 😉',
+  'Uff, este registro pasa el límite de la categoría\n😱 😉',
+  'Uff, con esto te pasas del tope en esta categoría\n😱 😉',
+  'Uff, ojo: este gasto pasa el límite de la categoría\n😱 😉',
+];
+const LIMITE_CAT_ALERT_MSGS = [
+  'Con este gasto te pasas del tope del mes. Puedes cambiar el límite en Más → Categorías o bajar un poco los gastos. ¿Seguir y registrarlo igual?',
+  'Pasas el tope con este registro. Cambia el límite en Categorías o gasta menos en lo que te queda. ¿Lo guardas igual?',
+  'Este registro pasa el límite. Cambia el tope en Más → Categorías o baja un poco lo que sigues gastando. ¿Continuar?',
+  'Te pasas del tope: puedes subirlo en Categorías o cuidar lo que aún te falta de mes. ¿Registrar igual?',
+  'El límite se quedó chico. Más → Categorías o menos gasto en el mes, tú eliges. ¿Sigo con el guardado?',
+];
+
 const CUOTAS_OPTS = [1, 2, 3, 6, 12, 24];
+const FLASH_PAGO_OK_MS = 3200;
 
 function pad(n) {
   return String(n).padStart(2, '0');
 }
 
 export default function GastosScreen() {
+  const insets = useSafeAreaInsets();
   const { state, replaceState } = useApp();
   const moneda = state.moneda || '';
+  const flashPagoRef = useRef(null);
+  const [flashPagoExito, setFlashPagoExito] = useState(false);
 
   const [nombre, setNombre] = useState('');
   const [cantidad, setCantidad] = useState('');
@@ -115,6 +138,13 @@ export default function GastosScreen() {
     }
   }, [abonoDeudaTarjeta, origen]);
 
+  useEffect(
+    () => () => {
+      if (flashPagoRef.current) clearTimeout(flashPagoRef.current);
+    },
+    []
+  );
+
   const ahora = new Date();
   const pagosPendientes = (state.pagosProgramados || []).filter(
     (p) => p.activo !== false && pagoDebeMostrarseParaPagar(p, ahora)
@@ -188,10 +218,14 @@ export default function GastosScreen() {
         0
       );
       if (gastadoMes + montoAValidar > lim) {
-        Alert.alert('Límite categoría', 'Este gasto supera el límite mensual de la categoría. ¿Continuar?', [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Sí', onPress: () => guardarGasto(cuotasVal, cuotaMensualVal) },
-        ]);
+        Alert.alert(
+          LIMITE_CAT_ALERT_TITULOS[Math.floor(Math.random() * LIMITE_CAT_ALERT_TITULOS.length)],
+          LIMITE_CAT_ALERT_MSGS[Math.floor(Math.random() * LIMITE_CAT_ALERT_MSGS.length)],
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Sí', onPress: () => guardarGasto(cuotasVal, cuotaMensualVal) },
+          ]
+        );
         return;
       }
     }
@@ -224,6 +258,10 @@ export default function GastosScreen() {
         : {}),
     };
 
+    const pagosPrev = state.pagosProgramados || [];
+    const habiaCierreProgramado =
+      !!pagoProgramadoEnUso || pagosPrev.some((p) => pagoProgramadoCumplidoPorGasto(nuevo, p));
+
     replaceState((s) => {
       let gastos = [...(s.gastos || []), nuevo];
       let pagos = [...(s.pagosProgramados || [])];
@@ -255,6 +293,8 @@ export default function GastosScreen() {
 
       if (pagoProgramadoEnUso) {
         pagos = pagos.filter((p) => p.id !== pagoProgramadoEnUso);
+      } else {
+        pagos = filtrarPagosProgramadosCumplidosPorGasto(nuevo, pagos);
       }
 
       const st = { ...s, gastos, pagosProgramados: pagos };
@@ -264,7 +304,16 @@ export default function GastosScreen() {
       };
     });
 
-    Alert.alert('Listo', 'Gasto registrado.');
+    if (habiaCierreProgramado) {
+      if (flashPagoRef.current) clearTimeout(flashPagoRef.current);
+      setFlashPagoExito(true);
+      flashPagoRef.current = setTimeout(() => {
+        setFlashPagoExito(false);
+        flashPagoRef.current = null;
+      }, FLASH_PAGO_OK_MS);
+    } else {
+      Alert.alert('Listo', 'Gasto registrado.');
+    }
     setNombre('');
     setCantidad('');
     setNota('');
@@ -275,6 +324,7 @@ export default function GastosScreen() {
   }
 
   return (
+    <View style={styles.pantalla}>
     <ScreenWrap contentStyle={{ paddingTop: spacing.xs }}>
       <HeaderConCampana
         label="Movimientos"
@@ -462,6 +512,19 @@ export default function GastosScreen() {
         <PrimaryButton title="Guardar gasto" onPress={onSubmit} style={{ marginTop: spacing.lg }} />
       </UICard>
     </ScreenWrap>
+    {flashPagoExito ? (
+      <View
+        style={[styles.flashPagoWrap, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xs }]}
+        pointerEvents="none"
+        accessibilityLiveRegion="polite"
+      >
+        <View style={styles.flashPagoBox}>
+          <Text style={styles.flashPagoTitulo}>¡Excelente!</Text>
+          <Text style={styles.flashPagoSub}>Has registrado tu pago con éxito.</Text>
+        </View>
+      </View>
+    ) : null}
+    </View>
   );
 }
 
@@ -470,6 +533,45 @@ function FieldLabel({ children }) {
 }
 
 const styles = StyleSheet.create({
+  pantalla: { flex: 1 },
+  flashPagoWrap: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: 0,
+    zIndex: 100,
+  },
+  flashPagoBox: {
+    maxWidth: '100%',
+    backgroundColor: colors.bgElevated,
+    borderWidth: 2,
+    borderColor: colors.mint,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.28,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  flashPagoTitulo: {
+    color: colors.mint,
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  flashPagoSub: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    lineHeight: 24,
+  },
   fieldLab: {
     ...typography.label,
     marginTop: spacing.md,

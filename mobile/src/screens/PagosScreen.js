@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, Switch } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import ScreenWrap from '../components/ScreenWrap';
@@ -16,11 +17,11 @@ import {
 } from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
-function pad(n) {
-  return String(n).padStart(2, '0');
-}
+const FLASH_DURACION_MS = 2800;
 
 export default function PagosScreen() {
+  const insets = useSafeAreaInsets();
+  const flashTimer = useRef(null);
   const { state, replaceState } = useApp();
   const moneda = state.moneda || '';
   const categorias = useMemo(() => (state.categorias || []).map(normalizarCategoria), [state.categorias]);
@@ -28,6 +29,7 @@ export default function PagosScreen() {
   const [concepto, setConcepto] = useState('');
   const [monto, setMonto] = useState('');
   const [frecuencia, setFrecuencia] = useState('mensual');
+  /** Solo quincenal: día 1 o 15. Mensual toma el día (1–28) de la fecha del primer pago. */
   const [diaPago, setDiaPago] = useState(1);
   const [cuenta, setCuenta] = useState('');
   const [categoria, setCategoria] = useState('');
@@ -35,16 +37,25 @@ export default function PagosScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [activo, setActivo] = useState(true);
   const [nota, setNota] = useState('');
+  const [flashMsg, setFlashMsg] = useState(null);
 
-  const diasOpciones = useMemo(() => {
-    if (frecuencia === 'mensual') {
-      return Array.from({ length: 28 }, (_, i) => i + 1);
-    }
-    if (frecuencia === 'quincenal') {
-      return [1, 15];
-    }
-    return [1];
-  }, [frecuencia]);
+  const diasQuincenal = useMemo(() => [1, 15], []);
+
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    []
+  );
+
+  function mostrarFlash(texto) {
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    setFlashMsg(texto);
+    flashTimer.current = setTimeout(() => {
+      setFlashMsg(null);
+      flashTimer.current = null;
+    }, FLASH_DURACION_MS);
+  }
 
   function guardar() {
     const m = parseFloat(monto) || 0;
@@ -52,22 +63,39 @@ export default function PagosScreen() {
       Alert.alert('Datos', 'Completa concepto, monto, cuenta y categoría.');
       return;
     }
-    const fechaStr = fechaALocalISO(fechaInicio);
-    const diaFromFecha = Math.min(28, fechaInicio.getDate());
+    const fi = new Date(
+      fechaInicio.getFullYear(),
+      fechaInicio.getMonth(),
+      fechaInicio.getDate(),
+      12,
+      0,
+      0
+    );
+    if (frecuencia === 'quincenal') {
+      fi.setDate(diaPago);
+    }
+    const fechaStr = fechaALocalISO(fi);
+    const diaMensual = Math.min(28, fi.getDate());
     const p = {
       id: generarIdPagoProgramado(),
       concepto: concepto.trim(),
       monto: m,
       frecuencia,
       fechaInicio: fechaStr,
-      diaPago: frecuencia === 'semanal' ? fechaInicio.getDate() : frecuencia === 'mensual' ? diaFromFecha : diaPago,
+      diaPago: frecuencia === 'semanal' ? fi.getDate() : frecuencia === 'mensual' ? diaMensual : diaPago,
       cuenta,
       categoria,
       activo,
       nota: nota.trim() || '',
     };
     replaceState((s) => ({ ...s, pagosProgramados: [...(s.pagosProgramados || []), p] }));
-    Alert.alert('Listo', 'Guardado. Regístralo desde Gastos cuando corresponda.');
+    if (frecuencia === 'mensual') {
+      mostrarFlash('Mensual: mismo día cada mes. Listo.');
+    } else if (frecuencia === 'quincenal') {
+      mostrarFlash('Quincenal guardado.');
+    } else {
+      mostrarFlash('Semanal guardado.');
+    }
     setConcepto('');
     setMonto('');
     setNota('');
@@ -89,6 +117,7 @@ export default function PagosScreen() {
   }
 
   return (
+    <View style={styles.pantalla}>
     <ScreenWrap includeTopInset={false} contentStyle={{ paddingTop: spacing.xs }}>
       <Text style={typography.label}>Automatiza</Text>
       <Text style={typography.hero}>Pagos programados</Text>
@@ -110,13 +139,13 @@ export default function PagosScreen() {
             <Picker.Item label="Semanal" value="semanal" />
           </Picker>
         </View>
-        {(frecuencia === 'mensual' || frecuencia === 'quincenal') && (
+        {frecuencia === 'quincenal' && (
           <>
-            <Lab>Día de pago</Lab>
+            <Lab>Pagas cada quincena el</Lab>
             <View style={styles.pickerWrap}>
               <Picker selectedValue={diaPago} onValueChange={setDiaPago} style={{ color: colors.text }}>
-                {diasOpciones.map((d) => (
-                  <Picker.Item key={d} label={String(d)} value={d} />
+                {diasQuincenal.map((d) => (
+                  <Picker.Item key={d} label={d === 1 ? 'Día 1' : 'Día 15'} value={d} />
                 ))}
               </Picker>
             </View>
@@ -140,8 +169,37 @@ export default function PagosScreen() {
             ))}
           </Picker>
         </View>
-        <Lab>Fecha de inicio (mensual/quincenal: define el día del vencimiento en el mes)</Lab>
-        <TouchableOpacity style={styles.input} onPress={() => setShowPicker(true)}>
+        <Lab>
+          {frecuencia === 'quincenal' ? 'Fecha del primer pago (mes; el día se alinea a 1 o 15 al guardar)' : 'Fecha del primer pago (día exacto y mes)'}
+        </Lab>
+        {frecuencia === 'mensual' ? (
+          <Text style={styles.ayudaFecha}>
+            <Text style={styles.ayudaNegrita}>Solo hace falta la fecha</Text>: el{' '}
+            <Text style={styles.ayudaNegrita}>día del 1 al 28</Text> fija en qué número de cada mes se
+            programará el pago, y el <Text style={styles.ayudaNegrita}>mes</Text> en qué empieza. No
+            hace falta elegir de nuevo el &quot;día de pago&quot; — ya queda fijado por esta fecha.
+          </Text>
+        ) : frecuencia === 'quincenal' ? (
+          <Text style={styles.ayudaFecha}>
+            El <Text style={styles.ayudaNegrita}>día 1 o 15</Text> (selector arriba) es en qué quincena
+            cae el pago. La <Text style={styles.ayudaNegrita}>fecha</Text> fija <Text style={styles.ayudaNegrita}>partir de qué mes</Text> se registra; al guardar ajustamos el día
+            a 1 o 15.
+          </Text>
+        ) : (
+          <Text style={styles.ayudaFecha}>
+            Elige <Text style={styles.ayudaNegrita}>qué día de la semana</Text> con la primera fecha: el
+            gasto se repetirá cada 7 días.
+          </Text>
+        )}
+        <Text style={styles.ayudaCampana}>
+          Campana: al cerrar el panel, el aviso se oculta; vuelve al toque o si cambia el mensaje.
+        </Text>
+        <TouchableOpacity
+          style={styles.input}
+          onPress={() => setShowPicker(true)}
+          accessibilityLabel="Fecha del primer pago, día y mes"
+          accessibilityRole="button"
+        >
           <Text style={{ color: colors.text, fontSize: 16 }}>
             {fechaInicio.toLocaleDateString('es', { dateStyle: 'short' })}
           </Text>
@@ -195,6 +253,18 @@ export default function PagosScreen() {
         )}
       </UICard>
     </ScreenWrap>
+    {flashMsg ? (
+      <View
+        style={[styles.flashWrap, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xs }]}
+        pointerEvents="none"
+        accessibilityLiveRegion="polite"
+      >
+        <View style={styles.flashBox}>
+          <Text style={styles.flashText}>{flashMsg}</Text>
+        </View>
+      </View>
+    ) : null}
+    </View>
   );
 }
 
@@ -203,6 +273,49 @@ function Lab({ children }) {
 }
 
 const styles = StyleSheet.create({
+  pantalla: { flex: 1 },
+  flashWrap: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: 0,
+    zIndex: 100,
+    alignItems: 'center',
+  },
+  flashBox: {
+    maxWidth: '100%',
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.mint,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  flashText: {
+    ...typography.small,
+    color: colors.text,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  ayudaFecha: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    lineHeight: 20,
+  },
+  ayudaNegrita: { fontWeight: '700', color: colors.text },
+  ayudaCampana: {
+    ...typography.small,
+    color: colors.textFaint,
+    marginBottom: spacing.sm,
+    lineHeight: 18,
+  },
   lab: {
     ...typography.label,
     marginTop: spacing.md,

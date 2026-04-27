@@ -6,9 +6,17 @@ import { colors, spacing, screenPadding, TAB_BAR_SCROLL_PADDING } from '../theme
 
 /**
  * Fondo con gradiente + ScrollView. Contenido con padding horizontal uniforme.
+ * `scrollEnabled={false}`: solo envuelve en View (mismo relleno) — útil si un hijo ya hace scroll
+ * (p. ej. FlatList) y evita anidar listas virtualizadas dentro de un ScrollView.
  */
 /** includeTopInset: false cuando ya hay header de navegación encima */
-export default function ScreenWrap({ children, contentStyle, scrollProps, includeTopInset = true }) {
+export default function ScreenWrap({
+  children,
+  contentStyle,
+  scrollProps,
+  includeTopInset = true,
+  scrollEnabled = true,
+}) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const horizontalPad = width < 360 ? spacing.md : spacing.lg;
@@ -18,6 +26,11 @@ export default function ScreenWrap({ children, contentStyle, scrollProps, includ
   const topExtra = typeof flatContent.paddingTop === 'number' ? flatContent.paddingTop : 0;
   const { paddingTop: _ignorePt, ...contentRest } = flatContent;
   const bottomPad = screenPadding.paddingBottom + TAB_BAR_SCROLL_PADDING;
+  const paddingStyle = {
+    paddingHorizontal: horizontalPad,
+    paddingTop: topBase + topExtra,
+    paddingBottom: bottomPad,
+  };
   return (
     <View style={styles.root}>
       <View style={[StyleSheet.absoluteFill, styles.baseFill]} />
@@ -28,24 +41,26 @@ export default function ScreenWrap({ children, contentStyle, scrollProps, includ
         end={{ x: 0.85, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingHorizontal: horizontalPad,
-            paddingTop: topBase + topExtra,
-            paddingBottom: bottomPad,
-          },
-          contentRest,
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        {...(scrollProps || {})}
-      >
-        {children}
-      </ScrollView>
+      {scrollEnabled ? (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            paddingStyle,
+            contentRest,
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          {...(scrollProps || {})}
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={[styles.scroll, styles.content, styles.fillColumn, paddingStyle, contentRest]}>
+          {children}
+        </View>
+      )}
     </View>
   );
 }
@@ -55,4 +70,6 @@ const styles = StyleSheet.create({
   baseFill: { backgroundColor: colors.bg },
   scroll: { flex: 1, backgroundColor: 'transparent' },
   content: { flexGrow: 1 },
+  /** Hijos (p. ej. FlatList con flex:1) pueden repartir altura sin ScrollView. */
+  fillColumn: { flex: 1, minHeight: 0 },
 });

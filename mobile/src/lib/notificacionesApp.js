@@ -16,7 +16,8 @@ import {
   totalSaldoLiquido,
 } from './finance';
 
-const DIAS_PAGO_CERCA = 7;
+/** Aviso en campana en los últimos días: id por día = recordatorio “diario” al abrir. */
+const DIAS_RECORDATORIO_CAMPANA = 3;
 /** Bajo esto, aviso de “poco en efectivo/cuentas” (sin contar cupo de tarjeta). */
 const LIQ_BAJO_UMBRAL = 100_000;
 
@@ -70,8 +71,9 @@ function diasHastaPagoSemanal(pago, ref) {
 
 /**
  * Días hasta el próximo vencimiento (0 = hoy, negativo = retraso respecto a la fecha de calendario esperada).
+ * Exportado para sincronizar notificaciones locales del sistema.
  */
-function diasHastaPagoProgramado(pago, ref = new Date()) {
+export function diasHastaPagoProgramado(pago, ref = new Date()) {
   if (!pago || pago.activo === false) return null;
 
   if (pago.frecuencia === 'unico') {
@@ -95,9 +97,11 @@ function diasHastaPagoProgramado(pago, ref = new Date()) {
 }
 
 /**
- * Avisos de pagos programados: “listo para pagar” (misma regla que Gastos) o vence en ≤7 días.
+ * Avisos de pagos programados: “listo para pagar” (Gastos), hoy, o recordatorio diario en campana
+ * los últimos 3 días antes del vencimiento (id distinto por día).
  */
 function notificacionesPagos(state, ref) {
+  const ymd = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-${String(ref.getDate()).padStart(2, '0')}`;
   const out = [];
   const pagos = state.pagosProgramados || [];
   for (const p of pagos) {
@@ -113,13 +117,19 @@ function notificacionesPagos(state, ref) {
         tipo: 'pago',
         severidad: 'danger',
         puntuacionOrden: 1_000_000,
-        titulo: rotarFrase(id, [
+        titulo: rotarFrase(`${id}-t-${ymd}`, [
           `${concepto}: pendiente de anotar en el mes (Gastos).`,
           `Falta registrar ${concepto} en el mes. Entra a Gastos.`,
+          `${concepto}: aún no lo anotas en el mes. Revisa Gastos.`,
+          `Tienes ${concepto} sin registrar en Gastos para este mes.`,
+          `En Gastos falta ${concepto} de este mes. Regístralo cuando pagues.`,
         ]),
-        detalle: rotarFrase(id + 'b', [
+        detalle: rotarFrase(`${id}-d-${ymd}`, [
           'Bloque de pagos programados o formulario. Tú eliges el momento.',
           'Un registro y el resumen acompaña a lo real.',
+          'Pagos programados o pantalla de gasto: el que te vaya mejor.',
+          'Anótalo en Gastos y el resumen queda alineado.',
+          'Desde Pagos programados o Gastos, en el momento que elijas.',
         ]),
       });
       continue;
@@ -133,10 +143,19 @@ function notificacionesPagos(state, ref) {
         tipo: 'pago',
         severidad: 'warning',
         puntuacionOrden: 860_000,
-        titulo: `Pago único ${concepto}: la fecha ya pasó.`,
-        detalle: rotarFrase(id, [
+        titulo: rotarFrase(`${id}-t-${ymd}`, [
+          `Pago único ${concepto}: la fecha ya pasó.`,
+          `La fecha de ${concepto} (pago único) ya quedó atrás.`,
+          `${concepto}: el pago único venció en el calendario.`,
+          `Pasó la fecha del pago único «${concepto}».`,
+          `${concepto} (único): revisa la fecha en Pagos programados.`,
+        ]),
+        detalle: rotarFrase(`${id}-d-${ymd}`, [
           'Más → Pagos programados: fecha o borrado. Tú eliges.',
           'Ajusta o quita en Pagos programados.',
+          'Corrige la fecha o bórralo si ya no aplica.',
+          'Entra a Pagos programados y actualiza o quita el aviso.',
+          'En Pagos programados lo dejas al día con un par de toques.',
         ]),
       });
       continue;
@@ -148,31 +167,43 @@ function notificacionesPagos(state, ref) {
         tipo: 'pago',
         severidad: 'warning',
         puntuacionOrden: 960_000,
-        titulo: rotarFrase(id, [
-          `Hoy: ${concepto} (Gastos).`,
-          `Recuerda hoy: ${concepto}.`,
+        titulo: rotarFrase(`${id}-t-${ymd}`, [
+          `Hoy vence: «${concepto}» (queda 0 días de plazo).`,
+          `Último día de plazo: ${concepto}. Regístralo hoy en Gastos.`,
+          `Hoy es el día: ${concepto}. Plazo 0.`,
+          `Vence hoy ${concepto}. Anótalo o paga y registra en Gastos.`,
+          `Plazo hoy: «${concepto}». Gastos te espera para el registro.`,
         ]),
-        detalle: rotarFrase(id + 'b', [
-          'Si pagaste, anótalo en Gastos.',
-          'Gastos: marcar o repasar en un minuto.',
+        detalle: rotarFrase(`${id}-d-${ymd}`, [
+          'Tiempo: vence hoy. Si ya pagaste, anótalo en Gastos. Si aún no, hoy es el día para realizarlo.',
+          'Si pagaste, regístralo hoy en Gastos; si no, paga hoy y luego anota.',
+          'Hoy cierra el plazo: luego monto y cuenta en Gastos.',
+          'Mismo día: pago o registro en Gastos para no perder el hilo.',
+          'Vence hoy: cumple y anótalo en Gastos con el detalle que toque.',
         ]),
       });
-    } else if (d > 0 && d <= DIAS_PAGO_CERCA) {
-      const id = `pp-${p.id}-cerca`;
-      const dTxt = d === 1 ? 'mañana' : `en ${d} días`;
-      // Más cerca = más arriba
+    } else if (d > 0 && d <= DIAS_RECORDATORIO_CAMPANA) {
+      const idCerca = `pp-${p.id}-cerca-${ymd}`;
+      const plazoTxt = d === 1 ? '1 día de plazo restante' : `${d} días de plazo restante`;
+      const faltanTxt = d === 1 ? 'Falta 1 día' : `Faltan ${d} días`;
       out.push({
-        id,
+        id: idCerca,
         tipo: 'pago',
         severidad: d <= 2 ? 'warning' : 'info',
         puntuacionOrden: 950_000 - d * 12_000,
-        titulo: rotarFrase(id, [
-          `${concepto} ${dTxt} · revisa en Gastos.`,
-          `${dTxt} cae ${concepto}. No lo pierdas de vista.`,
+        titulo: rotarFrase(`${idCerca}-t`, [
+          `${faltanTxt}: «${concepto}»`,
+          `«${concepto}» · ${d} día${d === 1 ? '' : 's'} para el vencimiento.`,
+          `Quedan ${d} día${d === 1 ? '' : 's'} para ${concepto}.`,
+          `En ${d} día${d === 1 ? '' : 's'} toca: ${concepto}.`,
+          `Cerca el plazo: ${concepto} · ${d} día${d === 1 ? '' : 's'}.`,
         ]),
-        detalle: rotarFrase(String(d) + id, [
-          'Gastos o Más → Pagos programados.',
-          'Dale un vistazo a lo guardado.',
+        detalle: rotarFrase(`${idCerca}-d`, [
+          `Tiempo: ${plazoTxt} para el pago. Cumple y luego anótalo en Gastos. Si ya pagaste, regístralo con mismo monto y el programado baja solo.`,
+          `Tienes ${plazoTxt}. Paga a tiempo, regístralo en Gastos y alinea cuenta y concepto.`,
+          `${plazoTxt} para actuar. Después, Gastos. Si pagaste, un registro y listo el programado cuando coincida.`,
+          `Plazo: ${plazoTxt}. Que no se pase; en Gastos queda trazado igual que en la vida real.`,
+          `Reloj: ${plazoTxt}. Pago, registro; si pagaste, mismos datos en Gastos y el aviso acompaña.`,
         ]),
       });
     }
@@ -198,18 +229,26 @@ function notificacionesCategorias(state, ref) {
       const id = `cat-${cat.nombre}`;
       const gTxt = formatearNumero(gastado, 0);
       const lTxt = formatearNumero(lim, 0);
+      /** 5+5 frases; la fecha en la semilla rota el “aviso al azar” por día, estable el mismo día. */
+      const ymd = `${y}-${String(m + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
       out.push({
         id,
         tipo: 'categoria',
         severidad: 'warning',
         puntuacionOrden: 500_000,
-        titulo: rotarFrase(id, [
-          `${cat.nombre} ${cat.icono}: gastos ${gTxt} · tope ${lTxt}. Un poco por encima.`,
-          `${cat.nombre} ${cat.icono} · ${gTxt} de ${lTxt} tope. Pasaste poco.`,
+        titulo: rotarFrase(`${id}-t-${ymd}`, [
+          `Uff, ${cat.nombre} ${cat.icono}: te pasaste del límite (gastos ${gTxt}, tope ${lTxt})\n😱 😉`,
+          `Uff, ${cat.nombre} ${cat.icono}: pasaste el tope, gastos ${gTxt} y el límite era ${lTxt}\n😱 😉`,
+          `Uff, en ${cat.nombre} ${cat.icono} te pasaste: ${gTxt} y el tope es ${lTxt}\n😱 😉`,
+          `Uff, ojo: ${cat.nombre} ${cat.icono} ya pasó el tope del mes (${gTxt} / ${lTxt})\n😱 😉`,
+          `Uff, ${cat.nombre} ${cat.icono}: ${gTxt} de gasto y el tope es ${lTxt}, te pasaste\n😱 😉`,
         ]),
-        detalle: rotarFrase(id + 'x', [
-          'Toca subir tope o bajar gasto. Categorías. Tú eliges.',
-          'Ajusta en Categorías o el mes apretando.',
+        detalle: rotarFrase(`${id}-d-${ymd}`, [
+          `Cambia el límite en Más → Categorías o baja un poco los gastos de este mes\n😱 😉`,
+          `Puedes subir el tope en Categorías o gastar menos en lo que queda del mes\n😱 😉`,
+          `Cambia el tope en Más → Categorías o cuida un poco lo que sigues gastando en el mes\n😱 😉`,
+          `Más → Categorías: sube el tope o baja lo que aún quieres gastar este mes\n😱 😉`,
+          `Ajusta el tope en Categorías o baja un poco el gasto; en Más → Categorías\n😱 😉`,
         ]),
       });
     }
@@ -231,6 +270,8 @@ function tuvoMovimientosOConfigLiquido(state) {
  */
 function notificacionesSaldo(state) {
   if (!tuvoMovimientosOConfigLiquido(state)) return [];
+  const ahora = new Date();
+  const ymd = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
   const liquido = totalSaldoLiquido(state);
   const q = formatearNumero(liquido, 0);
   if (liquido <= 0) {
@@ -240,13 +281,19 @@ function notificacionesSaldo(state) {
         tipo: 'saldo',
         severidad: 'danger',
         puntuacionOrden: 920_000,
-        titulo: rotarFrase('sal-cri', [
+        titulo: rotarFrase(`sal-cri-t-${ymd}`, [
           `Efectivo + bancos + apps: ${q} (sin cupo de tarjeta en esta suma).`,
           `Plata al día: ${q}. Revisar cajas reales en Saldo.`,
+          `Efectivo y cuentas: ${q} (sin contar el cupo de la TC).`,
+          `Total líquido (sin TC anotada en cupo): ${q}. Mira en Saldo.`,
+          `Cajas a la mano: ${q}. Tarjeta en cupo, aparte, en el resumen de Saldo.`,
         ]),
-        detalle: rotarFrase('sal-cri2', [
+        detalle: rotarFrase(`sal-cri-d-${ymd}`, [
           'Saldo: ingresos, gasto o ajuste de saldos. Tú diriges.',
-          'Que cuadre con el bolsillo, no solo con el cupo.',
+          'Que cuadre con el bolsillo, no solo con el cupo de tarjeta.',
+          'Ajusta con ingresos, gasto o cifras iniciales en Saldo si hace falta.',
+          'Entra a Saldo y alinea cajas reales; suma billeteras y banco.',
+          'Poco o nada: revisa Efectivo, banco y apps que uses en la app.',
         ]),
       },
     ];
@@ -258,13 +305,19 @@ function notificacionesSaldo(state) {
         tipo: 'saldo',
         severidad: 'warning',
         puntuacionOrden: 450_000,
-        titulo: rotarFrase('sal-baj', [
+        titulo: rotarFrase(`sal-baj-t-${ymd}`, [
           `Poco en efectivo/cuentas: unos ${q} (cupo de tarjeta aparte).`,
           `Caja al día: ~${q} · cuida el margen.`,
+          `Queda poco líquido: alrededor de ${q} (TC por aparte en Saldo).`,
+          `Ojo: ${q} en efectivo y cuentas. Margen ajustado.`,
+          `Aún hay ${q} sin contar el cupo de la tarjeta. Repasa Saldo.`,
         ]),
-        detalle: rotarFrase('sal-baj2', [
+        detalle: rotarFrase(`sal-baj-d-${ymd}`, [
           'Saldo o Ingreso si hace falta. Tú eliges.',
-          'Antes de ajustar, mira en Saldo.',
+          'Antes de ajustar, mira en Saldo dónde más puedes tocar.',
+          'Un ingreso o menos gasto hoy: Saldo e Ingresos te ayudan a verlo.',
+          'Más → Ingreso o ajusta saldos: que no te agarre con la caja baja.',
+          'Revisa billeteras y banco en Saldo; el cupo de la TC es otra cifra.',
         ]),
       },
     ];
@@ -276,6 +329,7 @@ function notificacionesSaldo(state) {
  * Saldo “disponible” en cupo vía app + alertas de resumen (pago/corte, uso alto).
  */
 function notificacionesTarjetas(state, ref) {
+  const ymd = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-${String(ref.getDate()).padStart(2, '0')}`;
   const out = [];
   const r = resumenAlertasTarjetasCredito(state, ref);
   const limite = limiteTotalTarjetasCredito(state);
@@ -289,13 +343,19 @@ function notificacionesTarjetas(state, ref) {
       tipo: 'tc',
       severidad: 'danger',
       puntuacionOrden: 910_000,
-      titulo: rotarFrase('tcsin', [
+      titulo: rotarFrase(`tcsin-t-${ymd}`, [
         `Cupo libre 0 (app) · tope anotado ${limTxt} · afinar en Saldo.`,
         `TC: 0 libre según registro. Revisa límite y usado (Saldo).`,
+        `Según la app, no te queda cupo. Tope anotado ${limTxt} · mira en Saldo.`,
+        `Cupo 0: cuadra cifra con banco. Límite en app ${limTxt}.`,
+        `Sin cupo libre ahora. Revisa tope y deuda anotada (${limTxt}) en Saldo.`,
       ]),
-      detalle: rotarFrase('tcsin2', [
+      detalle: rotarFrase(`tcsin-d-${ymd}`, [
         'Saldo → Tarjetas, que coincida con el banco.',
         'Ajusta números en Saldo si no cuadra.',
+        'Banco real vs app: alinea límite y saldo usado en Saldo.',
+        'Límite, compras y abonos: en Saldo lo dejas claro con el banco.',
+        'Si el banco dice otra cifra, corrige en Más → Saldo → Tarjeta.',
       ]),
     });
   } else if (limite > 0 && r.global.porcentaje >= 90 && (r.tarjetas || []).length === 0) {
@@ -305,13 +365,19 @@ function notificacionesTarjetas(state, ref) {
       tipo: 'tc',
       severidad: 'warning',
       puntuacionOrden: 420_000,
-      titulo: rotarFrase('tcglo', [
+      titulo: rotarFrase(`tcglo-t-${ymd}`, [
         `Cupo global ~${pg}% usado. Ojo a Saldo y números.`,
         `Casi lleno el ${pg}% del cupo (global). Revisa.`,
+        `Casi lleno: ~${pg}% del cupo total en el registro global.`,
+        `Te queda poco colchón: ~${pg}% de cupo ya salió.`,
+        `Global: ~${pg}% de cupo usado. Mira banco y app en Saldo.`,
       ]),
-      detalle: rotarFrase('tcglo2', [
+      detalle: rotarFrase(`tcglo-d-${ymd}`, [
         'Ajusta límite o ritmo de gasto en Saldo. Tú eliges.',
-        'Saldo: bajar carga o el tope que diste.',
+        'Saldo: bajar carga o el tope que diste en la ficha de TC.',
+        'Menos rotación o tope distinto: edítalo en Saldo y sigue al banco.',
+        'Abona o ajusta el límite anotado para que el % baje con la realidad.',
+        'Cupo fino: pasa por Saldo antes de otra compra.',
       ]),
     });
   }
@@ -340,22 +406,35 @@ function notificacionesTarjetas(state, ref) {
         severidad: 'warning',
         tarjetaId: t.id,
         puntuacionOrden: 1_100_000,
-        titulo: rotarFrase(idEx, [
-          pagoSug
-            ? `Corte ${t.nombreEntidad}: pago sugerido ~${pagoSug} (cuotas + deuda, int. aprox.).`
-            : `Día de corte · abre el extracto (${t.nombreEntidad}).`,
-          pagoSug
-            ? `Corte: ~${pagoSug} · ${t.nombreEntidad} · revisa Más → Pagos programados.`
-            : `Corte hoy: movimientos y extracto · ${t.nombreEntidad}.`,
-        ]),
+        titulo: pagoSug
+          ? rotarFrase(`${idEx}-t-${ymd}`, [
+              `Corte ${t.nombreEntidad}: pago sugerido ~${pagoSug} (cuotas + deuda, int. aprox.).`,
+              `Corte: ~${pagoSug} · ${t.nombreEntidad} · revisa Más → Pagos programados.`,
+              `Hoy corte en ${t.nombreEntidad}. Sugerido ~${pagoSug} (aprox. según tramos e intereses).`,
+              `Corte hoy, ${t.nombreEntidad}. Monto aprox. ~${pagoSug} en Pagos programados o Saldo.`,
+              `Es día de corte: ${t.nombreEntidad}. Guía de pago ~${pagoSug}.`,
+            ])
+          : rotarFrase(`${idEx}-t0-${ymd}`, [
+              `Día de corte · abre el extracto (${t.nombreEntidad}).`,
+              `Corte hoy: movimientos y extracto · ${t.nombreEntidad}.`,
+              `Hoy toca corte con ${t.nombreEntidad}. Mira el extracto en la app.`,
+              `Corte en curso. ${t.nombreEntidad}: abre el detalle en Saldo.`,
+              `Corte hoy, ${t.nombreEntidad}. Revisa deuda y cuotas anotadas.`,
+            ]),
         detalle: pagoSug
-          ? rotarFrase(idEx + 'd', [
+          ? rotarFrase(`${idEx}-d-${ymd}`, [
               `Capital cierre: ${cierreTxt || '—'}. Int. est. periodo: ${intTxt || '0'}. Hay recordatorio con monto en Pagos programados (TC). Saldo: extracto de la tarjeta.`,
               'Montos aprox. con tasa E.A. y tramos a cuota en Gastos. Confirma en banco. Saldo: ver detalle.',
+              'Tasa y cuotas en Gastos; el cierre banco puede variar. Saldo: extracto. Pagos programados: recordatorio.',
+              'Intereses aprox. según tasa. Corrobora corte e intereses reales con el banco.',
+              'Si ya bajas el pago, regístralo: Pagos programados o Gastos, como lo tengas anotado.',
             ])
-          : rotarFrase(idEx + 'd', [
+          : rotarFrase(`${idEx}-d0-${ymd}`, [
               'Toca para ver cupo, detalle y proyección a 3/6 cuotas.',
               'Extracto con deuda, cuotas y ahorro estimado. Toca.',
+              'En Saldo está el corte, cupo y lo que hace la app con tus compras.',
+              'Anota pago o revisa: el extracto hoy es la brújula con el banco.',
+              'Abre el extracto en la app: ahí alineas con lo del banco.',
             ]),
       });
     }
@@ -372,20 +451,36 @@ function notificacionesTarjetas(state, ref) {
         tipo: 'tc',
         severidad: 'danger',
         puntuacionOrden: 1_000_000 - dP * 18_000,
-        titulo: rotarFrase(id, [
-          pagoL
-            ? `${t.nombreEntidad} · pago ~${pagoL} en ${dP} d. (vence ${t.etiquetaProxPago || 'Saldo'}).`
-            : `${t.nombreEntidad} · pago en ${dP} día${dP === 1 ? '' : 's'} (${t.etiquetaProxPago || 'Saldo'}).`,
-          pagoL
-            ? `Vence: ~${pagoL} · ${t.nombreEntidad} · ${dP} d.`
-            : `Cerca el pago ${t.nombreEntidad} · ${dP} d. · ${t.etiquetaProxPago || 'ver en Saldo'}.`,
-        ]),
-        detalle: rotarFrase(id + 'p', [
-          pagoL
-            ? 'Incluye tramos a cuota e int. aprox. Pagos programados (TC) y Gastos. Corrobora con el banco.'
-            : 'Banco o Saldo, sin pasarte de la fecha.',
-          pagoL ? 'Que cuadre con el extracto real; evita intereses o mora.' : 'Anótalo donde lo veas: evita intereses o mora.',
-        ]),
+        titulo: pagoL
+          ? rotarFrase(`${id}-t-${ymd}`, [
+              `${t.nombreEntidad} · pago ~${pagoL} en ${dP} d. (vence ${t.etiquetaProxPago || 'Saldo'}).`,
+              `Vence: ~${pagoL} · ${t.nombreEntidad} · ${dP} d.`,
+              `Pago aprox. ${pagoL} · ${dP} día${dP === 1 ? '' : 's'} · ${t.nombreEntidad}.`,
+              `Cuenta: ${t.nombreEntidad} · ~${pagoL} en ${dP} d. (${t.etiquetaProxPago || 'Saldo'}).`,
+              `Faltan ${dP} d. · ${t.nombreEntidad} · pago alrededor de ${pagoL}.`,
+            ])
+          : rotarFrase(`${id}-t0-${ymd}`, [
+              `${t.nombreEntidad} · pago en ${dP} día${dP === 1 ? '' : 's'} (${t.etiquetaProxPago || 'Saldo'}).`,
+              `Cerca el pago ${t.nombreEntidad} · ${dP} d. · ${t.etiquetaProxPago || 'ver en Saldo'}.`,
+              `En ${dP} d. vence pago a ${t.nombreEntidad}. Revisa en Saldo.`,
+              `Cuenta regresiva: ${dP} d. para pago a ${t.nombreEntidad}.`,
+              `Pago próximo a ${t.nombreEntidad} · plazo ${dP} d.`,
+            ]),
+        detalle: pagoL
+          ? rotarFrase(`${id}-d-${ymd}`, [
+              'Incluye tramos a cuota e int. aprox. Pagos programados (TC) y Gastos. Corrobora con el banco.',
+              'Que cuadre con el extracto real; evita intereses o mora.',
+              'Banco pone la cifra final; en la app aprox. con cuotas e intereses anotados.',
+              'Fecha: no pases. Registra pago o abono como lo tengas en el banco.',
+              'Monto guía: confírmalo con el banco y anótalo en Pagos o Gastos.',
+            ])
+          : rotarFrase(`${id}-d0-${ymd}`, [
+              'Banco o Saldo, sin pasarte de la fecha.',
+              'Anótalo donde lo veas: evita intereses o mora.',
+              'Revisa extracto: el calendario no espera; el registro, sí.',
+              'Hoy aún a tiempo: entra a Saldo y a la ficha de la tarjeta.',
+              'Anota pago a tiempo: la app luego acompaña con lo del banco.',
+            ]),
       });
     } else if (t.alertaCorte && t.diasCorte > 0 && t.diasCorte <= 2 && !t.corteHoy) {
       const id = `tc-corte-${t.id}`;
@@ -399,15 +494,27 @@ function notificacionesTarjetas(state, ref) {
         tipo: 'tc',
         severidad: 'warning',
         puntuacionOrden: 800_000 - t.diasCorte * 15_000,
-        titulo: rotarFrase(id, [
-          corteSug
-            ? `Corte en ${t.diasCorte} d. · ${t.nombreEntidad} · sugerido ~${corteSug}.`
-            : `Corte ${t.nombreEntidad} en unos ${t.diasCorte} d. (${t.etiquetaProxCorte || 'Saldo'}).`,
-          `${t.nombreEntidad} · corte cerca, ${t.diasCorte} d.`,
-        ]),
-        detalle: rotarFrase(id + 'c', [
+        titulo: corteSug
+          ? rotarFrase(`${id}-t-${ymd}`, [
+              `Corte en ${t.diasCorte} d. · ${t.nombreEntidad} · sugerido ~${corteSug}.`,
+              `En ${t.diasCorte} d. corte, ${t.nombreEntidad}. Guía de pago ~${corteSug}.`,
+              `Casi corte: ${t.diasCorte} d. · ${t.nombreEntidad} · aprox. ${corteSug}.`,
+              `Faltan ${t.diasCorte} d. al corte · ${t.nombreEntidad} · monto aprox. ${corteSug}.`,
+              `Corte a la vuelta: ${t.diasCorte} d., ${t.nombreEntidad}. Revisa ~${corteSug}.`,
+            ])
+          : rotarFrase(`${id}-t0-${ymd}`, [
+              `Corte ${t.nombreEntidad} en unos ${t.diasCorte} d. (${t.etiquetaProxCorte || 'Saldo'}).`,
+              `${t.nombreEntidad} · corte cerca, ${t.diasCorte} d.`,
+              `Corte en ${t.diasCorte} d. · abre el extracto de ${t.nombreEntidad} en la app.`,
+              `Próximo corte: ${t.diasCorte} d. · ${t.nombreEntidad} · Saldo y banco.`,
+              `En pocos días corte, ${t.nombreEntidad} · revisa movimientos.`,
+            ]),
+        detalle: rotarFrase(`${id}-c-${ymd}`, [
           'Revisa compras y tramos a cuota en Gastos. Recordatorio y monto anotados en Pagos programados. Saldo: extracto.',
           'Cierre con cifra clara: mira en Saldo y confirma en banco.',
+          'Ajusta compras a cuota en Gastos; el cierre lo cierra con el banco.',
+          'Pagos programados ya lleva el corte: si cambia, edita en Más → Pagos programados y Saldo.',
+          'Saldo: extracto. Antes de corte, que cuadre cupo, compras y pago aproximado.',
         ]),
       });
     } else if (t.alertaUtil) {
@@ -418,13 +525,19 @@ function notificacionesTarjetas(state, ref) {
         tipo: 'tc',
         severidad: 'info',
         puntuacionOrden: 320_000,
-        titulo: rotarFrase(idU, [
+        titulo: rotarFrase(`${idU}-t-${ymd}`, [
           `${t.nombreEntidad} · ~${pU}% del cupo usado.`,
           `${pU}% de cupo en ${t.nombreEntidad} · ojo a Saldo.`,
+          `Casi ${pU}% del cupo en ${t.nombreEntidad} (registro de la app).`,
+          `Uso: ~${pU}% con ${t.nombreEntidad}. Mira límite en Saldo.`,
+          `Cupo al límite: ${t.nombreEntidad} ~${pU}% usado, mira en Saldo.`,
         ]),
-        detalle: rotarFrase(idU + 'u', [
+        detalle: rotarFrase(`${idU}-d-${ymd}`, [
           'Ajusta ritmo o límite en Saldo. Tú eliges.',
-          'Si ajusta, baja carga o el tope.',
+          'Si ajusta, baja carga o el tope anotado.',
+          'Menos compras a cuota o abono: el % baja o sube tope; Saldo alinea con el banco.',
+          'Ojo: no te quede sin colchón para sorpresas del cierre. Saldo: tarjeta concreta.',
+          'Cupo fino: decide si subes pago, bajas tope o paras compras. Saldo: números.',
         ]),
       });
     } else if (libre > 0 && libre < t.cupoTotal * 0.05) {
@@ -436,13 +549,19 @@ function notificacionesTarjetas(state, ref) {
         tipo: 'tc',
         severidad: 'info',
         puntuacionOrden: 300_000,
-        titulo: rotarFrase(idL, [
+        titulo: rotarFrase(`${idL}-t-${ymd}`, [
           `${t.nombreEntidad} · poco libre: ${lTxt} / ${totTxt}.`,
           `Margen bajo en ${t.nombreEntidad} · ~${lTxt} libre.`,
+          `Casi llena la TC: ${t.nombreEntidad} · libre ${lTxt} de ${totTxt}.`,
+          `Queda poco: ${lTxt} libre en ${t.nombreEntidad} (cupo total ${totTxt}).`,
+          `${t.nombreEntidad} · poco aire: ${lTxt} de ${totTxt} aún sueltos.`,
         ]),
-        detalle: rotarFrase(idL + 'f', [
+        detalle: rotarFrase(`${idL}-d-${ymd}`, [
           'Alinea con el banco en Saldo si no cuadra.',
-          'Saldo: que el dato acompañe a la real.',
+          'Saldo: que el dato acompañe a la real del extracto.',
+          'Antes de comprar, mira banco: el libre a veces tarda en reflejarse en la app.',
+          'Poco colchón: pago, abono o no gastar. Saldo: cupo y usado anotado.',
+          'Si en banco sobra o falta, corrige tope o saldo en Más → Saldo, tarjeta.',
         ]),
       });
     }
