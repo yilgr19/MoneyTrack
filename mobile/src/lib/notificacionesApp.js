@@ -258,6 +258,54 @@ function notificacionesCategorias(state, ref) {
   return out;
 }
 
+/**
+ * Aviso cuando el gasto del mes (según reglas de la app) supera el tope fijado en presupuesto mensual.
+ * Cinco títulos y cinco detalles en rotación diaria, tono alineado al resto de avisos; máx. 2 emojis por frase.
+ */
+function notificacionesPresupuestoMensual(state, ref) {
+  const ahora = ref instanceof Date ? ref : new Date();
+  const mes = ahora.getMonth();
+  const anio = ahora.getFullYear();
+  const tope = parseFloat(state?.presupuestoMensual) || 0;
+  if (tope <= 0) return [];
+  const gastos = state.gastos || [];
+  const gastosMes = gastos.reduce(
+    (s, g) => s + montoGastoAfectaSaldoEnMes(g, state, mes, anio),
+    0
+  );
+  if (gastosMes <= tope) return [];
+  const ymd = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+  const topeT = formatearNumero(tope, 0);
+  const gTxt = formatearNumero(gastosMes, 0);
+  const exceso = gastosMes - tope;
+  const exT = formatearNumero(exceso, 0);
+  const mon = (state.moneda && String(state.moneda).trim()) || '';
+  const mS = mon ? ` ${mon}` : '';
+
+  return [
+    {
+      id: 'presupuesto-supera-tope',
+      tipo: 'presupuesto',
+      severidad: 'danger',
+      puntuacionOrden: 875_000,
+      titulo: rotarFrase(`presup-tit-${ymd}`, [
+        `Tope del mes roto: gastos ${gTxt}${mS} y planeaste ${topeT}${mS} 📊`,
+        `Te pasaste del presupuesto: ${gTxt}${mS} frente a ${topeT}${mS} tope. ⚠️`,
+        `En rojo: +${exT}${mS} sobre el tope anotado del mes. 🔥`,
+        `Las salidas del mes superan el límite: ${gTxt} vs tope ${topeT}. 📉`,
+        `Presupuesto mensual desbordado: vas a ${gTxt}${mS} y el tope era ${topeT}. ✋`,
+      ]),
+      detalle: rotarFrase(`presup-det-${ymd}`, [
+        `Inicio y Saldo: revisa; puedes bajar tope a la realidad o revisar solo el ritmo. Gastos: detalle. 💡`,
+        `Ajusta el tope en Saldo si asumías poco, o ajusta gastos: el “disponible” baja con cada salida. ⏱️`,
+        `Pista: Ingreso no sube el tope: es otra cifra. El tope es solo tope de gasto del calendario. 🧭`,
+        `Nada de drama: frena un poco o edita tope. Así vuelve a cuadrar con lo que quieres este mes. ✨`,
+        `Más abajo en Inicio verás análisis por categoría; en Saldo el número del tope mensual. 📝`,
+      ]),
+    },
+  ];
+}
+
 function tuvoMovimientosOConfigLiquido(state) {
   if ((state.gastos || []).length + (state.ingresos || []).length > 0) return true;
   const ini = obtenerSaldosIniciales(state);
@@ -619,7 +667,8 @@ export function reunirNotificacionesApp(state, ref = new Date()) {
   const b = notificacionesCategorias(state, ref);
   const s = notificacionesSaldo(state);
   const c = notificacionesTarjetas(state, ref);
-  const items = [...a, ...b, ...s, ...c]
+  const p = notificacionesPresupuestoMensual(state, ref);
+  const items = [...a, ...b, ...s, ...c, ...p]
     .map((it) => ({
       ...it,
       puntuacionOrden: it.puntuacionOrden != null ? it.puntuacionOrden : puntuacionOrdenDefecto(it.severidad),
