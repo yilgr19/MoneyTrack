@@ -1366,6 +1366,41 @@ function fraccionCupoDeTarjeta(t, data) {
   return Math.min(1, limT / limS);
 }
 
+/**
+ * Compras a TC asignadas a esta entidad (por `tarjetaCreditoId` o legacy solo primera), más recientes primero.
+ * El extracto las muestra aunque el corte de referencia no sea hoy; `lineas` del corte sigue filtrado por día.
+ */
+function comprasRecientesParaExtracto(t, data, limite = 20) {
+  if (!t || t.id == null) return [];
+  const tid = String(t.id);
+  const arr = [];
+  for (const g of data.gastos || []) {
+    if (normalizarOrigenCuenta(g?.origen) !== 'tarjetaCredito') continue;
+    if (!gastoCargaPerteneceATarjeta(g, tid, data)) continue;
+    arr.push(g);
+  }
+  arr.sort((a, b) => {
+    const da = parseFechaHoraLocal(a.fecha) || new Date(0);
+    const db = parseFechaHoraLocal(b.fecha) || new Date(0);
+    return db.getTime() - da.getTime();
+  });
+  return arr.slice(0, limite).map((g) => {
+    const q = Math.max(1, parseInt(g.cuotas, 10) || 1);
+    const cuo = q > 1 ? nNum(g.cuotaMensual) || nNum(g.cantidad) / q : nNum(g.cantidad);
+    const fRaw = g.fecha != null ? String(g.fecha) : '';
+    const fShort = fRaw.slice(0, 10) || '—';
+    return {
+      descripcion: String(g.nombre || 'Compra').trim() || 'Compra',
+      categoria: g.categoria || '—',
+      cantidad: nNum(g.cantidad),
+      cuotas: q,
+      cuotaMensual: cuo,
+      fechaCompra: fShort,
+      cuotaLabel: q > 1 ? `${q} cuotas` : 'Contado',
+    };
+  });
+}
+
 function lineasMovimientosCorteDia(t, data, ref) {
   const pat = patronMensualDesdeTarjeta(t, 'corte');
   const y = ref.getFullYear();
@@ -1431,6 +1466,7 @@ export function construirExtractoBancarioTarjeta(t, data, ref = new Date()) {
   );
   const disp = limT > 0 ? Math.max(0, limT - deudaEfect) : 0;
   const lineas = lineasMovimientosCorteDia(t, data, ref);
+  const comprasRecientes = comprasRecientesParaExtracto(t, data, 20);
   const capitalCierreLineas = redondear2(lineas.reduce((s, l) => s + nNum(l.capitalMes), 0));
   const capitalPeriodo = capitalCierreLineas > 0 ? capitalCierreLineas : capitalDeLineasODeuda(lineas, deudaEfect);
   const ea = nNum(t.tasaEA) || 0;
@@ -1456,6 +1492,7 @@ export function construirExtractoBancarioTarjeta(t, data, ref = new Date()) {
     cupoUtilizado: deudaEfect,
     cupoDisponible: disp,
     lineas,
+    comprasRecientes,
     /** Suma de cuotas de Gastos cuyo corte es exactamente el día de `ref` (sin rellenar con deuda). */
     capitalCierreLineas,
     capitalPeriodo: capitalCierreLineas > 0 ? capitalCierreLineas : capitalDeLineasODeuda(lineas, deudaEfect),
@@ -1468,6 +1505,18 @@ export function construirExtractoBancarioTarjeta(t, data, ref = new Date()) {
     ahorro6vs3: Math.max(0, t6 - t3),
     tasaEA: ea,
   };
+}
+
+/**
+ * Último instante (mediodía local) del mes calendario `YYYY-MM`, para fijar extractos guardados por mes.
+ */
+export function refUltimaHoraDiaEnMes(ym) {
+  const parts = String(ym || '').trim().split('-');
+  if (parts.length < 2) return new Date();
+  const y = parseInt(parts[0], 10);
+  const m0 = parseInt(parts[1], 10) - 1;
+  if (!Number.isFinite(y) || !Number.isFinite(m0) || m0 < 0 || m0 > 11) return new Date();
+  return new Date(y, m0 + 1, 0, 12, 0, 0, 0);
 }
 
 /**

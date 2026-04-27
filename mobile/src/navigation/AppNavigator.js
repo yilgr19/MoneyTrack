@@ -14,6 +14,7 @@ import MoreMenuScreen from '../screens/MoreMenuScreen';
 import IngresosScreen from '../screens/IngresosScreen';
 import CategoriasScreen from '../screens/CategoriasScreen';
 import MetasScreen from '../screens/MetasScreen';
+import ExtractosTarjetasScreen from '../screens/ExtractosTarjetasScreen';
 import PagosScreen from '../screens/PagosScreen';
 import ReportesScreen from '../screens/ReportesScreen';
 import AdminScreen from '../screens/AdminScreen';
@@ -55,6 +56,11 @@ function MoreStack() {
     <Stack.Navigator screenOptions={stackOptions}>
       <Stack.Screen name="MoreMenu" component={MoreMenuScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Ingresos" component={IngresosScreen} options={{ title: 'Ingresos' }} />
+      <Stack.Screen
+        name="ExtractosTarjetas"
+        component={ExtractosTarjetasScreen}
+        options={{ title: 'Extractos de tarjeta' }}
+      />
       <Stack.Screen name="Categorias" component={CategoriasScreen} options={{ title: 'Categorías' }} />
       <Stack.Screen name="Metas" component={MetasScreen} options={{ title: 'Metas' }} />
       <Stack.Screen name="PagosProgramados" component={PagosScreen} options={{ title: 'Pagos programados' }} />

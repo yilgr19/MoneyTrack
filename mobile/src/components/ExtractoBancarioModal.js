@@ -15,14 +15,16 @@ import { colors, spacing, radii, typography } from '../theme';
 
 /**
  * Extracto tipo banco: fechas, cupo, movimientos del corte, totales y proyección 3/6 cuotas.
+ * Si `extSnapshot` está definido (historial), se muestra tal cual y no se recalcula.
  */
-export default function ExtractoBancarioModal({ visible, onClose, state, tarjeta, moneda }) {
+export default function ExtractoBancarioModal({ visible, onClose, state, tarjeta, moneda, extSnapshot }) {
   const insets = useSafeAreaInsets();
 
   const ext = useMemo(() => {
+    if (extSnapshot) return extSnapshot;
     if (!visible || !tarjeta || !state) return null;
     return construirExtractoBancarioTarjeta(tarjeta, state, new Date());
-  }, [visible, tarjeta, state]);
+  }, [extSnapshot, visible, tarjeta, state]);
 
   if (!ext) return null;
 
@@ -74,7 +76,10 @@ export default function ExtractoBancarioModal({ visible, onClose, state, tarjeta
               y en Gastos.
             </Text>
 
-            <Text style={styles.sectionTitle}>3. Detalle de movimientos (periodo de corte)</Text>
+            <Text style={styles.sectionTitle}>3. Detalle de movimientos</Text>
+            <Text style={styles.sectionSub}>
+              3a. Cargos cuyo día de corte coincide con hoy (periodo de corte)
+            </Text>
             {ext.lineas.length > 0 ? (
               <FilaL
                 label="Suma capital del periodo (movimientos que cierran hoy)"
@@ -83,7 +88,7 @@ export default function ExtractoBancarioModal({ visible, onClose, state, tarjeta
             ) : null}
             {ext.lineas.length === 0 ? (
               <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.sm }]}>
-                Sin cargos con fecha de corte en este día (revisa otras fechas o Saldo).
+                Ningún cargo tiene hoy su fecha de corte. Sigue leyendo abajo: las compras recientes aparecen en 3b.
               </Text>
             ) : (
               ext.lineas.map((ln, i) => (
@@ -94,6 +99,32 @@ export default function ExtractoBancarioModal({ visible, onClose, state, tarjeta
                 </View>
               ))
             )}
+            <Text style={styles.sectionSub}>3b. Compras y movimientos recientes (esta tarjeta)</Text>
+            {(ext.comprasRecientes || []).length > 0 ? (
+              (ext.comprasRecientes || []).map((cr, i) => (
+                <View key={`r-${i}`} style={styles.movBlock}>
+                  <Text style={styles.movTitle}>{cr.descripcion}</Text>
+                  <Text style={styles.movSub}>
+                    {cr.fechaCompra} · {cr.cuotaLabel} · {cr.categoria}
+                  </Text>
+                  <FilaL label="Monto de la compra" value={`${formatearNumero(cr.cantidad)} ${moneda}`} />
+                  {cr.cuotas > 1 ? (
+                    <FilaL
+                      label="Cuota estimada (mensual)"
+                      value={`${formatearNumero(cr.cuotaMensual)} ${moneda}`}
+                    />
+                  ) : null}
+                </View>
+              ))
+            ) : (
+              <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.sm }]}>
+                Ninguna compra cargada a esta tarjeta en la app. En Gastos, el origen &quot;Tarjeta de
+                crédito&quot; y el selector de entidad deben corresponder a esta fila.
+              </Text>
+            )}
+            <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.md, lineHeight: 20 }]}>
+              Los gastos antiguos sin tarjeta elegida se atribuyen solo a la primera entidad de Saldo.
+            </Text>
             <FilaL
               label="Intereses del periodo (estim., tasa E.A.)"
               value={`${formatearNumero(ext.intereses)} ${moneda}`}
@@ -183,6 +214,13 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.accent,
     marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  sectionSub: {
+    ...typography.small,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginTop: spacing.xs,
     marginBottom: spacing.sm,
   },
   block: {

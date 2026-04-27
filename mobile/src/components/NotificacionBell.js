@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -52,19 +52,27 @@ export function NotificacionBell() {
     return contarNoLeidas(items, firmasLeidas);
   }, [items, firmasLeidas]);
 
-  const abrirYMarcarComoVistas = useCallback(() => {
-    if (!state) {
-      setOpen(true);
-      return;
+  const itemsVisibles = useMemo(() => {
+    if (firmasLeidas == null) return items;
+    return items.filter((it) => firmasLeidas[it.id] !== firmaNotificacion(it));
+  }, [items, firmasLeidas]);
+
+  const openRef = useRef(false);
+  useEffect(() => {
+    if (openRef.current && !open) {
+      if (state) marcarVistosAhora();
     }
-    marcarVistosAhora();
+    openRef.current = open;
+  }, [open, state, marcarVistosAhora]);
+
+  const abrirPanel = useCallback(() => {
     setOpen(true);
-  }, [state, marcarVistosAhora]);
+  }, []);
 
   return (
     <>
       <TouchableOpacity
-        onPress={abrirYMarcarComoVistas}
+        onPress={abrirPanel}
         hitSlop={12}
         style={styles.bellWrap}
         accessibilityLabel={
@@ -102,11 +110,11 @@ export function NotificacionBell() {
             </TouchableOpacity>
           </View>
             <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.md, lineHeight: 20 }]}>
-            Arriba lo más reciente/urgente. Al abrir, lo de ahora cuenta como leído; el badge vuelve si cambia
-            algo.
+            Arriba lo más reciente. Al cerrar este panel, los avisos actuales dejan de mostrarse; el badge
+            vuelve si cambia el mensaje o hay algo nuevo.
           </Text>
 
-          {items.length === 0 ? (
+          {itemsVisibles.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="cafe-outline" size={50} color={colors.mint} />
               <Text style={[typography.body, { marginTop: spacing.md, textAlign: 'center', lineHeight: 24 }]}>
@@ -123,10 +131,9 @@ export function NotificacionBell() {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {items.map((it) => {
+              {itemsVisibles.map((it) => {
                 const s = SEV[it.severidad] || SEV.info;
                 const ac = TIPO_ACENTO[it.tipo] || TIPO_ACENTO.pago;
-                const visto = firmasLeidas != null && firmasLeidas[it.id] === firmaNotificacion(it);
                 const body = (
                   <>
                     <View style={styles.dobleIcono}>
@@ -142,7 +149,7 @@ export function NotificacionBell() {
                     ) : null}
                   </>
                 );
-                const wrapStyle = [styles.item, { backgroundColor: s.bg, borderColor: colors.stroke, opacity: visto ? 0.7 : 1 }];
+                const wrapStyle = [styles.item, { backgroundColor: s.bg, borderColor: colors.stroke }];
                 if (it.tarjetaId) {
                   return (
                     <TouchableOpacity

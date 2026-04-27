@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, useWindowDimensions } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
 import { HeaderConCampana } from '../components/HeaderConCampana';
 import { NotificacionBell } from '../components/NotificacionBell';
-import ExtractoBancarioModal from '../components/ExtractoBancarioModal';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
 import { useApp, tieneDatosPrevios } from '../context/AppContext';
@@ -19,7 +19,6 @@ import {
   obtenerMesAño,
   montoGastoAfectaSaldoEnMes,
   verificarAlertaTarjetaCredito,
-  proyeccionEficienciaInicio,
   normalizarCategoria,
   normalizarMeta,
 } from '../lib/finance';
@@ -27,12 +26,8 @@ import { colors, spacing, radii, typography, layoutStyles } from '../theme';
 
 export default function HomeScreen() {
   const { state, ready, replaceState } = useApp();
+  const navigation = useNavigation();
   const moneda = state?.moneda || '';
-  const [extractoTarjetaId, setExtractoTarjetaId] = useState(null);
-  const tarjetaExtracto = useMemo(
-    () => (state?.tarjetasCredito || []).find((x) => x && x.id === extractoTarjetaId) || null,
-    [state?.tarjetasCredito, extractoTarjetaId]
-  );
 
   const derived = useMemo(() => {
     if (!state) {
@@ -70,7 +65,6 @@ export default function HomeScreen() {
         estadoDetalle: '',
         estadoKind: 'info',
         cuentasInicio: [],
-        proyeccionTc: null,
       };
     }
 
@@ -166,12 +160,10 @@ export default function HomeScreen() {
     const cuentasInicio = CUENTAS.filter((c) =>
       cuentaVisibleEnResumenInicio(c.id, state, saldosPorCuenta)
     );
-    const proyeccionTc = proyeccionEficienciaInicio(state);
 
     return {
       saldosPorCuenta,
       cuentasInicio,
-      proyeccionTc,
       topeTarjeta,
       deudaTarjeta,
       saldoActual,
@@ -291,18 +283,16 @@ export default function HomeScreen() {
 
       {derived.alertaTc.tarjetas && derived.alertaTc.tarjetas.length > 0 ? (
         <UICard style={{ marginBottom: spacing.md }}>
-          <Text style={typography.label}>Tarjetas de crédito · reloj</Text>
-          {derived.alertaTc.limite > 0 ? (
-            <Text style={[typography.small, { marginBottom: spacing.sm, color: colors.textSecondary }]}>
-              Gasto registrado en la app vs cupo total: {formatearNumero(derived.alertaTc.gastado)} {moneda} (
-              {formatearNumero(derived.alertaTc.porcentaje, 1)}%)
-            </Text>
-          ) : null}
+          <Text style={typography.label}>Tarjetas de crédito · corte y calendario</Text>
+          <Text style={[typography.small, { marginBottom: spacing.md, color: colors.textFaint, lineHeight: 20 }]}>
+            Aquí solo fechas y avisos de corte. El extracto detallado (deuda, tramos) está en Más → Extractos de
+            tarjeta; si te llega una notificación con extracto, se abre al tocarla.
+          </Text>
           {derived.alertaTc.tarjetas.map((t, i) => (
             <View
               key={t.id || `tc-${i}`}
               style={{
-                marginTop: i > 0 ? spacing.md : spacing.xs,
+                marginTop: i > 0 ? spacing.md : 0,
                 paddingTop: i > 0 ? spacing.md : 0,
                 borderTopWidth: i > 0 ? 1 : 0,
                 borderTopColor: colors.stroke,
@@ -333,17 +323,6 @@ export default function HomeScreen() {
                   Próx. corte: {t.etiquetaProxCorte || '—'} · Próx. pago: {t.etiquetaProxPago || '—'}
                 </Text>
               )}
-              {t.cupoTotal > 0 ? (
-                <Text style={[typography.small, { marginTop: 4, color: colors.textSecondary }]}>
-                  Cupo declarado: {formatearNumero(t.cupoUtilizado)} / {formatearNumero(t.cupoTotal)} (
-                  {formatearNumero(t.utilPct, 1)}% utilización)
-                </Text>
-              ) : null}
-              {t.tasaEA > 0 ? (
-                <Text style={[typography.small, { marginTop: 2, color: colors.textMuted }]}>
-                  Tasa E.A.: {formatearNumero(t.tasaEA, 2)}%
-                </Text>
-              ) : null}
               {(t.alertaUtil || t.alertaPagoUrgente || t.alertaCorte) && (
                 <View style={styles.tcChipsRow}>
                   {t.alertaPagoUrgente ? <Text style={styles.tcChipDanger}>Pago próximo</Text> : null}
@@ -351,33 +330,17 @@ export default function HomeScreen() {
                   {t.alertaUtil ? <Text style={styles.tcChipWarn}>Uso alto del cupo</Text> : null}
                 </View>
               )}
-              <TouchableOpacity
-                onPress={() => setExtractoTarjetaId(t.id)}
-                style={[
-                  styles.btnExtracto,
-                  t.corteHoy && { borderColor: colors.warning, backgroundColor: 'rgba(220, 180, 70, 0.12)' },
-                ]}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name="document-text-outline"
-                  size={18}
-                  color={t.corteHoy ? colors.warning : colors.accent}
-                />
-                <Text
-                  style={[
-                    styles.btnExtractoTxt,
-                    t.corteHoy && { color: colors.warning, fontWeight: '800' },
-                  ]}
-                >
-                  {t.corteHoy
-                    ? 'Hoy es corte — ver extracto (deuda y plan de pago)'
-                    : 'Ver extracto de corte (simulado)'}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-              </TouchableOpacity>
             </View>
           ))}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Mas', { screen: 'ExtractosTarjetas' })}
+            style={styles.btnIrExtractos}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="receipt-outline" size={18} color={colors.accentBright} />
+            <Text style={styles.btnIrExtractosTxt}>Abrir extractos y archivo por mes</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+          </TouchableOpacity>
         </UICard>
       ) : derived.alertaTc.mostrar ? (
         <View style={styles.alerta}>
@@ -388,48 +351,6 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : null}
-
-      {derived.proyeccionTc && (state?.tarjetasCredito || []).length > 0 ? (
-        <UICard style={{ marginBottom: spacing.md }}>
-          <Text style={typography.label}>Análisis y proyección (eficiencia de pago)</Text>
-          <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.sm }]}>
-            Sobre deuda y tasa de {derived.proyeccionTc.nombre}. Comparar cuotas: pagar a más plazos suele costar
-            más (interés).
-          </Text>
-          <View style={layoutStyles.rowBetween}>
-            <Text style={[typography.body, layoutStyles.rowLabel]}>Deuda / obligación aprox.</Text>
-            <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
-              {formatearNumero(derived.proyeccionTc.deuda)} {moneda}
-            </Text>
-          </View>
-          <View style={layoutStyles.rowBetween}>
-            <Text style={[typography.body, layoutStyles.rowLabel]}>Costo total a 3 cuotas (estim.)</Text>
-            <Text style={[typography.monoAmount, layoutStyles.rowValue, { color: colors.mint }]}>
-              {formatearNumero(derived.proyeccionTc.total3)} {moneda}
-            </Text>
-          </View>
-          <View style={layoutStyles.rowBetween}>
-            <Text style={[typography.body, layoutStyles.rowLabel]}>Costo total a 6 cuotas (estim.)</Text>
-            <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
-              {formatearNumero(derived.proyeccionTc.total6)} {moneda}
-            </Text>
-          </View>
-          <View style={[layoutStyles.rowBetween, { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.stroke }]}>
-            <Text style={[typography.body, { fontWeight: '800', color: colors.mint }]}>Ahorro (3 vs 6 plazos)</Text>
-            <Text style={[typography.monoAmount, { color: colors.mint, fontSize: 17 }]}>
-              {formatearNumero(derived.proyeccionTc.ahorro)} {moneda}
-            </Text>
-          </View>
-        </UICard>
-      ) : null}
-
-      <ExtractoBancarioModal
-        visible={!!tarjetaExtracto}
-        onClose={() => setExtractoTarjetaId(null)}
-        state={state}
-        tarjeta={tarjetaExtracto}
-        moneda={moneda}
-      />
 
       <UICard>
         <Text style={typography.label}>Por cuenta</Text>
@@ -847,7 +768,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     overflow: 'hidden',
   },
-  btnExtracto: {
+  btnIrExtractos: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: spacing.md,
@@ -858,7 +779,15 @@ const styles = StyleSheet.create({
     borderColor: colors.stroke,
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
-  btnExtractoTxt: { flex: 1, minWidth: 0, color: colors.accent, fontSize: 14, fontWeight: '600', marginLeft: 8, marginRight: 4 },
+  btnIrExtractosTxt: {
+    flex: 1,
+    minWidth: 0,
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+    marginRight: 4,
+  },
   barBg: {
     height: 7,
     backgroundColor: colors.barTrack,

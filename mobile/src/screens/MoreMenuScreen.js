@@ -7,6 +7,12 @@ import { colors, spacing, radii, typography } from '../theme';
 
 const ITEMS = [
   { key: 'Ingresos', title: 'Ingresos', sub: 'Registrar entradas de dinero', icon: 'trending-up' },
+  {
+    key: 'ExtractosTarjetas',
+    title: 'Extractos de tarjeta',
+    sub: 'Historial por entidad y mes',
+    icon: 'receipt',
+  },
   { key: 'Categorias', title: 'Categorías', sub: 'Organiza tus gastos', icon: 'grid' },
   { key: 'Metas', title: 'Metas', sub: 'Ahorro y objetivos', icon: 'flag' },
   { key: 'PagosProgramados', title: 'Pagos programados', sub: 'Suscripciones y recordatorios', icon: 'calendar' },
