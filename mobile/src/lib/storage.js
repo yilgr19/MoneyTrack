@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NOTIFICACIONES_LECTURA_KEY } from './notificacionesLectura';
 import { CUENTAS } from './finance';
+
+const KEY_ONBOARDING_COMPLETADO = 'onboardingCompletado';
 
 const KEYS = [
   'moneda',
@@ -106,7 +109,7 @@ export async function clearStoragePartial() {
 
 export async function clearStorageFull() {
   await clearStoragePartial();
-  await AsyncStorage.multiRemove(['moneda', 'pagosProgramados']);
+  await AsyncStorage.multiRemove(['moneda', 'pagosProgramados', KEY_ONBOARDING_COMPLETADO, NOTIFICACIONES_LECTURA_KEY]);
   await AsyncStorage.multiSet([
     ['gastos', '[]'],
     ['ingresos', '[]'],
@@ -114,4 +117,17 @@ export async function clearStorageFull() {
     ['metas', '[]'],
     ['contribucionesMetas', '[]'],
   ]);
+}
+
+export async function loadOnboardingCompletado() {
+  try {
+    const v = await AsyncStorage.getItem(KEY_ONBOARDING_COMPLETADO);
+    return v === '1';
+  } catch {
+    return false;
+  }
+}
+
+export async function setOnboardingCompletado() {
+  await AsyncStorage.setItem(KEY_ONBOARDING_COMPLETADO, '1');
 }

@@ -16,6 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import { colors, spacing, typography } from './src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -82,7 +83,7 @@ function LoadingSplash() {
 }
 
 function Root() {
-  const { ready } = useApp();
+  const { ready, mostrarOnboarding } = useApp();
 
   useEffect(() => {
     if (ready) {
@@ -97,7 +98,7 @@ function Root() {
   return (
     <>
       <StatusBar style="light" />
-      <AppNavigator />
+      {mostrarOnboarding ? <OnboardingScreen /> : <AppNavigator />}
     </>
   );
 }

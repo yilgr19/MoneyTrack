@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
+import { HeaderConCampana } from '../components/HeaderConCampana';
 import { colors, spacing, radii, typography } from '../theme';
 
 const ITEMS = [
@@ -16,9 +17,7 @@ const ITEMS = [
 export default function MoreMenuScreen({ navigation }) {
   return (
     <ScreenWrap contentStyle={{ paddingTop: spacing.xs }}>
-      <Text style={typography.label}>Explora</Text>
-      <Text style={typography.hero}>Más</Text>
-      <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>Accesos rápidos</Text>
+      <HeaderConCampana label="Explora" title="Más" subtitle="Accesos rápidos" />
 
       {ITEMS.map((it) => (
         <TouchableOpacity

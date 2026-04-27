@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, useWindowDi
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
+import { HeaderConCampana } from '../components/HeaderConCampana';
+import { NotificacionBell } from '../components/NotificacionBell';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
@@ -151,10 +153,20 @@ export default function HomeScreen() {
   if (derived.esUsuarioNuevo) {
     return (
       <ScreenWrap contentStyle={{ paddingTop: spacing.sm }}>
-        <Text style={typography.hero}>Bienvenido</Text>
-        <Text style={[typography.subtitle, { marginTop: spacing.xs, marginBottom: spacing.lg }]}>
-          Tu dinero, con claridad
-        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            marginBottom: spacing.xs,
+          }}
+        >
+          <Text style={[typography.hero, { flex: 1, minWidth: 0, paddingRight: spacing.md }]}>
+            Bienvenido
+          </Text>
+          <NotificacionBell />
+        </View>
+        <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>Tu dinero, con claridad</Text>
         <UICard accent>
           <Text style={typography.label}>Primeros pasos</Text>
           <Step n={1} text="Saldo o ingresos (Saldo / Más → Ingresos)" />
@@ -167,11 +179,11 @@ export default function HomeScreen() {
 
   return (
     <ScreenWrap contentStyle={{ paddingTop: spacing.xs }}>
-      <Text style={typography.label}>Resumen</Text>
-      <Text style={typography.hero}>Inicio</Text>
-      <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>
-        {derived.nombreMes} {derived.añoActual}
-      </Text>
+      <HeaderConCampana
+        label="Resumen"
+        title="Inicio"
+        subtitle={`${derived.nombreMes} ${derived.añoActual}`}
+      />
 
       <LinearGradient
         colors={['rgba(75, 36, 108, 0.42)', 'rgba(12, 8, 18, 0.45)']}

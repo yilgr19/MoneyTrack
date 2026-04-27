@@ -18,6 +18,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
+import { HeaderConCampana } from '../components/HeaderConCampana';
 import UICard from '../components/UICard';
 import { PrimaryButton, GhostButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
@@ -737,11 +738,11 @@ export default function SaldoScreen() {
 
   return (
     <ScreenWrap contentStyle={{ paddingTop: spacing.xs }}>
-      <Text style={typography.label}>Cuentas</Text>
-      <Text style={typography.hero}>Saldo inicial</Text>
-      <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>
-        Toca una tarjeta para editar
-      </Text>
+      <HeaderConCampana
+        label="Cuentas"
+        title="Saldo inicial"
+        subtitle="Toca una tarjeta para editar"
+      />
 
       <View style={styles.cardStack}>
         <EditCard

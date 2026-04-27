@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import ScreenWrap from '../components/ScreenWrap';
+import { HeaderConCampana } from '../components/HeaderConCampana';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
@@ -180,11 +181,11 @@ export default function GastosScreen() {
 
   return (
     <ScreenWrap contentStyle={{ paddingTop: spacing.xs }}>
-      <Text style={typography.label}>Movimientos</Text>
-      <Text style={typography.hero}>Registrar gasto</Text>
-      <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>
-        Registra cada salida de dinero
-      </Text>
+      <HeaderConCampana
+        label="Movimientos"
+        title="Registrar gasto"
+        subtitle="Registra cada salida de dinero"
+      />
 
       {pagosPendientes.length > 0 && (
         <UICard accent>

@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { useApp } from '../context/AppContext';
+import { rootNavigationRef } from './rootNavigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,9 +64,36 @@ function MoreStack() {
   );
 }
 
+/** Tras el tutorial, lleva al usuario a la pestaña Saldo para que ingrese allí moneda y saldos iniciales. */
+function NavegacionTrasOnboarding() {
+  const { postOnboardingIrASaldo, clearPostOnboardingIrASaldo } = useApp();
+  useEffect(() => {
+    if (!postOnboardingIrASaldo) return;
+    let n = 0;
+    const max = 50;
+    const t = setInterval(() => {
+      if (rootNavigationRef.isReady()) {
+        rootNavigationRef.navigate('Saldo');
+        clearPostOnboardingIrASaldo();
+        clearInterval(t);
+        return;
+      }
+      n += 1;
+      if (n >= max) {
+        clearPostOnboardingIrASaldo();
+        clearInterval(t);
+      }
+    }, 32);
+    return () => clearInterval(t);
+  }, [postOnboardingIrASaldo, clearPostOnboardingIrASaldo]);
+
+  return null;
+}
+
 export default function AppNavigator() {
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={rootNavigationRef} theme={navTheme}>
+      <NavegacionTrasOnboarding />
       <Tab.Navigator
         sceneContainerStyle={{ flex: 1, backgroundColor: colors.bg }}
         screenOptions={({ route }) => ({
