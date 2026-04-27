@@ -14,6 +14,7 @@ import { useApp } from '../context/AppContext';
 import { useNotificacionLectura } from '../context/NotificacionLecturaContext';
 import { reunirNotificacionesApp } from '../lib/notificacionesApp';
 import { contarNoLeidas, firmaNotificacion } from '../lib/notificacionesLectura';
+import ExtractoBancarioModal from './ExtractoBancarioModal';
 import { colors, spacing, radii, typography } from '../theme';
 
 const SEV = {
@@ -34,6 +35,12 @@ export function NotificacionBell() {
   const { state } = useApp();
   const { firmasLeidas, marcarVistosAhora } = useNotificacionLectura();
   const [open, setOpen] = useState(false);
+  const [extractoTarjetaId, setExtractoTarjetaId] = useState(null);
+  const moneda = state?.moneda || '';
+  const tarjetaExtracto = useMemo(
+    () => (state?.tarjetasCredito || []).find((x) => x && x.id === extractoTarjetaId) || null,
+    [state?.tarjetasCredito, extractoTarjetaId]
+  );
 
   const { items, total: totalAvisos } = useMemo(() => {
     if (!state) return { items: [], total: 0 };
@@ -120,14 +127,8 @@ export function NotificacionBell() {
                 const s = SEV[it.severidad] || SEV.info;
                 const ac = TIPO_ACENTO[it.tipo] || TIPO_ACENTO.pago;
                 const visto = firmasLeidas != null && firmasLeidas[it.id] === firmaNotificacion(it);
-                return (
-                  <View
-                    key={it.id}
-                    style={[
-                      styles.item,
-                      { backgroundColor: s.bg, borderColor: colors.stroke, opacity: visto ? 0.7 : 1 },
-                    ]}
-                  >
+                const body = (
+                  <>
                     <View style={styles.dobleIcono}>
                       <Ionicons name={ac.icon} size={20} color={ac.color} />
                       <Ionicons name={s.icon} size={20} color={s.color} style={{ marginTop: 4 }} />
@@ -136,6 +137,30 @@ export function NotificacionBell() {
                       <Text style={styles.itemTit}>{it.titulo}</Text>
                       <Text style={styles.itemSub}>{it.detalle}</Text>
                     </View>
+                    {it.tarjetaId ? (
+                      <Ionicons name="chevron-forward" size={20} color={colors.textFaint} style={{ marginTop: 2 }} />
+                    ) : null}
+                  </>
+                );
+                const wrapStyle = [styles.item, { backgroundColor: s.bg, borderColor: colors.stroke, opacity: visto ? 0.7 : 1 }];
+                if (it.tarjetaId) {
+                  return (
+                    <TouchableOpacity
+                      key={it.id}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setOpen(false);
+                        setExtractoTarjetaId(it.tarjetaId);
+                      }}
+                      style={wrapStyle}
+                    >
+                      {body}
+                    </TouchableOpacity>
+                  );
+                }
+                return (
+                  <View key={it.id} style={wrapStyle}>
+                    {body}
                   </View>
                 );
               })}
@@ -144,6 +169,13 @@ export function NotificacionBell() {
         </View>
         </View>
       </Modal>
+      <ExtractoBancarioModal
+        visible={!!tarjetaExtracto}
+        onClose={() => setExtractoTarjetaId(null)}
+        state={state}
+        tarjeta={tarjetaExtracto}
+        moneda={moneda}
+      />
     </>
   );
 }

@@ -1,12 +1,13 @@
 import {
   calcularSaldosPorCuenta,
+  construirExtractoBancarioTarjeta,
   diasCalendarioHasta,
   diasHastaProximoDiaCalendario,
   formatearNumero,
   limiteTotalTarjetasCredito,
-  montoGastoAfectaSaldo,
+  montoGastoAfectaSaldoEnMes,
+  montoPagoSugeridoDesdeExtracto,
   normalizarCategoria,
-  obtenerMesAño,
   obtenerSaldosIniciales,
   parseFechaHoraLocal,
   pagoDebeMostrarseParaPagar,
@@ -191,12 +192,8 @@ function notificacionesCategorias(state, ref) {
     const lim = parseFloat(cat.limite);
     if (Number.isNaN(lim) || lim <= 0) continue;
     const gastado = gastos
-      .filter((g) => {
-        if (g.categoria !== cat.nombre) return false;
-        const { mes, año } = obtenerMesAño(g.fecha);
-        return mes === m && año === y;
-      })
-      .reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
+      .filter((g) => g.categoria === cat.nombre)
+      .reduce((s, g) => s + montoGastoAfectaSaldoEnMes(g, state, m, y), 0);
     if (gastado > lim) {
       const id = `cat-${cat.nombre}`;
       const gTxt = formatearNumero(gastado, 0);
@@ -319,40 +316,98 @@ function notificacionesTarjetas(state, ref) {
     });
   }
 
+  const mon = (state.moneda && String(state.moneda).trim()) || '';
+  const tcs = state.tarjetasCredito || [];
   for (const t of r.tarjetas || []) {
     if (t.cupoTotal <= 0) continue;
     const libre = t.cupoTotal - t.cupoUtilizado;
+    const tRaw = t.id ? tcs.find((x) => x && x.id === t.id) : null;
+    if (t.corteHoy || t.diasCorte === 0) {
+      const idEx = `tc-extracto-${t.id}`;
+      let pagoSug = '';
+      let cierreTxt = '';
+      let intTxt = '';
+      if (tRaw) {
+        const ex = construirExtractoBancarioTarjeta(tRaw, state, ref);
+        const s = montoPagoSugeridoDesdeExtracto(ex);
+        pagoSug = `${formatearNumero(s, 0)}${mon ? ` ${mon}` : ''}`;
+        cierreTxt = `${formatearNumero(ex.capitalCierreLineas, 0)}${mon ? ` ${mon}` : ''}`;
+        intTxt = `${formatearNumero(ex.intereses, 0)}${mon ? ` ${mon}` : ''}`;
+      }
+      out.push({
+        id: idEx,
+        tipo: 'tc',
+        severidad: 'warning',
+        tarjetaId: t.id,
+        puntuacionOrden: 1_100_000,
+        titulo: rotarFrase(idEx, [
+          pagoSug
+            ? `Corte ${t.nombreEntidad}: pago sugerido ~${pagoSug} (cuotas + deuda, int. aprox.).`
+            : `Día de corte · abre el extracto (${t.nombreEntidad}).`,
+          pagoSug
+            ? `Corte: ~${pagoSug} · ${t.nombreEntidad} · revisa Más → Pagos programados.`
+            : `Corte hoy: movimientos y extracto · ${t.nombreEntidad}.`,
+        ]),
+        detalle: pagoSug
+          ? rotarFrase(idEx + 'd', [
+              `Capital cierre: ${cierreTxt || '—'}. Int. est. periodo: ${intTxt || '0'}. Hay recordatorio con monto en Pagos programados (TC). Saldo: extracto de la tarjeta.`,
+              'Montos aprox. con tasa E.A. y tramos a cuota en Gastos. Confirma en banco. Saldo: ver detalle.',
+            ])
+          : rotarFrase(idEx + 'd', [
+              'Toca para ver cupo, detalle y proyección a 3/6 cuotas.',
+              'Extracto con deuda, cuotas y ahorro estimado. Toca.',
+            ]),
+      });
+    }
     if (t.alertaPagoUrgente) {
       const id = `tc-pago-${t.id}`;
       const dP = t.diasPago;
+      let pagoL = '';
+      if (tRaw) {
+        const exL = construirExtractoBancarioTarjeta(tRaw, state, ref);
+        pagoL = `${formatearNumero(montoPagoSugeridoDesdeExtracto(exL), 0)}${mon ? ` ${mon}` : ''}`;
+      }
       out.push({
         id,
         tipo: 'tc',
         severidad: 'danger',
         puntuacionOrden: 1_000_000 - dP * 18_000,
         titulo: rotarFrase(id, [
-          `${t.nombreEntidad} · pago en ${dP} día${dP === 1 ? '' : 's'} (${t.etiquetaProxPago || 'Saldo'}).`,
-          `Cerca el pago ${t.nombreEntidad} · ${dP} d. · ${t.etiquetaProxPago || 'ver en Saldo'}.`,
+          pagoL
+            ? `${t.nombreEntidad} · pago ~${pagoL} en ${dP} d. (vence ${t.etiquetaProxPago || 'Saldo'}).`
+            : `${t.nombreEntidad} · pago en ${dP} día${dP === 1 ? '' : 's'} (${t.etiquetaProxPago || 'Saldo'}).`,
+          pagoL
+            ? `Vence: ~${pagoL} · ${t.nombreEntidad} · ${dP} d.`
+            : `Cerca el pago ${t.nombreEntidad} · ${dP} d. · ${t.etiquetaProxPago || 'ver en Saldo'}.`,
         ]),
         detalle: rotarFrase(id + 'p', [
-          'Banco o Saldo, sin pasarte de la fecha.',
-          'Anótalo donde lo veas: evita intereses o mora.',
+          pagoL
+            ? 'Incluye tramos a cuota e int. aprox. Pagos programados (TC) y Gastos. Corrobora con el banco.'
+            : 'Banco o Saldo, sin pasarte de la fecha.',
+          pagoL ? 'Que cuadre con el extracto real; evita intereses o mora.' : 'Anótalo donde lo veas: evita intereses o mora.',
         ]),
       });
-    } else if (t.alertaCorte) {
+    } else if (t.alertaCorte && t.diasCorte > 0 && t.diasCorte <= 2 && !t.corteHoy) {
       const id = `tc-corte-${t.id}`;
+      let corteSug = '';
+      if (tRaw) {
+        const ex2 = construirExtractoBancarioTarjeta(tRaw, state, ref);
+        corteSug = `${formatearNumero(montoPagoSugeridoDesdeExtracto(ex2), 0)}${mon ? ` ${mon}` : ''}`;
+      }
       out.push({
         id,
         tipo: 'tc',
         severidad: 'warning',
         puntuacionOrden: 800_000 - t.diasCorte * 15_000,
         titulo: rotarFrase(id, [
-          `Corte ${t.nombreEntidad} en unos ${t.diasCorte} d. (${t.etiquetaProxCorte || 'Saldo'}).`,
+          corteSug
+            ? `Corte en ${t.diasCorte} d. · ${t.nombreEntidad} · sugerido ~${corteSug}.`
+            : `Corte ${t.nombreEntidad} en unos ${t.diasCorte} d. (${t.etiquetaProxCorte || 'Saldo'}).`,
           `${t.nombreEntidad} · corte cerca, ${t.diasCorte} d.`,
         ]),
         detalle: rotarFrase(id + 'c', [
-          'Revisa compras y saldo. Saldo en la app.',
-          'Cierre con cifra clara: mira en Saldo.',
+          'Revisa compras y tramos a cuota en Gastos. Recordatorio y monto anotados en Pagos programados. Saldo: extracto.',
+          'Cierre con cifra clara: mira en Saldo y confirma en banco.',
         ]),
       });
     } else if (t.alertaUtil) {

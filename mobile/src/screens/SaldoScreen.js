@@ -497,8 +497,7 @@ export default function SaldoScreen() {
         },
         pagosProgramados: reemplazarPagosRecordatorioTarjetas(
           s.pagosProgramados || [],
-          [],
-          s.categorias || []
+          { ...s, tarjetasCredito: [] }
         ),
       }));
       closeSheet();
@@ -555,8 +554,7 @@ export default function SaldoScreen() {
       },
       pagosProgramados: reemplazarPagosRecordatorioTarjetas(
         s.pagosProgramados || [],
-        tarjetasClean,
-        s.categorias || []
+        { ...s, tarjetasCredito: tarjetasClean }
       ),
     }));
     closeSheet();
@@ -769,8 +767,7 @@ export default function SaldoScreen() {
       saldoInicialNota: nota.trim(),
       pagosProgramados: reemplazarPagosRecordatorioTarjetas(
         s.pagosProgramados || [],
-        tarjetasClean,
-        s.categorias || []
+        { ...s, tarjetasCredito: tarjetasClean }
       ),
     }));
     Alert.alert('Guardado', 'Saldo inicial actualizado.');

@@ -10,7 +10,7 @@ const ITEMS = [
   { key: 'Categorias', title: 'Categorías', sub: 'Organiza tus gastos', icon: 'grid' },
   { key: 'Metas', title: 'Metas', sub: 'Ahorro y objetivos', icon: 'flag' },
   { key: 'PagosProgramados', title: 'Pagos programados', sub: 'Suscripciones y recordatorios', icon: 'calendar' },
-  { key: 'Reportes', title: 'Reportes', sub: 'Resumen por mes', icon: 'bar-chart' },
+  { key: 'Movimientos', title: 'Movimientos', sub: 'Ingresos, gastos, tarjeta y metas', icon: 'swap-vertical' },
   { key: 'Administrar', title: 'Administrar', sub: 'Resets y diagnóstico', icon: 'settings-outline' },
 ];
 

@@ -12,12 +12,16 @@ import {
   calcularSaldosPorCuenta,
   normalizarOrigenCuenta,
   normalizarCategoria,
-  montoGastoAfectaSaldo,
+  montoGastoAfectaSaldoEnMes,
+  fechaALocalISO,
+  fechasCortesParaGastoTarjeta,
   pagoDebeMostrarseParaPagar,
   obtenerCuentasOrigenGastoElegible,
   obtenerCuentasDestinoIngreso,
   obtenerSaldoDisponibleParaOrigenMovimiento,
   totalSaldoLiquido,
+  agregarOFusionarPagoProgramadoCuotaCorte,
+  reemplazarPagosRecordatorioTarjetas,
 } from '../lib/finance';
 import { colors, spacing, radii, typography } from '../theme';
 
@@ -117,11 +121,16 @@ export default function GastosScreen() {
     if (catObj && catObj.limite) {
       const lim = parseFloat(catObj.limite);
       const ah = new Date();
-      const gastosCategoria = (state.gastos || []).filter((g) => {
-        const d = new Date(g.fecha);
-        return g.categoria === categoria && d.getMonth() === ah.getMonth() && d.getFullYear() === ah.getFullYear();
-      });
-      const gastadoMes = gastosCategoria.reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
+      const m0 = ah.getMonth();
+      const y0 = ah.getFullYear();
+      const gastosCategoria = (state.gastos || []).filter(
+        (g) =>
+          g.categoria === categoria && montoGastoAfectaSaldoEnMes(g, state, m0, y0) > 0
+      );
+      const gastadoMes = gastosCategoria.reduce(
+        (s, g) => s + montoGastoAfectaSaldoEnMes(g, state, m0, y0),
+        0
+      );
       if (gastadoMes + montoAValidar > lim) {
         Alert.alert('Límite categoría', 'Este gasto supera el límite mensual de la categoría. ¿Continuar?', [
           { text: 'Cancelar', style: 'cancel' },
@@ -152,35 +161,37 @@ export default function GastosScreen() {
       let gastos = [...(s.gastos || []), nuevo];
       let pagos = [...(s.pagosProgramados || [])];
 
-      if (origen === 'tarjetaCredito' && cuotasVal > 1) {
-        const d = new Date(fecha);
-        const diaCompra = Math.min(28, d.getDate());
-        const año = d.getFullYear();
-        const mes = d.getMonth();
-        for (let i = 0; i < cuotasVal - 1; i++) {
-          const nextDate = new Date(año, mes + i + 1, diaCompra);
-          const fechaCuota = nextDate.toISOString().slice(0, 10);
-          pagos.push({
-            id: `cuota-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
-            concepto: `${nombre.trim()} - Cuota ${i + 2} de ${cuotasVal}`,
+      if (origen === 'tarjetaCredito') {
+        const tcs = s.tarjetasCredito || [];
+        const tTarjeta = tcs.find((x) => (parseFloat(x.tasaEA) || 0) > 0) || tcs[0];
+        const tasaEaVal = tTarjeta ? parseFloat(tTarjeta.tasaEA) || 0 : 0;
+        const fechasC = fechasCortesParaGastoTarjeta(fechaStr, cuotasVal, s);
+        fechasC.forEach((nextDate, i) => {
+          const fechaCuota = fechaALocalISO(nextDate);
+          if (!fechaCuota) return;
+          pagos = agregarOFusionarPagoProgramadoCuotaCorte(pagos, {
+            fechaCorteDate: nextDate,
             monto: cuotaMensualVal,
-            frecuencia: 'unico',
-            fechaInicio: fechaCuota,
-            diaPago: nextDate.getDate(),
-            cuenta: origen,
+            nombre: nombre.trim(),
+            iCuota: i + 1,
+            nCuotas: cuotasVal,
             categoria,
-            activo: true,
-            nota: `${nota || ''}${nota ? ' | ' : ''}Cuota diferida automática`,
-            esCuotaDiferida: true,
+            cuenta: origen,
+            notaUsuario: nota.trim(),
+            tasaEA: tasaEaVal,
           });
-        }
+        });
       }
 
       if (pagoProgramadoEnUso) {
         pagos = pagos.filter((p) => p.id !== pagoProgramadoEnUso);
       }
 
-      return { ...s, gastos, pagosProgramados: pagos };
+      const st = { ...s, gastos, pagosProgramados: pagos };
+      return {
+        ...st,
+        pagosProgramados: reemplazarPagosRecordatorioTarjetas(st.pagosProgramados, st, new Date()),
+      };
     });
 
     Alert.alert('Listo', 'Gasto registrado.');
@@ -300,7 +311,13 @@ export default function GastosScreen() {
             </View>
             {cuotas > 1 && (
               <Text style={typography.small}>
-                Cuota mensual aprox.: {formatearNumero(cantNum / cuotas)} {moneda}
+                Cuota mensual aprox.: {formatearNumero(cantNum / cuotas)} {moneda}. Cada cuota (incl. la 1) se
+                contabiliza en el mes de la fecha de corte definida en Saldo → Tarjeta.
+              </Text>
+            )}
+            {origen === 'tarjetaCredito' && cuotas === 1 && (
+              <Text style={typography.small}>
+                Un solo pago: se imputa al mes de tu próximo corte (según Saldo → Tarjeta).
               </Text>
             )}
           </>

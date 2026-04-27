@@ -188,7 +188,7 @@ function PasoExtras() {
         text="Ingresos: añade entradas de dinero; afecta el saldo según la app."
       />
       <RowIcon icon="flag-outline" text="Metas: define objetivos y aporta desde cuentas con saldo." />
-      <RowIcon icon="bar-chart-outline" text="Reportes: resúmenes y tendencias (sin Excel en móvil)." />
+      <RowIcon icon="swap-vertical-outline" text="Movimientos: ingresos, gastos, tarjeta y aportes a metas en un solo listado." />
     </View>
   );
 }

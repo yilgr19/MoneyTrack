@@ -58,7 +58,7 @@ function MoreStack() {
       <Stack.Screen name="Categorias" component={CategoriasScreen} options={{ title: 'Categorías' }} />
       <Stack.Screen name="Metas" component={MetasScreen} options={{ title: 'Metas' }} />
       <Stack.Screen name="PagosProgramados" component={PagosScreen} options={{ title: 'Pagos programados' }} />
-      <Stack.Screen name="Reportes" component={ReportesScreen} options={{ title: 'Reportes' }} />
+      <Stack.Screen name="Movimientos" component={ReportesScreen} options={{ title: 'Movimientos' }} />
       <Stack.Screen name="Administrar" component={AdminScreen} options={{ title: 'Administrar' }} />
     </Stack.Navigator>
   );

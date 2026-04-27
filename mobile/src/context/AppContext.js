@@ -8,6 +8,7 @@ import {
   loadOnboardingCompletado,
   setOnboardingCompletado,
 } from '../lib/storage';
+import { reemplazarPagosRecordatorioTarjetas } from '../lib/finance';
 
 function normalizeState(raw) {
   const saldos = raw.saldosCuentas
@@ -94,6 +95,22 @@ export function AppProvider({ children }) {
       cancelled = true;
     };
   }, []);
+
+  const lenG = state?.gastos?.length ?? 0;
+  const nTc = state?.tarjetasCredito?.length ?? 0;
+  const cupoHash =
+    nTc > 0
+      ? (state?.tarjetasCredito || [])
+          .map((t) => `${t.id}:${t.cupoUtilizado || 0}:${t.cupoTotal || 0}`)
+          .join('|')
+      : '';
+  useEffect(() => {
+    if (!ready || !state) return;
+    replaceState((s) => ({
+      ...s,
+      pagosProgramados: reemplazarPagosRecordatorioTarjetas(s.pagosProgramados || [], s, new Date()),
+    }));
+  }, [ready, lenG, nTc, cupoHash, replaceState, state?.moneda]);
 
   const clearPostOnboardingIrASaldo = useCallback(() => {
     setPostOnboardingIrASaldo(false);

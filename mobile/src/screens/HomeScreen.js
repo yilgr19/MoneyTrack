@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
 import { HeaderConCampana } from '../components/HeaderConCampana';
 import { NotificacionBell } from '../components/NotificacionBell';
+import ExtractoBancarioModal from '../components/ExtractoBancarioModal';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
 import { useApp, tieneDatosPrevios } from '../context/AppContext';
@@ -16,8 +17,9 @@ import {
   limiteTotalTarjetasCredito,
   totalCupoUtilizadoTarjetasCredito,
   obtenerMesAño,
-  montoGastoAfectaSaldo,
+  montoGastoAfectaSaldoEnMes,
   verificarAlertaTarjetaCredito,
+  proyeccionEficienciaInicio,
   normalizarCategoria,
   normalizarMeta,
 } from '../lib/finance';
@@ -26,6 +28,11 @@ import { colors, spacing, radii, typography, layoutStyles } from '../theme';
 export default function HomeScreen() {
   const { state, ready, replaceState } = useApp();
   const moneda = state?.moneda || '';
+  const [extractoTarjetaId, setExtractoTarjetaId] = useState(null);
+  const tarjetaExtracto = useMemo(
+    () => (state?.tarjetasCredito || []).find((x) => x && x.id === extractoTarjetaId) || null,
+    [state?.tarjetasCredito, extractoTarjetaId]
+  );
 
   const derived = useMemo(() => {
     if (!state) {
@@ -63,6 +70,7 @@ export default function HomeScreen() {
         estadoDetalle: '',
         estadoKind: 'info',
         cuentasInicio: [],
+        proyeccionTc: null,
       };
     }
 
@@ -89,38 +97,33 @@ export default function HomeScreen() {
       })
       .reduce((s, i) => s + (parseFloat(i.cantidad) || 0), 0);
 
-    const gastosMesActual = gastos
-      .filter((g) => {
-        const { mes, año } = obtenerMesAño(g.fecha);
-        return mes === mesActual && año === añoActual;
-      })
-      .reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
+    const gastosMesActual = gastos.reduce(
+      (s, g) => s + montoGastoAfectaSaldoEnMes(g, state, mesActual, añoActual),
+      0
+    );
 
-    const totalGastos = gastos.reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
+    const totalGastos = gastos.reduce((s, g) => s + (parseFloat(g.cantidad) || 0), 0);
     const flujoMes = ingresosMesActual - gastosMesActual;
     const alertaTc = verificarAlertaTarjetaCredito(state);
     const presupuestoMensual = state.presupuestoMensual || 0;
 
-    const gastosDelMes = gastos.filter((g) => {
-      const { mes, año } = obtenerMesAño(g.fecha);
-      return mes === mesActual && año === añoActual;
-    });
+    const gastosConEfectoMes = gastos.map((g) => ({
+      g,
+      m: montoGastoAfectaSaldoEnMes(g, state, mesActual, añoActual),
+    }));
+    const conEfecto = gastosConEfectoMes.filter((x) => x.m > 0);
     const mayorGasto =
-      gastosDelMes.length > 0
-        ? gastosDelMes.reduce((max, g) => (g.cantidad > max.cantidad ? g : max), gastosDelMes[0])
+      conEfecto.length > 0
+        ? conEfecto.reduce((max, x) => (x.m > max.m ? x : max), conEfecto[0]).g
         : null;
 
     const categoriasData = (state.categorias || []).map(normalizarCategoria);
     const gastosMesPorCategoria = {};
-    gastos
-      .filter((g) => {
-        const { mes, año } = obtenerMesAño(g.fecha);
-        return mes === mesActual && año === añoActual;
-      })
-      .forEach((g) => {
-        const cat = g.categoria || 'Otros';
-        gastosMesPorCategoria[cat] = (gastosMesPorCategoria[cat] || 0) + g.cantidad;
-      });
+    gastosConEfectoMes.forEach(({ g, m }) => {
+      if (m <= 0) return;
+      const cat = g.categoria || 'Otros';
+      gastosMesPorCategoria[cat] = (gastosMesPorCategoria[cat] || 0) + m;
+    });
     const totalGastosMes = Object.values(gastosMesPorCategoria).reduce((s, v) => s + v, 0) || 1;
 
     const metasData = state.metas || [];
@@ -163,10 +166,12 @@ export default function HomeScreen() {
     const cuentasInicio = CUENTAS.filter((c) =>
       cuentaVisibleEnResumenInicio(c.id, state, saldosPorCuenta)
     );
+    const proyeccionTc = proyeccionEficienciaInicio(state);
 
     return {
       saldosPorCuenta,
       cuentasInicio,
+      proyeccionTc,
       topeTarjeta,
       deudaTarjeta,
       saldoActual,
@@ -311,7 +316,7 @@ export default function HomeScreen() {
                     { color: t.alertaCorte ? colors.warning : colors.textSecondary },
                   ]}
                 >
-                  Corte en {t.diasCorte} d
+                  {t.corteHoy ? 'Corte: hoy' : `Corte en ${t.diasCorte} d`}
                 </Text>
                 <Text style={[typography.small, { color: colors.textFaint, marginHorizontal: 6 }]}>·</Text>
                 <Text
@@ -346,6 +351,31 @@ export default function HomeScreen() {
                   {t.alertaUtil ? <Text style={styles.tcChipWarn}>Uso alto del cupo</Text> : null}
                 </View>
               )}
+              <TouchableOpacity
+                onPress={() => setExtractoTarjetaId(t.id)}
+                style={[
+                  styles.btnExtracto,
+                  t.corteHoy && { borderColor: colors.warning, backgroundColor: 'rgba(220, 180, 70, 0.12)' },
+                ]}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={t.corteHoy ? colors.warning : colors.accent}
+                />
+                <Text
+                  style={[
+                    styles.btnExtractoTxt,
+                    t.corteHoy && { color: colors.warning, fontWeight: '800' },
+                  ]}
+                >
+                  {t.corteHoy
+                    ? 'Hoy es corte — ver extracto (deuda y plan de pago)'
+                    : 'Ver extracto de corte (simulado)'}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+              </TouchableOpacity>
             </View>
           ))}
         </UICard>
@@ -358,6 +388,48 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : null}
+
+      {derived.proyeccionTc && (state?.tarjetasCredito || []).length > 0 ? (
+        <UICard style={{ marginBottom: spacing.md }}>
+          <Text style={typography.label}>Análisis y proyección (eficiencia de pago)</Text>
+          <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.sm }]}>
+            Sobre deuda y tasa de {derived.proyeccionTc.nombre}. Comparar cuotas: pagar a más plazos suele costar
+            más (interés).
+          </Text>
+          <View style={layoutStyles.rowBetween}>
+            <Text style={[typography.body, layoutStyles.rowLabel]}>Deuda / obligación aprox.</Text>
+            <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
+              {formatearNumero(derived.proyeccionTc.deuda)} {moneda}
+            </Text>
+          </View>
+          <View style={layoutStyles.rowBetween}>
+            <Text style={[typography.body, layoutStyles.rowLabel]}>Costo total a 3 cuotas (estim.)</Text>
+            <Text style={[typography.monoAmount, layoutStyles.rowValue, { color: colors.mint }]}>
+              {formatearNumero(derived.proyeccionTc.total3)} {moneda}
+            </Text>
+          </View>
+          <View style={layoutStyles.rowBetween}>
+            <Text style={[typography.body, layoutStyles.rowLabel]}>Costo total a 6 cuotas (estim.)</Text>
+            <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
+              {formatearNumero(derived.proyeccionTc.total6)} {moneda}
+            </Text>
+          </View>
+          <View style={[layoutStyles.rowBetween, { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.stroke }]}>
+            <Text style={[typography.body, { fontWeight: '800', color: colors.mint }]}>Ahorro (3 vs 6 plazos)</Text>
+            <Text style={[typography.monoAmount, { color: colors.mint, fontSize: 17 }]}>
+              {formatearNumero(derived.proyeccionTc.ahorro)} {moneda}
+            </Text>
+          </View>
+        </UICard>
+      ) : null}
+
+      <ExtractoBancarioModal
+        visible={!!tarjetaExtracto}
+        onClose={() => setExtractoTarjetaId(null)}
+        state={state}
+        tarjeta={tarjetaExtracto}
+        moneda={moneda}
+      />
 
       <UICard>
         <Text style={typography.label}>Por cuenta</Text>
@@ -775,6 +847,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     overflow: 'hidden',
   },
+  btnExtracto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.stroke,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  btnExtractoTxt: { flex: 1, minWidth: 0, color: colors.accent, fontSize: 14, fontWeight: '600', marginLeft: 8, marginRight: 4 },
   barBg: {
     height: 7,
     backgroundColor: colors.barTrack,
