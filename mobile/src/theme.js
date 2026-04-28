@@ -67,6 +67,8 @@ export const COLORES_BOLSILLO = [
  */
 export const iconSemantic = {
   moreMenu: {
+    /** Tarjeta «Registrar gasto» en el panel del FAB (+) */
+    GastosFab: { fg: '#fb7185', bg: 'rgba(251, 113, 133, 0.14)' },
     Ingresos: { fg: '#34d399', bg: 'rgba(52, 211, 153, 0.16)' },
     ExtractosTarjetas: { fg: colors.chartBlue, bg: 'rgba(167, 216, 222, 0.12)' },
     Categorias: { fg: '#a78bfa', bg: 'rgba(167, 139, 250, 0.14)' },
@@ -75,6 +77,7 @@ export const iconSemantic = {
     PagosProgramados: { fg: '#fb923c', bg: 'rgba(251, 146, 60, 0.14)' },
     Movimientos: { fg: '#22d3ee', bg: 'rgba(34, 211, 238, 0.12)' },
     Administrar: { fg: '#94a3b8', bg: 'rgba(148, 163, 184, 0.12)' },
+    AsistenteCompras: { fg: '#e879f9', bg: 'rgba(232, 121, 249, 0.14)' },
   },
   /** Pestaña activa (la inactiva sigue en gris de React Navigation) */
   tabActive: {
@@ -203,6 +206,7 @@ export const screenPadding = {
 /** Altura efectiva de la barra de pestañas (debe coincidir con AppNavigator) para padding del scroll */
 export const TAB_BAR_SCROLL_PADDING = Platform.select({
   ios: 88,
+  web: 64,
   android: 68,
   default: 68,
 });

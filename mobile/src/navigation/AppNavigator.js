@@ -19,6 +19,7 @@ import MisBolsillosScreen from '../screens/MisBolsillosScreen';
 import PagosScreen from '../screens/PagosScreen';
 import ReportesScreen from '../screens/ReportesScreen';
 import AdminScreen from '../screens/AdminScreen';
+import AsistenteComprasScreen from '../screens/AsistenteComprasScreen';
 import FabRegistrarGastos from '../components/FabRegistrarGastos';
 
 const Tab = createBottomTabNavigator();
@@ -67,6 +68,11 @@ function MoreStack() {
       <Stack.Screen name="Categorias" component={CategoriasScreen} options={{ title: 'Categorías' }} />
       <Stack.Screen name="Metas" component={MetasScreen} options={{ title: 'Metas' }} />
       <Stack.Screen name="PagosProgramados" component={PagosScreen} options={{ title: 'Pagos programados' }} />
+      <Stack.Screen
+        name="AsistenteCompras"
+        component={AsistenteComprasScreen}
+        options={{ title: 'Asistente de compras' }}
+      />
       <Stack.Screen name="Movimientos" component={ReportesScreen} options={{ title: 'Movimientos' }} />
       <Stack.Screen name="Administrar" component={AdminScreen} options={{ title: 'Administrar' }} />
     </Stack.Navigator>
@@ -147,8 +153,8 @@ export default function AppNavigator() {
             borderTopWidth: 1,
             borderTopColor: colors.tabBorder,
             /* Si cambias altura, actualiza TAB_BAR_SCROLL_PADDING en theme.js (scroll del contenido) */
-            height: Platform.OS === 'ios' ? 88 : 68,
-            paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+            height: Platform.select({ ios: 88, web: 64, default: 68 }),
+            paddingBottom: Platform.select({ ios: 28, web: 10, default: 12 }),
             paddingTop: 10,
           },
           tabBarActiveTintColor: colors.accentBright,

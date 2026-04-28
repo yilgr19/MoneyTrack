@@ -9,7 +9,9 @@
     "start:offline:web-mobile": "node scripts/run-expo.cjs start --offline --web",
     "android": "node scripts/run-expo.cjs start --android",
     "ios": "node scripts/run-expo.cjs start --ios",
-    "web": "node scripts/run-expo.cjs start --web"
+    "web": "node scripts/run-expo.cjs start --web",
+    "export:web": "node scripts/run-expo.cjs export --platform web --output-dir web-build",
+    "preview:web": "npx --yes serve web-build -l 4173"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -20,6 +22,7 @@
     "@react-navigation/native": "^7.1.6",
     "@react-navigation/native-stack": "^7.3.10",
     "expo": "^54.0.33",
+    "expo-camera": "^55.0.16",
     "expo-linear-gradient": "~15.0.8",
     "expo-navigation-bar": "~5.0.10",
     "expo-notifications": "^0.32.17",
@@ -32,7 +35,8 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "^15.15.0",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

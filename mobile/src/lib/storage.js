@@ -24,6 +24,11 @@ const KEYS = [
   'extractosTarjetasHistorial',
   'bolsillos',
   'recordatoriosPagoRegistrado',
+  'intencionesCompra',
+  'asistenteUmbral48h',
+  'listaSuperCategoriaPreferida',
+  'listaSuperArticulosExtra',
+  'listaSuperCompraItems',
 ];
 
 export function emptySaldosCuentas() {
@@ -69,6 +74,11 @@ export async function loadAppState() {
     extractosTarjetasHistorial: parseJson(map.extractosTarjetasHistorial, []),
     bolsillos: parseJson(map.bolsillos, []),
     recordatoriosPagoRegistrado: parseJson(map.recordatoriosPagoRegistrado, []),
+    intencionesCompra: parseJson(map.intencionesCompra, []),
+    asistenteUmbral48h: map.asistenteUmbral48h,
+    listaSuperCategoriaPreferida: map.listaSuperCategoriaPreferida || '',
+    listaSuperArticulosExtra: parseJson(map.listaSuperArticulosExtra, []),
+    listaSuperCompraItems: parseJson(map.listaSuperCompraItems, []),
   };
 }
 
@@ -92,6 +102,11 @@ export async function persistAppState(state) {
     ['extractosTarjetasHistorial', JSON.stringify(state.extractosTarjetasHistorial || [])],
     ['bolsillos', JSON.stringify(state.bolsillos || [])],
     ['recordatoriosPagoRegistrado', JSON.stringify(state.recordatoriosPagoRegistrado || [])],
+    ['intencionesCompra', JSON.stringify(state.intencionesCompra || [])],
+    ['asistenteUmbral48h', String(parseFloat(state.asistenteUmbral48h) || 50)],
+    ['listaSuperCategoriaPreferida', state.listaSuperCategoriaPreferida || ''],
+    ['listaSuperArticulosExtra', JSON.stringify(state.listaSuperArticulosExtra || [])],
+    ['listaSuperCompraItems', JSON.stringify(state.listaSuperCompraItems || [])],
   ];
   await AsyncStorage.multiSet(pairs);
 }
@@ -133,6 +148,11 @@ export async function clearStorageFull() {
     ['contribucionesMetas', '[]'],
     ['extractosTarjetasHistorial', '[]'],
     ['bolsillos', '[]'],
+    ['intencionesCompra', '[]'],
+    ['listaSuperArticulosExtra', '[]'],
+    ['listaSuperCompraItems', '[]'],
+    ['asistenteUmbral48h', '50'],
+    ['listaSuperCategoriaPreferida', ''],
   ]);
 }
 

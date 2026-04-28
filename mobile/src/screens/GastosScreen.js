@@ -9,6 +9,7 @@ import ScreenWrap from '../components/ScreenWrap';
 import { HeaderConCampana } from '../components/HeaderConCampana';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
+import ReceiptScannerModal from '../components/ReceiptScannerModal';
 import { useApp } from '../context/AppContext';
 import {
   formatearNumero,
@@ -120,6 +121,10 @@ export default function GastosScreen() {
   const [origen, setOrigen] = useState('');
   const [cuotas, setCuotas] = useState(1);
   const [nota, setNota] = useState('');
+  /** manual | ocr | hibrido — cómo se rellenó el formulario (OCR no guarda solo; el usuario confirma). */
+  const [tipoEntrada, setTipoEntrada] = useState('manual');
+  const ocrSnapshotRef = useRef(null);
+  const [scannerVisible, setScannerVisible] = useState(false);
   const [pagoProgramadoEnUso, setPagoProgramadoEnUso] = useState(null);
   /** Abono/liquidación de tarjeta: solo cajas con dinero, no cargo nuevo a la TC. */
   const [abonoDeudaTarjeta, setAbonoDeudaTarjeta] = useState(false);
@@ -220,6 +225,8 @@ export default function GastosScreen() {
   );
 
   function aplicarPagoProgramado(p) {
+    setTipoEntrada('manual');
+    ocrSnapshotRef.current = null;
     setNombre(p.concepto || '');
     setCantidad(String(p.monto ?? ''));
     setCategoria(p.categoria || (categorias[0]?.nombre ?? ''));
@@ -237,6 +244,69 @@ export default function GastosScreen() {
     } else {
       setOrigen(normalizarOrigenCuenta(p.cuenta) || p.cuenta || '');
     }
+  }
+
+  function onNombreChange(t) {
+    if (tipoEntrada === 'ocr' && ocrSnapshotRef.current != null && t !== ocrSnapshotRef.current.nombre) {
+      setTipoEntrada('hibrido');
+    }
+    setNombre(t);
+  }
+
+  function onCantidadChange(t) {
+    if (tipoEntrada === 'ocr' && ocrSnapshotRef.current != null && t !== ocrSnapshotRef.current.cantidad) {
+      setTipoEntrada('hibrido');
+    }
+    setCantidad(t);
+  }
+
+  function onNotaChange(t) {
+    if (tipoEntrada === 'ocr' && ocrSnapshotRef.current != null && t !== ocrSnapshotRef.current.nota) {
+      setTipoEntrada('hibrido');
+    }
+    setNota(t);
+  }
+
+  function aplicarDatosDesdeRecibo({ monto, establecimiento, fecha: fechaParsed }) {
+    const est = String(establecimiento || '').trim();
+    const fechaValida =
+      fechaParsed instanceof Date && !Number.isNaN(fechaParsed.getTime()) ? fechaParsed : null;
+    const hayAlgoParseado =
+      (monto != null && monto > 0) || est.length > 0 || fechaValida != null;
+    if (!hayAlgoParseado) {
+      Alert.alert('No se pudo leer', 'Prueba con más luz y enfoque, o registra el gasto manualmente.');
+      return;
+    }
+    const fechaNueva = fechaValida != null ? fechaValida : fecha;
+    let cantStr = '';
+    if (monto != null && monto > 0) {
+      const v = Math.round(Number(monto) * 100) / 100;
+      cantStr = Number.isInteger(v) ? String(v) : v.toFixed(2);
+    }
+    const nombreVal = est || 'Recibo';
+    const notaVal = est || 'Recibo escaneado';
+    setCantidad(cantStr);
+    setNombre(nombreVal);
+    setNota(notaVal);
+    setFecha(fechaNueva);
+    ocrSnapshotRef.current = {
+      cantidad: cantStr,
+      nombre: nombreVal,
+      nota: notaVal,
+      fechaMs: fechaNueva.getTime(),
+    };
+    setTipoEntrada('ocr');
+    if (monto == null || monto <= 0) {
+      Alert.alert('Lectura incompleta', 'No se detectó el total del recibo. Revisa el monto o vuelve a capturar.');
+    }
+  }
+
+  function abrirEscanerRecibo() {
+    if (Platform.OS === 'web') {
+      Alert.alert('Escáner de recibo', 'Disponible en la app iOS / Android: instala MoneyTrack para usar la cámara OCR.');
+      return;
+    }
+    setScannerVisible(true);
   }
 
   function onSubmit() {
@@ -439,6 +509,8 @@ export default function GastosScreen() {
     setNombre('');
     setCantidad('');
     setNota('');
+    setTipoEntrada('manual');
+    ocrSnapshotRef.current = null;
     setCuotas(1);
     setPagoProgramadoEnUso(null);
     setAbonoDeudaTarjeta(false);
@@ -509,28 +581,46 @@ export default function GastosScreen() {
 
       <UICard style={{ marginBottom: 0 }}>
         <Text style={typography.label}>Detalle</Text>
+        <Text style={styles.entradaHint} accessibilityLiveRegion="polite">
+          {tipoEntrada === 'manual' && 'Entrada: manual (teclado).'}
+          {tipoEntrada === 'ocr' && 'Entrada: sugerencias desde recibo — revisa categoría y cuenta antes de guardar.'}
+          {tipoEntrada === 'hibrido' && 'Entrada: mixta (recibo OCR + tus ajustes).'}
+        </Text>
 
         <FieldLabel>Nombre</FieldLabel>
         <TextInput
           style={styles.input}
           value={nombre}
-          onChangeText={setNombre}
+          onChangeText={onNombreChange}
           placeholder="Ej: Supermercado"
           placeholderTextColor={colors.textFaint}
         />
 
         <FieldLabel>Cantidad</FieldLabel>
-        <TextInput
-          style={styles.input}
-          value={cantidad}
-          onChangeText={setCantidad}
-          keyboardType="decimal-pad"
-          placeholder="0.00"
-          placeholderTextColor={colors.textFaint}
-        />
+        <View style={styles.cantidadRow}>
+          <TextInput
+            style={[styles.input, styles.cantidadInput]}
+            value={cantidad}
+            onChangeText={onCantidadChange}
+            keyboardType="decimal-pad"
+            placeholder="0.00"
+            placeholderTextColor={colors.textFaint}
+          />
+          <TouchableOpacity
+            style={styles.camFab}
+            onPress={abrirEscanerRecibo}
+            accessibilityLabel="Escanear recibo con la cámara"
+            accessibilityRole="button"
+          >
+            <Ionicons name="camera" size={22} color="#0c0812" />
+          </TouchableOpacity>
+        </View>
 
         <FieldLabel>Fecha y hora</FieldLabel>
-        <TouchableOpacity style={styles.input} onPress={() => setShowPicker(true)}>
+        <TouchableOpacity
+          style={styles.input}
+          onPress={() => setShowPicker(true)}
+        >
           <Text style={{ color: colors.text, fontSize: 16 }}>{fecha.toLocaleString('es')}</Text>
         </TouchableOpacity>
         {showPicker && (
@@ -541,7 +631,16 @@ export default function GastosScreen() {
             onChange={(ev, d) => {
               if (Platform.OS !== 'ios') setShowPicker(false);
               if (ev.type === 'dismissed') setShowPicker(false);
-              if (d) setFecha(d);
+              if (d) {
+                if (
+                  tipoEntrada === 'ocr' &&
+                  ocrSnapshotRef.current != null &&
+                  d.getTime() !== ocrSnapshotRef.current.fechaMs
+                ) {
+                  setTipoEntrada('hibrido');
+                }
+                setFecha(d);
+              }
             }}
           />
         )}
@@ -695,7 +794,7 @@ export default function GastosScreen() {
         <TextInput
           style={styles.input}
           value={nota}
-          onChangeText={setNota}
+          onChangeText={onNotaChange}
           placeholderTextColor={colors.textFaint}
         />
 
@@ -735,6 +834,11 @@ export default function GastosScreen() {
         </View>
       </View>
     ) : null}
+    <ReceiptScannerModal
+      visible={scannerVisible}
+      onClose={() => setScannerVisible(false)}
+      onDatosParsed={aplicarDatosDesdeRecibo}
+    />
     </View>
   );
 }
@@ -820,6 +924,40 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     color: colors.textMuted,
     letterSpacing: 0.8,
+  },
+  entradaHint: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    lineHeight: 18,
+  },
+  cantidadRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  cantidadInput: {
+    flex: 1,
+    minWidth: 0,
+  },
+  camFab: {
+    width: 52,
+    borderRadius: radii.md,
+    backgroundColor: colors.mint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(12, 8, 18, 0.15)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#34d399',
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: { elevation: 4 },
+    }),
   },
   pagosCardOuter: {
     marginBottom: spacing.md,

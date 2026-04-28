@@ -1,5 +1,16 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, useWindowDimensions } from 'react-native';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  useWindowDimensions,
+  Animated,
+  Easing,
+  Platform,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,12 +46,16 @@ import {
   colorIconoMetaDesdeNombre,
   shadows,
 } from '../theme';
+import { ordenarLineasListaSuper } from '../lib/asistenteComprasLogic';
 
 export default function HomeScreen() {
   const { state, ready, replaceState } = useApp();
   const navigation = useNavigation();
   const { width: winW } = useWindowDimensions();
   const moneda = state?.moneda || '';
+  const widgetPulse = useRef(new Animated.Value(1)).current;
+  const widgetShine = useRef(new Animated.Value(0)).current;
+  const superCardNudge = useRef(new Animated.Value(0)).current;
 
   const derived = useMemo(() => {
     if (!state) {
@@ -318,6 +333,107 @@ export default function HomeScreen() {
     return Math.abs(s) % 5;
   }, [totalAhorroBolsillosYMetas, ingresoMesAhorro, derived.totalAportesMetas]);
 
+  const datosWidgetAsistente = useMemo(() => {
+    const intents = state?.intencionesCompra || [];
+    const pendInt = intents.filter((i) => i && i.estado === 'pendiente');
+    const nDecisiones = pendInt.length;
+    const ahorroPotencial = pendInt.reduce((s, i) => s + (parseFloat(i.precioEstimado) || 0), 0);
+    const superPendientes = ordenarLineasListaSuper(state?.listaSuperCompraItems || []);
+    return { nDecisiones, ahorroPotencial, superPendientes };
+  }, [state?.intencionesCompra, state?.listaSuperCompraItems]);
+
+  const copyGanchoDecisiones = useMemo(() => {
+    const n = datosWidgetAsistente.nDecisiones;
+    const salt = ((state?.gastos?.length ?? 0) + n) % 4;
+    const mensajes = [
+      `Tienes ${n} compra${n !== 1 ? 's' : ''} sin cerrar. Lo grande es lo que aún no gastaste.`,
+      'Piénsalo así: el número de abajo es efectivo que sigue en tu lado si hoy dices que no.',
+      'Tu asistente tiene cosas en espera. Léelo antes de pasar la tarjeta.',
+      'Decisiones pendientes = dinero en disputa. Este es el monto si las evitas todas.',
+    ];
+    return mensajes[salt];
+  }, [datosWidgetAsistente.nDecisiones, state?.gastos?.length]);
+
+  const copyGanchoSuper = useMemo(() => {
+    const salt = (datosWidgetAsistente.superPendientes.length || 0) % 3;
+    const m = [
+      'Lo urgente arriba; no vayas al mercado sin mirar esto.',
+      'Lista viva: son los ítems que pediste recordar.',
+      'Un vistazo rápido antes del súper te ahorra vueltas (y plata).',
+    ];
+    return m[salt];
+  }, [datosWidgetAsistente.superPendientes.length]);
+
+  const brilloOverlayOpacity = widgetShine.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.06, 0.22],
+  });
+
+  useEffect(() => {
+    if (datosWidgetAsistente.nDecisiones <= 0) {
+      widgetPulse.setValue(1);
+      widgetShine.setValue(0);
+      return undefined;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(widgetPulse, {
+            toValue: 1.012,
+            duration: 1200,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(widgetShine, {
+            toValue: 1,
+            duration: 1600,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: false,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(widgetPulse, {
+            toValue: 1,
+            duration: 1200,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(widgetShine, {
+            toValue: 0,
+            duration: 1600,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: false,
+          }),
+        ]),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [datosWidgetAsistente.nDecisiones, widgetPulse, widgetShine]);
+
+  useEffect(() => {
+    if (datosWidgetAsistente.superPendientes.length <= 0) return undefined;
+    const edge = Animated.loop(
+      Animated.sequence([
+        Animated.timing(superCardNudge, {
+          toValue: 1,
+          duration: 520,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(superCardNudge, {
+          toValue: 0,
+          duration: 520,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.delay(3400),
+      ])
+    );
+    edge.start();
+    return () => edge.stop();
+  }, [datosWidgetAsistente.superPendientes.length, superCardNudge]);
+
   const chartsStack = winW < 400;
   const chartSize = chartsStack ? 148 : 136;
   const chartSizeAhorro = Math.min(200, Math.max(160, winW * 0.48));
@@ -420,6 +536,141 @@ export default function HomeScreen() {
           </View>
         </View>
       </LinearGradient>
+
+      {datosWidgetAsistente.nDecisiones > 0 ? (
+        <TouchableOpacity
+          activeOpacity={0.94}
+          onPress={() =>
+            navigation.navigate('Mas', { screen: 'AsistenteCompras', params: { tab: 'intencion' } })
+          }
+          style={styles.widgetTouchOuter}
+          accessibilityRole="button"
+          accessibilityLabel={`Decisiones en espera: ${datosWidgetAsistente.nDecisiones}. Ahorro potencial ${formatearNumero(datosWidgetAsistente.ahorroPotencial)} ${moneda}. Abrir asistente.`}
+        >
+          <Animated.View style={{ transform: [{ scale: widgetPulse }] }}>
+            <LinearGradient
+              colors={['#4a2570', '#241530', '#100a18']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.widgetDecisionGrad}
+            >
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.widgetBrilloCapa, { opacity: brilloOverlayOpacity }]}
+              />
+              <View style={styles.widgetDecisionStripe} />
+              <View style={styles.widgetDecisionInner}>
+                <View style={styles.widgetRibbon}>
+                  <Text style={styles.widgetRibbonTxt}>PASO 1 AL ABRIR INICIO</Text>
+                </View>
+                <Text style={styles.widgetEyebrow}>Antes de gastar · asistente</Text>
+                <Text style={styles.widgetHeadline} numberOfLines={4}>
+                  {copyGanchoDecisiones}
+                </Text>
+                <View style={styles.widgetStatRow}>
+                  <View style={styles.widgetBadgeNum}>
+                    <Text style={styles.widgetBadgeNumLbl}>En espera</Text>
+                    <Text
+                      style={styles.widgetBadgeNumVal}
+                      maxFontSizeMultiplier={1.35}
+                      adjustsFontSizeToFit
+                      numberOfLines={1}
+                    >
+                      {datosWidgetAsistente.nDecisiones}
+                    </Text>
+                  </View>
+                  <View style={styles.widgetAhorroBlock}>
+                    <Text style={styles.widgetAhorroLbl}>Si hoy no compras ninguna</Text>
+                    <Text style={styles.widgetAhorroValor} numberOfLines={1} adjustsFontSizeToFit>
+                      ≈ {formatearNumero(datosWidgetAsistente.ahorroPotencial)} {moneda}
+                    </Text>
+                    <Text style={styles.widgetAhorroHint}>ahorro potencial</Text>
+                  </View>
+                </View>
+                <View style={styles.widgetCtaRow}>
+                  <Text style={styles.widgetCtaTxt}>Revisar decisiones ahora</Text>
+                  <Ionicons name="arrow-forward-circle" size={28} color={colors.mint} />
+                </View>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </TouchableOpacity>
+      ) : null}
+
+      {datosWidgetAsistente.superPendientes.length > 0 ? (
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={() =>
+            navigation.navigate('Mas', { screen: 'AsistenteCompras', params: { tab: 'super' } })
+          }
+          style={styles.widgetTouchOuter}
+          accessibilityRole="button"
+          accessibilityLabel={`Lista súper: ${datosWidgetAsistente.superPendientes.length} artículos pendientes.`}
+        >
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  translateX: superCardNudge.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 3],
+                  }),
+                },
+              ],
+            }}
+          >
+            <LinearGradient
+              colors={['rgba(45, 212, 191, 0.22)', 'rgba(18, 14, 28, 0.98)', 'rgba(12, 8, 18, 1)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.widgetSuperGrad}
+            >
+              <View style={styles.widgetSuperTop}>
+                <View style={styles.widgetSuperIconWrap}>
+                  <Ionicons name="basket" size={26} color="#2dd4bf" />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.widgetSuperTitle}>Tu súper espera una vuelta</Text>
+                  <Text style={styles.widgetSuperSubtitle} numberOfLines={2}>
+                    {copyGanchoSuper}
+                  </Text>
+                </View>
+                <View style={styles.widgetSuperCountPill}>
+                  <Text style={styles.widgetSuperCountNum}>{datosWidgetAsistente.superPendientes.length}</Text>
+                  <Text style={styles.widgetSuperCountLbl}>ítems</Text>
+                </View>
+              </View>
+              {datosWidgetAsistente.superPendientes.slice(0, 8).map((ln) => (
+                <View key={ln.id} style={styles.widgetSuperRow}>
+                  <View style={styles.widgetSuperBullet} />
+                  <Text style={styles.widgetSuperNombre} numberOfLines={2}>
+                    {ln.nombre}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.widgetSuperUrg,
+                      ln.urgencia === 'urgente' && { color: '#fb7185' },
+                      ln.urgencia === 'puede_esperar' && { color: colors.textFaint },
+                      ln.urgencia === 'normal' && { color: colors.chartBlue },
+                    ]}
+                  >
+                    {ln.urgencia === 'urgente' ? 'Urgente' : ln.urgencia === 'puede_esperar' ? 'Puede esperar' : 'Normal'}
+                  </Text>
+                </View>
+              ))}
+              {datosWidgetAsistente.superPendientes.length > 8 ? (
+                <Text style={styles.widgetSuperMas}>
+                  +{datosWidgetAsistente.superPendientes.length - 8} más en la lista completa…
+                </Text>
+              ) : null}
+              <View style={styles.widgetSuperFooter}>
+                <Text style={styles.widgetSuperCta}>Abrir checklist y marcar lo comprado</Text>
+                <Ionicons name="chevron-forward" size={22} color={colors.mint} />
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </TouchableOpacity>
+      ) : null}
 
       {derived.alertaTc.tarjetas && derived.alertaTc.tarjetas.length > 0 ? (
         <UICard style={{ marginBottom: spacing.md }}>
@@ -1162,4 +1413,233 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
     flexShrink: 0,
   },
+  widgetTouchOuter: {
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: shadows.card,
+      android: { elevation: 12 },
+      default: {},
+    }),
+  },
+  widgetDecisionGrad: {
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 180, 74, 0.45)',
+    position: 'relative',
+  },
+  widgetBrilloCapa: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 220, 120, 0.35)',
+  },
+  widgetDecisionStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    backgroundColor: colors.accentGold,
+    opacity: 0.92,
+  },
+  widgetDecisionInner: { paddingLeft: spacing.lg + 2, paddingRight: spacing.lg, paddingVertical: spacing.lg },
+  widgetRibbon: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(217, 180, 74, 0.22)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 180, 74, 0.5)',
+    marginBottom: spacing.sm,
+  },
+  widgetRibbonTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    color: colors.accentGold,
+  },
+  widgetEyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: 'rgba(199, 195, 227, 0.85)',
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
+  widgetHeadline: {
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 24,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  widgetStatRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginBottom: spacing.md,
+  },
+  widgetBadgeNum: {
+    marginRight: spacing.sm,
+    minWidth: 96,
+    borderRadius: radii.md,
+    borderWidth: 2,
+    borderColor: colors.mint,
+    padding: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(125, 193, 145, 0.12)',
+  },
+  widgetBadgeNumLbl: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: colors.mint,
+    marginBottom: 4,
+  },
+  widgetBadgeNumVal: {
+    fontSize: 44,
+    fontWeight: '900',
+    color: colors.mint,
+    letterSpacing: -1,
+    lineHeight: 48,
+  },
+  widgetAhorroBlock: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(199, 195, 227, 0.2)',
+    justifyContent: 'center',
+  },
+  widgetAhorroLbl: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  widgetAhorroValor: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.accentBright,
+    letterSpacing: -0.5,
+  },
+  widgetAhorroHint: {
+    fontSize: 12,
+    color: colors.mint,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  widgetCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(199,195,227,0.15)',
+  },
+  widgetCtaTxt: {
+    flex: 1,
+    marginRight: spacing.sm,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.accentBright,
+  },
+  widgetSuperGrad: {
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.35)',
+  },
+  widgetSuperTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  widgetSuperIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(45, 212, 191, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  widgetSuperTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  widgetSuperSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  widgetSuperCountPill: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    minWidth: 56,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(125, 193, 145, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(125, 193, 145, 0.45)',
+    marginLeft: spacing.xs,
+  },
+  widgetSuperCountNum: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.mint,
+    lineHeight: 26,
+  },
+  widgetSuperCountLbl: { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
+  widgetSuperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(199,195,227,0.1)',
+  },
+  widgetSuperBullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.chartBlue,
+    marginRight: spacing.sm,
+  },
+  widgetSuperNombre: {
+    flex: 1,
+    marginRight: spacing.md,
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  widgetSuperUrg: { fontSize: 11, fontWeight: '800', maxWidth: 108, textAlign: 'right' },
+  widgetSuperMas: {
+    marginTop: spacing.sm,
+    fontSize: 12,
+    color: colors.textFaint,
+    fontStyle: 'italic',
+  },
+  widgetSuperFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(45, 212, 191, 0.2)',
+  },
+  widgetSuperCta: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.accentBright },
 });

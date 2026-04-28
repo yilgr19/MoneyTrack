@@ -47,7 +47,15 @@
           "backgroundColor": "#0c0812"
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "MoneyTrack usa la cámara para leer el texto del recibo y sugerir monto y fecha.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ]
   }
 }

@@ -10,6 +10,7 @@ import {
   setOnboardingCompletado,
 } from '../lib/storage';
 import { reemplazarPagosRecordatorioTarjetas } from '../lib/finance';
+import { normalizarIntencionCompraPersistida, normalizarLineaListaSuper } from '../lib/asistenteComprasLogic';
 import { notificacionesSistemaDisponibles } from '../lib/notificacionesLocalesEntorno';
 
 function normalizeState(raw) {
@@ -49,6 +50,17 @@ function normalizeState(raw) {
     bolsillos: Array.isArray(raw.bolsillos) ? raw.bolsillos.filter((r) => r && typeof r === 'object' && r.id) : [],
     recordatoriosPagoRegistrado: Array.isArray(raw.recordatoriosPagoRegistrado)
       ? raw.recordatoriosPagoRegistrado.filter((k) => typeof k === 'string' && k.trim())
+      : [],
+    intencionesCompra: Array.isArray(raw.intencionesCompra)
+      ? raw.intencionesCompra.map(normalizarIntencionCompraPersistida).filter((x) => x && x.estado === 'pendiente')
+      : [],
+    asistenteUmbral48h: parseFloat(raw.asistenteUmbral48h) >= 0 ? parseFloat(raw.asistenteUmbral48h) : 50,
+    listaSuperCategoriaPreferida: String(raw.listaSuperCategoriaPreferida || ''),
+    listaSuperArticulosExtra: Array.isArray(raw.listaSuperArticulosExtra)
+      ? raw.listaSuperArticulosExtra.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim())
+      : [],
+    listaSuperCompraItems: Array.isArray(raw.listaSuperCompraItems)
+      ? raw.listaSuperCompraItems.map(normalizarLineaListaSuper).filter(Boolean)
       : [],
   };
 }
