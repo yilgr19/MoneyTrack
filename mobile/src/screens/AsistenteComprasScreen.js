@@ -423,7 +423,7 @@ export default function AsistenteComprasScreen({ route }) {
   }
 
   return (
-    <ScreenWrap includeTopInset={false} contentStyle={{ paddingTop: spacing.xs }}>
+    <ScreenWrap includeTopInset={false} scrollEnabled={false} contentStyle={{ paddingTop: spacing.xs }}>
       <Text style={typography.label}>Compras</Text>
       <Text style={typography.hero}>Asistente de compras</Text>
       <Text style={[typography.subtitle, { marginBottom: spacing.md }]}>
@@ -442,7 +442,13 @@ export default function AsistenteComprasScreen({ route }) {
         ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={Platform.OS !== 'web'}
+      >
         {tab === 'intencion' && (
           <>
             <UICard style={{ marginBottom: spacing.md }}>

@@ -38,7 +38,7 @@ export default function ReceiptScannerModal({ visible, onClose, onDatosParsed })
     const loop = Animated.loop(
       Animated.timing(scanAnim, {
         toValue: 1,
-        duration: 2200,
+        duration: 2800,
         easing: Easing.linear,
         useNativeDriver: true,
       })
@@ -67,13 +67,21 @@ export default function ReceiptScannerModal({ visible, onClose, onDatosParsed })
     if (!camRef.current || capturing) return;
     setCapturing(true);
     try {
-      const photo = await camRef.current.takePictureAsync({ quality: 0.82, skipProcessing: false });
-      if (!photo?.uri) {
+      /** `base64: true` entrega píxeles al OCR sin leer `file://` (más fiable en Android/iOS que readAsStringAsync). */
+      const photo = await camRef.current.takePictureAsync({
+        quality: 0.85,
+        skipProcessing: false,
+        base64: true,
+      });
+      if (!photo?.uri && !(photo?.base64 && photo.base64.length > 0)) {
         onClose?.();
         return;
       }
       setAnalyze(true);
-      const texto = await extraerTextoDeImagen(photo.uri);
+      const texto = await extraerTextoDeImagen({
+        uri: photo.uri,
+        base64: photo.base64,
+      });
       const datos = parseDatosTicketDesdeTexto(texto);
       const ok = datos.monto != null;
       Animated.sequence([
@@ -105,12 +113,21 @@ export default function ReceiptScannerModal({ visible, onClose, onDatosParsed })
     }
   }, [capturing, flashAnim, onClose, onDatosParsed]);
 
-  const frameW = Math.min(width - spacing.xl * 2, 520);
-  const frameH = frameW * 0.72;
+  /**
+   * Facturas colombianas / tickets alargados: marco alto (formato papel), no cuadrado tipo QR.
+   * Ocupa todo el ancho menos márgenes y casi todo el alto entre cabecera y botón inferior.
+   */
+  const footerBlock = Math.min(height * 0.2, 176) + Math.max(insets.bottom, spacing.sm);
+  const headerBlock = insets.top + 84;
+  const maxFrameH = height - headerBlock - footerBlock - spacing.sm;
+  const frameW = width - spacing.sm * 2;
+  const portraitMinH = frameW * 2.35;
+  const portraitMaxH = frameW * 3.85;
+  const frameH = Math.min(Math.max(maxFrameH, portraitMinH), portraitMaxH, maxFrameH);
 
   const scanTranslate = scanAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, frameH - 3],
+    outputRange: [0, Math.max(frameH - 4, 24)],
   });
 
   const showCam = Platform.OS !== 'web' && perm?.granted;
@@ -157,20 +174,22 @@ export default function ReceiptScannerModal({ visible, onClose, onDatosParsed })
           >
             <Ionicons name="close" size={30} color={colors.text} />
           </TouchableOpacity>
-          <View style={[styles.instrBanner, { marginTop: insets.top + 56 }]}>
-            <Text style={styles.instrMain}>Apunta al recibo</Text>
+          <View style={[styles.instrBanner, { marginTop: insets.top + 48 }]}>
+            <Text style={styles.instrMain}>Documento largo · factura o ticket</Text>
             <Text style={styles.instrSub}>
-              Centra la zona del total dentro del cuadro. Luego pulsa Capturar para leer texto (OCR).
+              No es código QR: incluye el papel completo de arriba a abajo (aleja si hace falta). Pulsa Capturar
+              para analizar todo el texto.
             </Text>
           </View>
         </View>
 
         <View style={styles.marcoWrap}>
           <View style={[styles.frameBox, { width: frameW, height: frameH }]}>
-            <View style={[styles.cr, styles.crTL]} />
-            <View style={[styles.cr, styles.crTR]} />
-            <View style={[styles.cr, styles.crBL]} />
-            <View style={[styles.cr, styles.crBR]} />
+            <View pointerEvents="none" style={[styles.frameEdgeGlow, StyleSheet.absoluteFillObject]} />
+            <View style={[styles.crThin, styles.crTLThin]} />
+            <View style={[styles.crThin, styles.crTRThin]} />
+            <View style={[styles.crThin, styles.crBLThin]} />
+            <View style={[styles.crThin, styles.crBRThin]} />
             {!analyze && (
               <Animated.View
                 style={[
@@ -191,7 +210,7 @@ export default function ReceiptScannerModal({ visible, onClose, onDatosParsed })
               onPress={tomarYCerrar}
               disabled={!lista || capturing}
               accessibilityRole="button"
-              accessibilityLabel="Capturar recibo y analizar texto"
+              accessibilityLabel="Capturar toda la factura y analizar el texto del recibo"
             >
               <View style={styles.snapBtnInner}>
                 <Ionicons name="camera" size={34} color="#0c0812" />
@@ -242,7 +261,7 @@ const styles = StyleSheet.create({
   permBtnTxt: { fontWeight: '700', color: colors.text },
   overlayTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.12)',
   },
   overlayAnalyzing: { backgroundColor: 'rgba(0,0,0,0.5)' },
   flashBurst: {
@@ -281,12 +300,13 @@ const styles = StyleSheet.create({
     zIndex: 8,
   },
   instrMain: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 17,
+    fontWeight: '800',
     color: colors.text,
-    letterSpacing: -0.4,
+    letterSpacing: -0.35,
     textAlign: 'center',
     marginBottom: spacing.xs,
+    lineHeight: 22,
   },
   instrSub: {
     ...typography.small,
@@ -303,29 +323,69 @@ const styles = StyleSheet.create({
   frameBox: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(125,193,145,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.04)',
   },
-  cr: {
+  /** Luz suave alrededor — sensación documento sobre mesa, no “ventana QR” pequeña */
+  frameEdgeGlow: {
+    borderRadius: radii.md - 1,
+    borderWidth: 1,
+    borderColor: 'rgba(167,216,222,0.25)',
+    margin: 2,
+  },
+  crThin: {
     position: 'absolute',
-    width: 32,
-    height: 32,
-    borderColor: '#7DC191',
+    width: 22,
+    height: 22,
+    borderColor: 'rgba(167,216,222,0.85)',
+    zIndex: 3,
   },
-  crTL: { left: -1, top: -1, borderTopWidth: 4, borderLeftWidth: 4, borderRadius: radii.sm },
-  crTR: { right: -1, top: -1, borderTopWidth: 4, borderRightWidth: 4, borderRadius: radii.sm },
-  crBL: { left: -1, bottom: -1, borderBottomWidth: 4, borderLeftWidth: 4, borderRadius: radii.sm },
-  crBR: { right: -1, bottom: -1, borderBottomWidth: 4, borderRightWidth: 4, borderRadius: radii.sm },
+  crTLThin: {
+    left: 6,
+    top: 6,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderTopLeftRadius: 4,
+  },
+  crTRThin: {
+    right: 6,
+    top: 6,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderTopRightRadius: 4,
+  },
+  crBLThin: {
+    left: 6,
+    bottom: 6,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderBottomLeftRadius: 4,
+  },
+  crBRThin: {
+    right: 6,
+    bottom: 6,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderBottomRightRadius: 4,
+  },
   scanBeam: {
     position: 'absolute',
-    left: 10,
-    right: 10,
-    height: 2,
-    backgroundColor: 'rgba(167,216,222,0.95)',
-    shadowColor: colors.mint,
-    shadowOpacity: 0.95,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 0 },
+    left: 14,
+    right: 14,
+    height: 3,
+    backgroundColor: 'rgba(125,209,173,0.55)',
+    borderRadius: 2,
     zIndex: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.mint,
+        shadowOpacity: 0.45,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
   },
   footer: {
     alignItems: 'center',

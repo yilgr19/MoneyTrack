@@ -9,6 +9,7 @@ import {
   ScrollView,
   Modal,
   Pressable,
+  Platform,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import ScreenWrap from '../components/ScreenWrap';
@@ -215,10 +216,16 @@ export default function MisBolsillosScreen() {
   }
 
   return (
-    <ScreenWrap includeTopInset={false} contentStyle={{ paddingTop: spacing.xs }}>
+    <ScreenWrap includeTopInset={false} scrollEnabled={false} contentStyle={{ paddingTop: spacing.xs }}>
       <HeaderConCampana label="Ahorro" title="Mis bolsillos" subtitle="Separa dinero sin sumarlo al patrimonio" />
 
-      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={Platform.OS !== 'web'}
+        showsVerticalScrollIndicator={false}
+      >
         <UICard style={{ marginBottom: spacing.md }}>
           <Text style={[typography.small, { color: colors.textMuted, lineHeight: 20, marginBottom: spacing.sm }]}>
             El dinero que envíes a un bolsillo sale de tus cajas (efectivo, bancos, apps) y deja de contar en el

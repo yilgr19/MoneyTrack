@@ -93,6 +93,14 @@ function Root() {
     }
   }, [ready]);
 
+  /** Quita el splash nativo aunque JS tarde; evita “solo logo” de Expo encima del contenido. */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 8000);
+    return () => clearTimeout(t);
+  }, []);
+
   if (!ready || state == null) {
     return <LoadingSplash />;
   }

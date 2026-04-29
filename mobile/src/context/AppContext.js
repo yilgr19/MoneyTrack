@@ -89,6 +89,13 @@ export function tieneDatosPrevios(n) {
 
 const AppContext = createContext(null);
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]);
+}
+
 export function AppProvider({ children }) {
   const [state, setState] = useState(null);
   const stateRef = useRef(null);
@@ -103,22 +110,67 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [raw, flagOnboarding] = await Promise.all([loadAppState(), loadOnboardingCompletado()]);
-      const normalized = normalizeState(raw);
-      let onboardingHecho = flagOnboarding;
-      if (!onboardingHecho && tieneDatosPrevios(normalized)) {
-        await setOnboardingCompletado();
-        onboardingHecho = true;
+    let finished = false;
+    /** Red de seguridad si todo lo demás falla (p. ej. almacenamiento que no resuelve). */
+    const INIT_MS = 12000;
+
+    const finish = (normalized, onboardingHecho) => {
+      if (cancelled || finished) return;
+      finished = true;
+      setState(normalized);
+      setMostrarOnboarding(!onboardingHecho);
+      setReady(true);
+    };
+
+    const timeoutId = setTimeout(() => {
+      if (cancelled || finished) return;
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[MoneyTrack] Carga inicial lenta o bloqueada; continuando con datos vacíos.');
       }
-      if (!cancelled) {
-        setState(normalized);
-        setMostrarOnboarding(!onboardingHecho);
-        setReady(true);
+      finish(normalizeState({}), false);
+    }, INIT_MS);
+
+    (async () => {
+      try {
+        let raw;
+        let flagOnboarding;
+        try {
+          [raw, flagOnboarding] = await withTimeout(
+            Promise.all([loadAppState(), loadOnboardingCompletado()]),
+            7000
+          );
+        } catch {
+          raw = {};
+          flagOnboarding = false;
+        }
+        const normalized = normalizeState(raw);
+        let onboardingHecho = flagOnboarding;
+        if (!onboardingHecho && tieneDatosPrevios(normalized)) {
+          try {
+            await withTimeout(setOnboardingCompletado(), 4000);
+          } catch {
+            /* no bloquear arranque si setItem se cuelga */
+          }
+          onboardingHecho = true;
+        }
+        if (!cancelled) {
+          clearTimeout(timeoutId);
+          finish(normalized, onboardingHecho);
+        }
+      } catch (e) {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) {
+          console.error('[MoneyTrack] Error al cargar almacenamiento:', e);
+        }
+        if (!cancelled) {
+          clearTimeout(timeoutId);
+          finish(normalizeState({}), false);
+        }
       }
     })();
+
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, []);
 

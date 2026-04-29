@@ -148,6 +148,7 @@ export default function AppNavigator() {
             color: colors.text,
           },
           headerShadowVisible: false,
+          tabBarHideOnKeyboard: true,
           tabBarStyle: {
             backgroundColor: colors.tabBar,
             borderTopWidth: 1,

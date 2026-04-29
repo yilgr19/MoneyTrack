@@ -267,14 +267,20 @@ export default function GastosScreen() {
     setNota(t);
   }
 
-  function aplicarDatosDesdeRecibo({ monto, establecimiento, fecha: fechaParsed }) {
+  function aplicarDatosDesdeRecibo({ monto, establecimiento, fecha: fechaParsed, textoCompleto }) {
     const est = String(establecimiento || '').trim();
     const fechaValida =
       fechaParsed instanceof Date && !Number.isNaN(fechaParsed.getTime()) ? fechaParsed : null;
     const hayAlgoParseado =
       (monto != null && monto > 0) || est.length > 0 || fechaValida != null;
     if (!hayAlgoParseado) {
-      Alert.alert('No se pudo leer', 'Prueba con más luz y enfoque, o registra el gasto manualmente.');
+      const ocrVacio = !String(textoCompleto || '').trim();
+      Alert.alert(
+        'No se pudo leer',
+        ocrVacio
+          ? 'No se extrajo texto: el OCR en JavaScript no es fiable en móvil. Instala una build de desarrollo o release que incluya el módulo nativo expo-text-extractor (ML Kit/Vision); con Expo Go el respaldo OCR suele fallar. También puedes registrar el gasto a mano.'
+          : 'Sí hay texto pero no se detectaron total claro, fecha ni comercio en el formato. Completa los campos manualmente.'
+      );
       return;
     }
     const fechaNueva = fechaValida != null ? fechaValida : fecha;

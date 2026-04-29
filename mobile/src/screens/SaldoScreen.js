@@ -17,7 +17,9 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenWrap from '../components/ScreenWrap';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { HeaderConCampana } from '../components/HeaderConCampana';
 import UICard from '../components/UICard';
 import { PrimaryButton, GhostButton } from '../components/Buttons';
@@ -239,6 +241,8 @@ function EditCard({ icon, title, subtitle, onPress, hint }) {
 
 export default function SaldoScreen() {
   const { state, replaceState } = useApp();
+  const modalKbInset = useKeyboardHeight();
+  const safeModal = useSafeAreaInsets();
   const [moneda, setMoneda] = useState(state.moneda || '');
   const [saldos, setSaldos] = useState(() => ({ ...emptySaldosCuentas(), ...state.saldosCuentas }));
   const [bancosDetalle, setBancosDetalle] = useState(() => state.bancosDetalle || []);
@@ -926,8 +930,9 @@ export default function SaldoScreen() {
         <View style={styles.modalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} accessibilityLabel="Cerrar" />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="padding"
             style={styles.modalAvoid}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : Math.max(12, safeModal.bottom)}
           >
             <Animated.View
               style={[styles.modalSheet, { transform: [{ translateY: sheetDragY }] }]}
@@ -941,8 +946,14 @@ export default function SaldoScreen() {
 
               <ScrollView
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                 showsVerticalScrollIndicator={false}
                 style={modalScrollTall ? styles.modalScrollTall : styles.modalScroll}
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  paddingBottom: spacing.lg + modalKbInset,
+                }}
+                automaticallyAdjustKeyboardInsets={Platform.OS !== 'web'}
                 onScroll={(e) => {
                   sheetScrollY.current = e.nativeEvent.contentOffset.y;
                 }}
@@ -1285,7 +1296,7 @@ export default function SaldoScreen() {
                   else if (sheet === 'presupuesto') applyPresupuesto();
                   else if (sheet === 'nota') applyNota();
                 }}
-                style={{ marginTop: spacing.md }}
+                style={{ marginTop: spacing.md, marginBottom: modalKbInset > 0 ? spacing.sm : 0 }}
               />
               <GhostButton title="Cancelar" onPress={closeSheet} style={{ marginTop: spacing.sm }} />
             </Animated.View>
