@@ -22,9 +22,24 @@ import ExtractoBancarioModal from './ExtractoBancarioModal';
 import { colors, spacing, radii, typography, shadows } from '../theme';
 
 const SEV = {
-  danger: { icon: 'flame-outline', color: colors.danger, line: 'rgba(248, 113, 131, 0.95)', grad: ['rgba(248, 113, 131, 0.22)', 'rgba(30, 22, 40, 0.55)'] },
-  warning: { icon: 'partly-sunny-outline', color: colors.warning, line: 'rgba(251, 191, 36, 0.9)', grad: ['rgba(251, 191, 36, 0.18)', 'rgba(30, 22, 40, 0.5)'] },
-  info: { icon: 'sparkles', color: colors.chartBlue, line: 'rgba(125, 211, 192, 0.55)', grad: ['rgba(167, 216, 222, 0.2)', 'rgba(30, 22, 40, 0.45)'] },
+  danger: {
+    icon: 'flame-outline',
+    color: colors.danger,
+    line: 'rgba(248, 113, 131, 0.95)',
+    grad: ['#2d2228', colors.surfaceSolid],
+  },
+  warning: {
+    icon: 'partly-sunny-outline',
+    color: colors.warning,
+    line: 'rgba(251, 191, 36, 0.9)',
+    grad: ['#2c2618', colors.surfaceSolid],
+  },
+  info: {
+    icon: 'sparkles',
+    color: colors.chartBlue,
+    line: 'rgba(125, 211, 192, 0.55)',
+    grad: ['#1a2528', colors.surfaceSolid],
+  },
 };
 
 const TIPO_ACENTO = {
@@ -229,7 +244,7 @@ export function NotificacionBell() {
             ]}
           >
             <LinearGradient
-              colors={['rgba(80, 40, 120, 0.35)', 'rgba(12, 8, 18, 0.98)']}
+              colors={[colors.bgElevated, colors.bg]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0.5, y: 1 }}
               style={StyleSheet.absoluteFill}
@@ -239,7 +254,7 @@ export function NotificacionBell() {
               <View style={styles.titBloque}>
                 <View style={styles.titFilaIcon}>
                   <LinearGradient
-                    colors={['rgba(217, 180, 74, 0.45)', 'rgba(75, 36, 108, 0.4)']}
+                    colors={['#4a3d2a', '#3d2858']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.titIconCirc}
@@ -281,10 +296,7 @@ export function NotificacionBell() {
 
             {itemsVisibles.length === 0 ? (
               <View style={styles.vacioBox}>
-                <LinearGradient
-                  colors={['rgba(125, 193, 145, 0.25)', 'rgba(167, 216, 222, 0.12)']}
-                  style={styles.vacioHalo}
-                >
+                <LinearGradient colors={['#1e2e24', '#1a2830']} style={styles.vacioHalo}>
                   <Ionicons name="checkmark-circle" size={56} color={colors.mint} />
                 </LinearGradient>
                 <Text style={styles.vacioTit}>¡Bien! Sin pendientes</Text>
@@ -363,6 +375,7 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: {
     maxHeight: '90%',
+    backgroundColor: colors.bg,
     borderTopLeftRadius: radii.xl + 4,
     borderTopRightRadius: radii.xl + 4,
     borderWidth: 1,
@@ -449,7 +462,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     position: 'relative',
   },
-  filaGrad: { ...StyleSheet.absoluteFillObject, opacity: 0.9 },
+  filaGrad: { ...StyleSheet.absoluteFillObject },
   filaTop: { flexDirection: 'row', alignItems: 'flex-start' },
   iconHalo: {
     width: 48,

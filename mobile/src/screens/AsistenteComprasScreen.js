@@ -17,12 +17,7 @@ import ScreenWrap from '../components/ScreenWrap';
 import UICard from '../components/UICard';
 import { PrimaryButton, GhostButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
-import {
-  normalizarCategoria,
-  formatearNumero,
-  obtenerCuentasOrigenGastoElegible,
-  calcularSaldosPorCuenta,
-} from '../lib/finance';
+import { normalizarCategoria, formatearNumero } from '../lib/finance';
 import {
   generarIdIntencionCompra,
   costoPorSesion,
@@ -34,7 +29,10 @@ import {
   generarIdListaSuperLinea,
   ordenarLineasListaSuper,
   URGENCIA_LISTA_SUPER,
+  puedeRegistrarCompraPorRegla48h,
+  formatCountdownMs,
 } from '../lib/asistenteComprasLogic';
+import { registrarGastoDesdeIntencionConUi, yaNoLoQuieroIntencionConUi } from '../lib/intencionesCompraAcciones';
 import { colors, spacing, radii, typography, shadows } from '../theme';
 
 const TABS = [
@@ -80,23 +78,6 @@ const LISTA_SUPER_BASE = [
 
 function pad(n) {
   return String(n).padStart(2, '0');
-}
-
-function formatCountdown(ms) {
-  if (ms <= 0) return '00:00:00';
-  const sTotal = Math.floor(ms / 1000);
-  const h = Math.floor(sTotal / 3600);
-  const m = Math.floor((sTotal % 3600) / 60);
-  const s = sTotal % 60;
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
-}
-
-function puedeRegistrarCompraPorRegla48h(intencion, ahora) {
-  if (!intencion || intencion.estado !== 'pendiente') return false;
-  if (!intencion.aplicabaCooldown) return true;
-  const hasta = intencion.cooldownHasta;
-  if (hasta == null) return true;
-  return ahora >= hasta;
 }
 
 function normNombre(n) {
@@ -268,111 +249,27 @@ export default function AsistenteComprasScreen({ route }) {
   }
 
   function registrarGastoDesdeIntencion(intencion, origenValor) {
-    if (!puedeRegistrarCompraPorRegla48h(intencion, Date.now())) {
-      Alert.alert('Regla 48 h', 'Aún debes esperar antes de registrar esta compra.');
-      return;
-    }
-    const precio = intencion.precioEstimado;
-    const opts = obtenerCuentasOrigenGastoElegible(state || {}, precio, precio, {});
-    if (opts.length === 0) {
-      Alert.alert('Saldo', 'No hay ninguna cuenta con saldo suficiente para este monto.');
-      return;
-    }
-    if (!origenValor && opts.length > 1) {
-      Alert.alert(
-        'Cuenta',
-        '¿Desde qué caja pagas?',
-        [
-          ...opts.map((o) => ({
-            text: o.label.slice(0, 60),
-            onPress: () => registrarGastoDesdeIntencion(intencion, o.value),
-          })),
-          { text: 'Cancelar', style: 'cancel' },
-        ],
-        { cancelable: true }
-      );
-      return;
-    }
-    const origen = origenValor || opts[0].value;
-    const disponible = opts.find((o) => o.value === origen);
-    if (!disponible || precio > (disponible.saldo || 0)) {
-      Alert.alert('Saldo', 'No hay suficiente saldo en la cuenta elegida. Revisa en Saldo.');
-      return;
-    }
-    const d = new Date();
-    const fechaStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
-      d.getMinutes()
-    )}:00`;
-    const nuevo = {
-      nombre: String(intencion.nombre || '').trim(),
-      cantidad: precio,
-      fecha: fechaStr,
-      categoria: String(intencion.nombreCategoria || '').trim(),
-      origen,
-      nota: 'Registrado desde Asistente de compras',
-      cuotas: 1,
-      cuotaMensual: precio,
-    };
-    replaceState((s) => ({
-      ...s,
-      gastos: [...(s.gastos || []), nuevo],
-      intencionesCompra: (s.intencionesCompra || []).filter((x) => x.id !== intencion.id),
-    }));
-    Alert.alert('Listo', 'Compra registrada en tu historial.');
-    if (editId === intencion.id) setEditId(null);
+    registrarGastoDesdeIntencionConUi({
+      state,
+      intencion,
+      origenValor,
+      replaceState,
+      onRemoved: () => {
+        if (editId === intencion.id) setEditId(null);
+      },
+    });
   }
 
   function yaNoLoQuiero(intencion) {
-    const m = intencion.precioEstimado;
-    const primera = (state?.metas || [])[0];
-    const nombreMeta = primera ? String(primera.nombre || '').trim() : '';
-    function quitar() {
-      replaceState((s) => ({
-        ...s,
-        intencionesCompra: (s.intencionesCompra || []).filter((x) => x.id !== intencion.id),
-      }));
-      if (editId === intencion.id) setEditId(null);
-    }
-    const msg = primera
-      ? `Acabas de ahorrar ${formatearNumero(m)} ${moneda}. Si tienes ese efectivo disponible, puedes aportar a tu meta «${nombreMeta}».`
-      : `Acabas de ahorrar ${formatearNumero(m)} ${moneda}. Ese gasto imaginario ya no pesa en tu decisión; puedes reasignarlo cuando quieras.`;
-    Alert.alert('¡Felicidades!', msg, [
-      ...(primera
-        ? [
-            {
-              text: `Aportar a «${nombreMeta.slice(0, 22)}${nombreMeta.length > 22 ? '…' : ''}»`,
-              onPress: () => {
-                const saldos = calcularSaldosPorCuenta(state || {});
-                if ((saldos.efectivo || 0) < m) {
-                  Alert.alert(
-                    'Saldo insuficiente en efectivo',
-                    'Cuando puedas, aporta manualmente desde Metas.'
-                  );
-                  quitar();
-                  return;
-                }
-                const d = new Date();
-                const fechaStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-                replaceState((s) => ({
-                  ...s,
-                  intencionesCompra: (s.intencionesCompra || []).filter((x) => x.id !== intencion.id),
-                  contribucionesMetas: [
-                    ...(s.contribucionesMetas || []),
-                    { metaId: primera.id, cantidad: m, fecha: fechaStr, origen: 'efectivo' },
-                  ],
-                }));
-                if (editId === intencion.id) setEditId(null);
-                Alert.alert('Listo', `Aporte de ${formatearNumero(m)} desde efectivo hacia «${nombreMeta}».`);
-              },
-            },
-          ]
-        : []),
-      {
-        text: primera ? 'Solo cerrar' : 'Gracias',
-        style: 'cancel',
-        onPress: quitar,
+    yaNoLoQuieroIntencionConUi({
+      state,
+      intencion,
+      moneda,
+      replaceState,
+      onRemoved: () => {
+        if (editId === intencion.id) setEditId(null);
       },
-    ]);
+    });
   }
 
   const analisis = useMemo(() => {
@@ -681,7 +578,7 @@ export default function AsistenteComprasScreen({ route }) {
                         quieres, podrás confirmar.
                       </Text>
                       <View style={styles.cronoBox}>
-                        <Text style={styles.cronoText}>Faltan {formatCountdown(analisis.restanteMs)}</Text>
+                        <Text style={styles.cronoText}>Faltan {formatCountdownMs(analisis.restanteMs)}</Text>
                         <Text style={[typography.small, { color: colors.textMuted, marginTop: spacing.xs }]}>
                           para poder confirmar desde aquí esta compra
                         </Text>
@@ -733,7 +630,7 @@ export default function AsistenteComprasScreen({ route }) {
                       </Text>
                       {!puedeBtn && i.aplicabaCooldown ? (
                         <Text style={[typography.small, { color: colors.warning, marginTop: spacing.sm }]}>
-                          ⏳ {formatCountdown(esperaMs)}
+                          ⏳ {formatCountdownMs(esperaMs)}
                         </Text>
                       ) : null}
                       <View style={{ flexDirection: 'row', marginTop: spacing.md }}>

@@ -247,4 +247,27 @@ export const URGENCIA_LISTA_SUPER = [
   { id: 'puede_esperar', label: 'Puede esperar' },
 ];
 
+/** Regla 48 h: si aplica cooldown, hasta `cooldownHasta` no se puede registrar compra. */
+export function puedeRegistrarCompraPorRegla48h(intencion, ahoraMs) {
+  if (!intencion || intencion.estado !== 'pendiente') return false;
+  if (!intencion.aplicabaCooldown) return true;
+  const hasta = intencion.cooldownHasta;
+  if (hasta == null) return true;
+  return ahoraMs >= hasta;
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+/** Cuenta atrás HH:MM:SS para UI de intenciones. */
+export function formatCountdownMs(ms) {
+  if (ms <= 0) return '00:00:00';
+  const sTotal = Math.floor(ms / 1000);
+  const h = Math.floor(sTotal / 3600);
+  const m = Math.floor((sTotal % 3600) / 60);
+  const s = sTotal % 60;
+  return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+}
+
 export { PRECIO_REF_CINE_DEFAULT };
