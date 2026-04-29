@@ -5,4 +5,5 @@
   <color name="colorPrimaryDark">#FFFFFF</color>
   <color name="activityBackground">#0c0812</color>
   <color name="navigationBarColor">#0c0812</color>
+  <color name="notification_icon_color">#4B246C</color>
 </resources>

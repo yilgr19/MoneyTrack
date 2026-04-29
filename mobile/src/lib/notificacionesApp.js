@@ -6,6 +6,7 @@ import {
   formatearNumero,
   limiteTotalTarjetasCredito,
   montoGastoAfectaSaldoEnMes,
+  montoGastoCuentaParaPresupuestoEnMes,
   montoPagoSugeridoDesdeExtracto,
   normalizarCategoria,
   obtenerSaldosIniciales,
@@ -226,7 +227,7 @@ function notificacionesCategorias(state, ref) {
     if (Number.isNaN(lim) || lim <= 0) continue;
     const gastado = gastos
       .filter((g) => g.categoria === cat.nombre)
-      .reduce((s, g) => s + montoGastoAfectaSaldoEnMes(g, state, m, y), 0);
+      .reduce((s, g) => s + montoGastoCuentaParaPresupuestoEnMes(g, state, m, y), 0);
     if (gastado > lim) {
       const id = `cat-${cat.nombre}`;
       const gTxt = formatearNumero(gastado, 0);
@@ -270,7 +271,7 @@ function notificacionesPresupuestoMensual(state, ref) {
   if (tope <= 0) return [];
   const gastos = state.gastos || [];
   const gastosMes = gastos.reduce(
-    (s, g) => s + montoGastoAfectaSaldoEnMes(g, state, mes, anio),
+    (s, g) => s + montoGastoCuentaParaPresupuestoEnMes(g, state, mes, anio),
     0
   );
   if (gastosMes <= tope) return [];

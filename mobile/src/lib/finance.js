@@ -1076,6 +1076,31 @@ export function montoGastoAfectaSaldoEnMes(g, data, mes, año) {
   return 0;
 }
 
+/**
+ * Monto que cuenta para el **presupuesto mensual** en (mes, año).
+ * Igual que `montoGastoAfectaSaldoEnMes`, pero si `data.presupuestoDesdeFecha` (YYYY-MM-DD)
+ * cae en ese mes, solo se suman gastos con fecha de movimiento >= ese día (contado y TC 1 cuota).
+ * Cuotas TC > 1 en ese mes no se filtran por día de compra (siguen la regla de cierre).
+ */
+export function montoGastoCuentaParaPresupuestoEnMes(g, data, mes, año) {
+  const base = montoGastoAfectaSaldoEnMes(g, data, mes, año);
+  if (base <= 0) return 0;
+  const desdeStr = String(data?.presupuestoDesdeFecha || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desdeStr)) return base;
+  const partes = desdeStr.split('-').map((x) => parseInt(x, 10));
+  const [dy, dm, dd] = partes;
+  if (Number.isNaN(dy) || Number.isNaN(dm) || Number.isNaN(dd)) return base;
+  const desde = new Date(dy, dm - 1, dd, 0, 0, 0, 0);
+  if (desde.getMonth() !== mes || desde.getFullYear() !== año) return base;
+  const q = numCuotasGasto(g);
+  if (normalizarOrigenCuenta(g.origen) === 'tarjetaCredito' && q > 1) return base;
+  const fg = parseFechaHoraLocal(g.fecha);
+  if (!fg) return base;
+  const gDay = new Date(fg.getFullYear(), fg.getMonth(), fg.getDate(), 0, 0, 0, 0);
+  if (gDay.getTime() < desde.getTime()) return 0;
+  return base;
+}
+
 /** Años y meses donde un gasto tiene al menos un tramo (para reportes e histórico). */
 export function aniosMesesDondeAfectaGasto(g, data) {
   if (!g) return [];

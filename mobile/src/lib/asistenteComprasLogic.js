@@ -2,6 +2,7 @@ import {
   normalizarCategoria,
   obtenerMesAño,
   montoGastoAfectaSaldoEnMes,
+  montoGastoCuentaParaPresupuestoEnMes,
   formatearNumero,
   obtenerCuentasOrigenGastoElegible,
 } from './finance';
@@ -77,7 +78,7 @@ export function gastadoEnCategoriaMes(state, nombreCategoria, mes, año) {
   for (let i = 0; i < gastos.length; i++) {
     const g = gastos[i];
     if (!g || String(g.categoria || '').trim() !== nom) continue;
-    s += montoGastoAfectaSaldoEnMes(g, state, mes, año);
+    s += montoGastoCuentaParaPresupuestoEnMes(g, state, mes, año);
   }
   return s;
 }

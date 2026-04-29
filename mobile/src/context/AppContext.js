@@ -31,6 +31,9 @@ function normalizeState(raw) {
     bancosDetalle,
     limiteTarjetaCredito: parseFloat(raw.limiteTarjetaCredito) || 0,
     presupuestoMensual: parseFloat(raw.presupuestoMensual) || 0,
+    presupuestoDesdeFecha: String(raw.presupuestoDesdeFecha || '')
+      .trim()
+      .slice(0, 10),
     ingresos: raw.ingresos || [],
     gastos: raw.gastos || [],
     categorias: raw.categorias || [],

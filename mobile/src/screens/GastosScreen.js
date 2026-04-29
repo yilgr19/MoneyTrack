@@ -16,7 +16,7 @@ import {
   calcularSaldosPorCuenta,
   normalizarOrigenCuenta,
   normalizarCategoria,
-  montoGastoAfectaSaldoEnMes,
+  montoGastoCuentaParaPresupuestoEnMes,
   fechaALocalISO,
   fechasCortesGastoConFallback,
   pagoDebeMostrarseParaPagar,
@@ -395,10 +395,11 @@ export default function GastosScreen() {
       const y0 = ah.getFullYear();
       const gastosCategoria = (state?.gastos || []).filter(
         (g) =>
-          g.categoria === categoria && montoGastoAfectaSaldoEnMes(g, state, m0, y0) > 0
+          g.categoria === categoria &&
+          montoGastoCuentaParaPresupuestoEnMes(g, state, m0, y0) > 0
       );
       const gastadoMes = gastosCategoria.reduce(
-        (s, g) => s + montoGastoAfectaSaldoEnMes(g, state, m0, y0),
+        (s, g) => s + montoGastoCuentaParaPresupuestoEnMes(g, state, m0, y0),
         0
       );
       if (gastadoMes + montoAValidar > lim) {

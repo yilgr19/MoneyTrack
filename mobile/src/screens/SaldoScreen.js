@@ -28,6 +28,7 @@ import {
   CUENTAS,
   formatearNumero,
   calcularSaldosPorCuenta,
+  limiteTotalTarjetasCredito,
   BANCO_OTRO_VALUE,
   getBancosOptionsForMoneda,
   getBankLabelByValue,
@@ -249,6 +250,9 @@ export default function SaldoScreen() {
   const [plataformasDetalle, setPlataformasDetalle] = useState(() => state.plataformasDetalle || []);
   const [limiteTc, setLimiteTc] = useState(String(state.limiteTarjetaCredito || 0));
   const [presupuesto, setPresupuesto] = useState(String(state.presupuestoMensual || 0));
+  const [presupuestoDesdeFecha, setPresupuestoDesdeFecha] = useState(
+    () => soloFechaGuardada(state.presupuestoDesdeFecha)
+  );
   const [nota, setNota] = useState(state.saldoInicialNota || '');
 
   /** null | 'moneda' | 'tarjetasCredito' | 'presupuesto' | 'nota' | { type: 'cuenta', id: string } */
@@ -256,6 +260,7 @@ export default function SaldoScreen() {
   const [draftMoneda, setDraftMoneda] = useState('');
   const [draftMonto, setDraftMonto] = useState('');
   const [draftPresupuesto, setDraftPresupuesto] = useState('');
+  const [draftPresupuestoDesdeFecha, setDraftPresupuestoDesdeFecha] = useState('');
   const [draftNota, setDraftNota] = useState('');
   const [bancoModalLines, setBancoModalLines] = useState([]);
   const [plataformaModalLines, setPlataformaModalLines] = useState([]);
@@ -263,6 +268,7 @@ export default function SaldoScreen() {
   const [tcModalLines, setTcModalLines] = useState([]);
   /** null | { idx: number, field: 'corte' | 'limite' } */
   const [tcPicker, setTcPicker] = useState(null);
+  const [presupuestoFechaPicker, setPresupuestoFechaPicker] = useState(false);
 
   const sheetDragY = useRef(new Animated.Value(0)).current;
   /** Offset Y del ScrollView del modal; si es ~0, el arrastre hacia abajo cierra desde cualquier zona */
@@ -270,6 +276,7 @@ export default function SaldoScreen() {
 
   const closeSheet = useCallback(() => {
     setTcPicker(null);
+    setPresupuestoFechaPicker(false);
     setSheet(null);
   }, []);
 
@@ -332,6 +339,7 @@ export default function SaldoScreen() {
       setLimiteTc(String(state.limiteTarjetaCredito || 0));
     }
     setPresupuesto(String(state.presupuestoMensual || 0));
+    setPresupuestoDesdeFecha(soloFechaGuardada(state.presupuestoDesdeFecha));
     setNota(state.saldoInicialNota || '');
   }, [
     state.moneda,
@@ -341,6 +349,7 @@ export default function SaldoScreen() {
     state.tarjetasCredito,
     state.limiteTarjetaCredito,
     state.presupuestoMensual,
+    state.presupuestoDesdeFecha,
     state.saldoInicialNota,
   ]);
 
@@ -361,6 +370,19 @@ export default function SaldoScreen() {
     () => calcularSaldosPorCuenta(dataCalculoBorrador),
     [dataCalculoBorrador]
   );
+
+  const vistaPreviaCuentas = useMemo(() => {
+    return CUENTAS.filter((c) => Math.abs(Number(saldosActuales[c.id]) || 0) > 1e-9);
+  }, [saldosActuales]);
+
+  const vistaPreviaTotales = useMemo(() => {
+    const totalCompleto = Number(saldosActuales.total) || 0;
+    const topeTc = limiteTotalTarjetasCredito(dataCalculoBorrador);
+    const cupoLibre =
+      topeTc > 0 ? Math.max(0, Number(saldosActuales.tarjetaCredito) || 0) : 0;
+    const totalSinCupoTc = topeTc > 0 ? totalCompleto - cupoLibre : totalCompleto;
+    return { totalCompleto, totalSinCupoTc, muestraDosTotales: topeTc > 0 };
+  }, [dataCalculoBorrador, saldosActuales]);
 
   const monedaLabel = useMemo(() => MONEDAS.find((m) => m.value === moneda)?.label || 'Sin definir', [moneda]);
 
@@ -670,6 +692,9 @@ export default function SaldoScreen() {
 
   function openPresupuesto() {
     setDraftPresupuesto(presupuesto);
+    const iso = soloFechaGuardada(presupuestoDesdeFecha);
+    setDraftPresupuestoDesdeFecha(iso || fechaALocalISO(new Date()));
+    setPresupuestoFechaPicker(false);
     setSheet('presupuesto');
   }
 
@@ -707,7 +732,9 @@ export default function SaldoScreen() {
   }
 
   function applyPresupuesto() {
+    const m = parseFloat(draftPresupuesto) || 0;
     setPresupuesto(draftPresupuesto);
+    setPresupuestoDesdeFecha(m > 0 ? soloFechaGuardada(draftPresupuestoDesdeFecha) : '');
     closeSheet();
   }
 
@@ -779,6 +806,8 @@ export default function SaldoScreen() {
       tarjetasCredito: tarjetasClean,
       limiteTarjetaCredito: limitePersist,
       presupuestoMensual: parseFloat(presupuesto) || 0,
+      presupuestoDesdeFecha:
+        (parseFloat(presupuesto) || 0) > 0 ? soloFechaGuardada(presupuestoDesdeFecha) : '',
       saldoInicialNota: nota.trim(),
       pagosProgramados: reemplazarPagosRecordatorioTarjetas(
         s.pagosProgramados || [],
@@ -895,6 +924,16 @@ export default function SaldoScreen() {
               ? `${formatearNumero(parseFloat(presupuesto))} ${moneda || ''}`.trim()
               : 'Opcional · toca para definir'
           }
+          hint={(() => {
+            const p = parseFloat(presupuesto);
+            if (p <= 0) return null;
+            const iso = soloFechaGuardada(presupuestoDesdeFecha);
+            if (!iso) return 'Define desde qué fecha cuenta el tope en el mes actual';
+            const d = parseFechaHoraLocal(iso);
+            return d
+              ? `Cuenta gastos del mes desde ${d.toLocaleDateString('es', { dateStyle: 'short' })}`
+              : null;
+          })()}
           onPress={openPresupuesto}
         />
 
@@ -911,19 +950,43 @@ export default function SaldoScreen() {
       <UICard style={{ marginBottom: 0 }}>
         <Text style={typography.label}>Vista previa</Text>
         <Text style={[typography.small, { marginBottom: spacing.md }]}>
-          Saldos calculados con movimientos actuales
+          Saldos calculados con movimientos actuales · solo cuentas con saldo distinto de cero
         </Text>
-        {CUENTAS.map((c) => (
-          <View key={c.id} style={layoutStyles.rowBetween}>
-            <Text style={[typography.body, layoutStyles.rowLabel]}>{c.nombre}</Text>
-            <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
-              {formatearNumero(saldosActuales[c.id] || 0)} {state.moneda}
+        {vistaPreviaCuentas.length === 0 ? (
+          <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.sm }]}>
+            Ninguna cuenta con saldo en esta vista. Ingresa montos arriba o registra movimientos.
+          </Text>
+        ) : (
+          vistaPreviaCuentas.map((c) => (
+            <View key={c.id} style={layoutStyles.rowBetween}>
+              <Text style={[typography.body, layoutStyles.rowLabel]}>{c.nombre}</Text>
+              <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
+                {formatearNumero(saldosActuales[c.id] || 0)} {state.moneda}
+              </Text>
+            </View>
+          ))
+        )}
+        {vistaPreviaTotales.muestraDosTotales ? (
+          <>
+            <Text style={styles.total} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>
+              Total sin cupo disponible (TC) · {formatearNumero(vistaPreviaTotales.totalSinCupoTc)}{' '}
+              {state.moneda}
             </Text>
-          </View>
-        ))}
-        <Text style={styles.total} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>
-          Total · {formatearNumero(saldosActuales.total || 0)} {state.moneda}
-        </Text>
+            <Text
+              style={[styles.total, styles.totalSecundario]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              Total con cupo disponible (TC) · {formatearNumero(vistaPreviaTotales.totalCompleto)}{' '}
+              {state.moneda}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.total} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>
+            Total · {formatearNumero(vistaPreviaTotales.totalCompleto)} {state.moneda}
+          </Text>
+        )}
       </UICard>
 
       <Modal visible={sheet !== null} animationType="slide" transparent onRequestClose={closeSheet}>
@@ -1268,6 +1331,48 @@ export default function SaldoScreen() {
                       placeholder="0 — opcional"
                       placeholderTextColor={colors.textFaint}
                     />
+                    {parseFloat(draftPresupuesto) > 0 ? (
+                      <>
+                        <Text style={[styles.modalLab, { marginTop: spacing.sm }]}>
+                          El presupuesto cuenta desde
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.input}
+                          onPress={() => setPresupuestoFechaPicker(true)}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={{ color: colors.text, fontSize: 16 }}>
+                            {parseFechaHoraLocal(draftPresupuestoDesdeFecha)
+                              ? parseFechaHoraLocal(draftPresupuestoDesdeFecha).toLocaleDateString(
+                                  'es',
+                                  { dateStyle: 'short' }
+                                )
+                              : 'Elegir fecha'}
+                          </Text>
+                        </TouchableOpacity>
+                        {presupuestoFechaPicker ? (
+                          <DateTimePicker
+                            value={parseFechaHoraLocal(draftPresupuestoDesdeFecha) || new Date()}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={(ev, d) => {
+                              if (Platform.OS !== 'ios') setPresupuestoFechaPicker(false);
+                              if (ev.type === 'dismissed') setPresupuestoFechaPicker(false);
+                              if (d) setDraftPresupuestoDesdeFecha(fechaALocalISO(d));
+                            }}
+                          />
+                        ) : null}
+                        <Text
+                          style={[
+                            typography.small,
+                            { color: colors.textFaint, marginTop: spacing.xs, lineHeight: 18 },
+                          ]}
+                        >
+                          En el mes de esa fecha, solo se suman al tope los gastos con fecha igual o posterior
+                          (compras en una sola cuota con tarjeta siguen la fecha del movimiento).
+                        </Text>
+                      </>
+                    ) : null}
                   </>
                 )}
 
@@ -1477,5 +1582,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     letterSpacing: -0.3,
     maxWidth: '100%',
+  },
+  totalSecundario: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
 });

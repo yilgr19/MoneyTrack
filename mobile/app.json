@@ -7,7 +7,7 @@
     "icon": "./assets/moneytrack-logo.jpg",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0c0812",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/moneytrack-logo.jpg",
       "resizeMode": "contain",
@@ -22,7 +22,14 @@
         "foregroundImage": "./assets/moneytrack-logo.jpg",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.moneytrack.app"
+      "package": "com.moneytrack.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -47,7 +54,14 @@
           "backgroundColor": "#0c0812"
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "color": "#4B246C",
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": false
+        }
+      ],
       [
         "expo-camera",
         {
@@ -56,6 +70,17 @@
           "recordAudioAndroid": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "expo-navigation-bar": {
+        "visibility": "hidden",
+        "behavior": "overlay-swipe",
+        "backgroundColor": "#0c0812"
+      },
+      "eas": {
+        "projectId": "d890462f-c782-4d69-bb92-af008be49a43"
+      }
+    },
+    "owner": "yilyan19"
   }
 }

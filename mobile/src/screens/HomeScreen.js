@@ -31,6 +31,7 @@ import {
   totalCupoUtilizadoTarjetasCredito,
   obtenerMesAño,
   montoGastoAfectaSaldoEnMes,
+  montoGastoCuentaParaPresupuestoEnMes,
   verificarAlertaTarjetaCredito,
   normalizarCategoria,
   normalizarMeta,
@@ -270,6 +271,9 @@ export default function HomeScreen() {
         estadoDetalle: '',
         estadoKind: 'info',
         cuentasInicio: [],
+        cuentasInicioPatrimonio: [],
+        mostrarTarjetaCupoAparte: false,
+        saldoTcCupoLibre: 0,
         totalEnBolsillos: 0,
         totalAportesMetas: 0,
       };
@@ -287,7 +291,12 @@ export default function HomeScreen() {
     const saldosPorCuenta = calcularSaldosPorCuenta(state);
     const topeTarjeta = limiteTotalTarjetasCredito(state);
     const deudaTarjeta = totalCupoUtilizadoTarjetasCredito(state);
-    const saldoActual = saldosPorCuenta.total || 0;
+    const totalSaldosCuentas = Number(saldosPorCuenta.total) || 0;
+    const saldoTcCupoLibre =
+      topeTarjeta > 0 ? Math.max(0, Number(saldosPorCuenta.tarjetaCredito) || 0) : 0;
+    /** Patrimonio sin cupo disponible de TC (el cupo no es patrimonio propio). */
+    const saldoActual =
+      topeTarjeta > 0 ? totalSaldosCuentas - saldoTcCupoLibre : totalSaldosCuentas;
     const gastos = state.gastos || [];
     const ingresos = state.ingresos || [];
     const contribuciones = state.contribucionesMetas || [];
@@ -301,7 +310,7 @@ export default function HomeScreen() {
       .reduce((s, i) => s + (parseFloat(i.cantidad) || 0), 0);
 
     const gastosMesActual = gastos.reduce(
-      (s, g) => s + montoGastoAfectaSaldoEnMes(g, state, mesActual, añoActual),
+      (s, g) => s + montoGastoCuentaParaPresupuestoEnMes(g, state, mesActual, añoActual),
       0
     );
 
@@ -315,7 +324,7 @@ export default function HomeScreen() {
 
     const gastosConEfectoMes = gastos.map((g) => ({
       g,
-      m: montoGastoAfectaSaldoEnMes(g, state, mesActual, añoActual),
+      m: montoGastoCuentaParaPresupuestoEnMes(g, state, mesActual, añoActual),
     }));
     const conEfecto = gastosConEfectoMes.filter((x) => x.m > 0);
     const mayorGasto =
@@ -377,11 +386,19 @@ export default function HomeScreen() {
     const cuentasInicio = CUENTAS.filter((c) =>
       cuentaVisibleEnResumenInicio(c.id, state, saldosPorCuenta)
     );
+    const mostrarTarjetaCupoAparte =
+      topeTarjeta > 0 && cuentaVisibleEnResumenInicio('tarjetaCredito', state, saldosPorCuenta);
+    const cuentasInicioPatrimonio = mostrarTarjetaCupoAparte
+      ? cuentasInicio.filter((c) => c.id !== 'tarjetaCredito')
+      : cuentasInicio;
 
     return {
       saldosPorCuenta,
       totalEnBolsillos,
       cuentasInicio,
+      cuentasInicioPatrimonio,
+      mostrarTarjetaCupoAparte,
+      saldoTcCupoLibre,
       topeTarjeta,
       deudaTarjeta,
       saldoActual,
@@ -432,7 +449,7 @@ export default function HomeScreen() {
       : 0;
 
   const cuentasPatrimonioBloque = useMemo(() => {
-    const list = derived.cuentasInicio;
+    const list = derived.cuentasInicioPatrimonio;
     const total = derived.saldoActual;
     const sumaPos = list.reduce((s, c) => s + Math.max(0, derived.saldosPorCuenta[c.id] ?? 0), 0);
     const denom = total > 0 ? total : sumaPos;
@@ -445,7 +462,7 @@ export default function HomeScreen() {
       return { cuenta: c, monto: raw, pct };
     });
     return { filas, leyenda };
-  }, [derived.cuentasInicio, derived.saldosPorCuenta, derived.saldoActual]);
+  }, [derived.cuentasInicioPatrimonio, derived.saldosPorCuenta, derived.saldoActual]);
 
   const segmentosDonutCategorias = useMemo(() => {
     const entries = Object.entries(derived.gastosMesPorCategoria || {})
@@ -467,6 +484,19 @@ export default function HomeScreen() {
     }
     return out;
   }, [derived.gastosMesPorCategoria, derived.categoriasData]);
+
+  /** Solo categorías con gasto > 0 en el mes (evita barras al 0 %). */
+  const categoriasGastoMesFiltradas = useMemo(() => {
+    if (!derived.categoriasData?.length) return [];
+    return derived.categoriasData
+      .filter((cat) => (derived.gastosMesPorCategoria[cat.nombre] || 0) > 0)
+      .sort(
+        (a, b) =>
+          (derived.gastosMesPorCategoria[b.nombre] || 0) -
+          (derived.gastosMesPorCategoria[a.nombre] || 0)
+      )
+      .slice(0, 6);
+  }, [derived.categoriasData, derived.gastosMesPorCategoria]);
 
   const segmentosIngresoGasto = useMemo(() => {
     const ing = derived.ingresosMesActual || 0;
@@ -743,6 +773,11 @@ export default function HomeScreen() {
         >
           {formatearNumero(derived.saldoActual)} <Text style={styles.heroMoneda}>{moneda}</Text>
         </Text>
+        {derived.mostrarTarjetaCupoAparte ? (
+          <Text style={styles.heroBolsillos}>
+            Sin sumar el cupo disponible de tarjeta (lo ves abajo en «Por cuenta»).
+          </Text>
+        ) : null}
         {derived.totalEnBolsillos > 0 ? (
           <Text style={styles.heroBolsillos}>
             Bolsillos: {formatearNumero(derived.totalEnBolsillos)} {moneda} · no al total
@@ -777,12 +812,16 @@ export default function HomeScreen() {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.cuentasPatTit}>Por cuenta</Text>
-            <Text style={styles.cuentasPatSub}>Saldo y parte del patrimonio, al instante</Text>
+            <Text style={styles.cuentasPatSub}>
+              Cuentas que sí forman el patrimonio; la tarjeta va aparte si tienes cupo configurado.
+            </Text>
           </View>
         </View>
-        {derived.cuentasInicio.length === 0 ? (
+        {derived.cuentasInicioPatrimonio.length === 0 ? (
           <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.sm }]}>
-            Añade saldo o un ingreso (pestaña Saldo).
+            {derived.mostrarTarjetaCupoAparte
+              ? 'Añade efectivo, banco o apps en Saldo para ver el desglose del patrimonio.'
+              : 'Añade saldo o un ingreso (pestaña Saldo).'}
           </Text>
         ) : (
           cuentasPatrimonioBloque.filas.map((row, idx) => (
@@ -798,6 +837,25 @@ export default function HomeScreen() {
             />
           ))
         )}
+        {derived.mostrarTarjetaCupoAparte ? (
+          <TouchableOpacity
+            style={styles.cuentasPatTarjetaBox}
+            onPress={() => navigation.navigate('Saldo')}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel={`Cupo disponible tarjeta ${formatearNumero(derived.saldoTcCupoLibre)} ${moneda}`}
+          >
+            <View style={styles.cuentasPatTarjetaIcon}>
+              <Ionicons name="card-outline" size={22} color={colors.accentGold} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
+              <Text style={styles.cuentasPatTarjetaTit}>Tarjeta · cupo disponible</Text>
+            </View>
+            <Text style={styles.cuentasPatTarjetaMonto} numberOfLines={1} adjustsFontSizeToFit>
+              {formatearNumero(derived.saldoTcCupoLibre)} {moneda}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         <Text style={styles.cuentasPatMes}>
           {derived.nombreMes}: ingresos {formatearNumero(derived.ingresosMesActual)} {moneda} · gastos{' '}
           {formatearNumero(derived.gastosMesActual)} {moneda}
@@ -1142,37 +1200,32 @@ export default function HomeScreen() {
         </Text>
         {derived.categoriasData.length === 0 ? (
           <Text style={typography.small}>Crea categorías primero.</Text>
+        ) : categoriasGastoMesFiltradas.length === 0 ? (
+          <Text style={typography.small}>Sin gastos por categoría este mes.</Text>
         ) : (
-          derived.categoriasData
-            .sort(
-              (a, b) =>
-                (derived.gastosMesPorCategoria[b.nombre] || 0) -
-                (derived.gastosMesPorCategoria[a.nombre] || 0)
-            )
-            .slice(0, 6)
-            .map((cat, idx) => {
-              const monto = derived.gastosMesPorCategoria[cat.nombre] || 0;
-              const pct = derived.totalGastosMes > 0 ? (monto / derived.totalGastosMes) * 100 : 0;
-              const limiteCat =
-                cat.limite != null && String(cat.limite).trim() !== ''
-                  ? parseFloat(cat.limite)
-                  : NaN;
-              const tieneLimite = Number.isFinite(limiteCat) && limiteCat > 0;
-              const superadoCategoria = tieneLimite && monto > limiteCat;
-              return (
-                <CategoriaGastoBarFun
-                  key={cat.nombre}
-                  cat={cat}
-                  monto={monto}
-                  pct={pct}
-                  moneda={moneda}
-                  index={idx}
-                  superadoCategoria={superadoCategoria}
-                  limiteCat={limiteCat}
-                  formatearNumero={formatearNumero}
-                />
-              );
-            })
+          categoriasGastoMesFiltradas.map((cat, idx) => {
+            const monto = derived.gastosMesPorCategoria[cat.nombre] || 0;
+            const pct = derived.totalGastosMes > 0 ? (monto / derived.totalGastosMes) * 100 : 0;
+            const limiteCat =
+              cat.limite != null && String(cat.limite).trim() !== ''
+                ? parseFloat(cat.limite)
+                : NaN;
+            const tieneLimite = Number.isFinite(limiteCat) && limiteCat > 0;
+            const superadoCategoria = tieneLimite && monto > limiteCat;
+            return (
+              <CategoriaGastoBarFun
+                key={cat.nombre}
+                cat={cat}
+                monto={monto}
+                pct={pct}
+                moneda={moneda}
+                index={idx}
+                superadoCategoria={superadoCategoria}
+                limiteCat={limiteCat}
+                formatearNumero={formatearNumero}
+              />
+            );
+          })
         )}
       </UICard>
 
@@ -1591,6 +1644,41 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.08)',
     lineHeight: 20,
+  },
+  cuentasPatTarjetaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: 'rgba(251, 191, 36, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.22)',
+  },
+  cuentasPatTarjetaIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.25)',
+  },
+  cuentasPatTarjetaTit: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  cuentasPatTarjetaMonto: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.accentGold,
+    fontVariant: ['tabular-nums'],
+    flexShrink: 0,
+    maxWidth: '42%',
+    textAlign: 'right',
   },
   alerta: {
     backgroundColor: colors.alertBg,

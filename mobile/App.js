@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -86,12 +86,21 @@ function LoadingSplash() {
 
 function Root() {
   const { ready, mostrarOnboarding, state } = useApp();
+  const pushInicializado = useRef(false);
 
   useEffect(() => {
     if (ready) {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [ready]);
+
+  useEffect(() => {
+    if (!ready || state == null || mostrarOnboarding) return;
+    if (!notificacionesSistemaDisponibles()) return;
+    if (pushInicializado.current) return;
+    pushInicializado.current = true;
+    import('./src/lib/pushNotifications').then((m) => m.inicializarPushNotificaciones().catch(() => {}));
+  }, [ready, state, mostrarOnboarding]);
 
   /** Quita el splash nativo aunque JS tarde; evita “solo logo” de Expo encima del contenido. */
   useEffect(() => {
