@@ -162,11 +162,9 @@ export function DeseosCompraBell() {
                   >
                     <Ionicons name="heart" size={22} color="#e879f9" />
                   </LinearGradient>
-                  <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={styles.titTxtCol}>
                     <Text style={styles.titEtiq}>Deseos de compra</Text>
-                    <Text style={styles.titGde} numberOfLines={2}>
-                      Pendientes hasta que compres o los descartes
-                    </Text>
+                    <Text style={styles.titGde}>Pendientes hasta que compres o los descartes</Text>
                   </View>
                 </View>
                 {n > 0 ? (
@@ -192,7 +190,7 @@ export function DeseosCompraBell() {
             </View>
 
             <TouchableOpacity onPress={irAsistenteDeseos} style={styles.linkAsistente} activeOpacity={0.85}>
-              <Ionicons name="open-outline" size={18} color={colors.accent} />
+              <Ionicons name="open-outline" size={18} color={colors.accent} style={styles.linkAsistenteIco} />
               <Text style={styles.linkAsistenteTxt}>Abrir asistente (pestaña Deseos)</Text>
             </TouchableOpacity>
 
@@ -231,9 +229,7 @@ export function DeseosCompraBell() {
                         style={styles.filaGrad}
                         pointerEvents="none"
                       />
-                      <Text style={styles.filaTit} numberOfLines={2}>
-                        {nom}
-                      </Text>
+                      <Text style={styles.filaTit}>{nom}</Text>
                       <Text style={styles.filaSub}>
                         {formatearNumero(precio)} {moneda} · {cat}
                       </Text>
@@ -345,7 +341,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   titBloque: { flex: 1, minWidth: 0, marginRight: spacing.sm },
-  titFilaIcon: { flexDirection: 'row', alignItems: 'center' },
+  titFilaIcon: { flexDirection: 'row', alignItems: 'flex-start' },
+  titTxtCol: { flex: 1, minWidth: 0, flexShrink: 1, paddingRight: 2 },
   titIconCirc: {
     width: 48,
     height: 48,
@@ -355,9 +352,16 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     borderWidth: 1,
     borderColor: 'rgba(199, 195, 227, 0.15)',
+    flexShrink: 0,
   },
   titEtiq: { fontSize: 10, fontWeight: '700', color: colors.accent, letterSpacing: 1.4, textTransform: 'uppercase' },
-  titGde: { ...typography.title, fontSize: 19, marginTop: 4, lineHeight: 25 },
+  titGde: {
+    ...typography.title,
+    fontSize: 19,
+    marginTop: 4,
+    lineHeight: 25,
+    flexShrink: 1,
+  },
   contadorFila: { marginTop: spacing.md },
   contPill: {
     flexDirection: 'row',
@@ -381,6 +385,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   linkAsistente: {
     flexDirection: 'row',
@@ -388,8 +393,19 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: spacing.lg,
     paddingVertical: spacing.xs,
+    flexWrap: 'wrap',
+    alignSelf: 'stretch',
   },
-  linkAsistenteTxt: { ...typography.body, color: colors.accent, fontWeight: '700', fontSize: 14 },
+  linkAsistenteIco: { flexShrink: 0 },
+  linkAsistenteTxt: {
+    ...typography.body,
+    color: colors.accent,
+    fontWeight: '700',
+    fontSize: 14,
+    flexShrink: 1,
+    flexGrow: 1,
+    minWidth: 0,
+  },
   list: { maxHeight: 500 },
   vacioBox: { alignItems: 'center', paddingVertical: spacing.xl + spacing.md, paddingHorizontal: spacing.md },
   vacioHalo: {
@@ -413,8 +429,22 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   filaGrad: { ...StyleSheet.absoluteFillObject },
-  filaTit: { color: colors.text, fontWeight: '800', fontSize: 16, lineHeight: 22, zIndex: 1 },
-  filaSub: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 4, zIndex: 1 },
+  filaTit: {
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 16,
+    lineHeight: 22,
+    zIndex: 1,
+    flexShrink: 1,
+  },
+  filaSub: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+    zIndex: 1,
+    flexShrink: 1,
+  },
   cooldownTxt: { ...typography.small, color: colors.warning, marginTop: spacing.sm, zIndex: 1 },
   accRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md, zIndex: 1 },
   btnGhost: {

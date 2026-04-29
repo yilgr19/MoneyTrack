@@ -261,11 +261,9 @@ export function NotificacionBell() {
                   >
                     <Ionicons name="notifications" size={22} color={colors.accentGold} />
                   </LinearGradient>
-                  <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={styles.titTxtCol}>
                     <Text style={styles.titEtiq}>Centro de avisos</Text>
-                    <Text style={styles.titGde} numberOfLines={2}>
-                      Todo lo que importa, en un vistazo
-                    </Text>
+                    <Text style={styles.titGde}>Todo lo que importa, en un vistazo</Text>
                   </View>
                 </View>
                 {itemsVisibles.length > 0 ? (
@@ -400,7 +398,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   titBloque: { flex: 1, minWidth: 0, marginRight: spacing.sm },
-  titFilaIcon: { flexDirection: 'row', alignItems: 'center' },
+  titFilaIcon: { flexDirection: 'row', alignItems: 'flex-start' },
+  titTxtCol: { flex: 1, minWidth: 0, flexShrink: 1, paddingRight: 2 },
   titIconCirc: {
     width: 48,
     height: 48,
@@ -410,9 +409,16 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     borderWidth: 1,
     borderColor: 'rgba(199, 195, 227, 0.15)',
+    flexShrink: 0,
   },
   titEtiq: { fontSize: 10, fontWeight: '700', color: colors.accent, letterSpacing: 1.4, textTransform: 'uppercase' },
-  titGde: { ...typography.title, fontSize: 19, marginTop: 4, lineHeight: 25 },
+  titGde: {
+    ...typography.title,
+    fontSize: 19,
+    marginTop: 4,
+    lineHeight: 25,
+    flexShrink: 1,
+  },
   contadorFila: { marginTop: spacing.md },
   contPill: {
     flexDirection: 'row',
@@ -436,8 +442,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  ayudTxt: { ...typography.small, color: colors.textFaint, marginBottom: spacing.lg, lineHeight: 19 },
+  ayudTxt: {
+    ...typography.small,
+    color: colors.textFaint,
+    marginBottom: spacing.lg,
+    lineHeight: 19,
+    flexShrink: 1,
+  },
   list: { maxHeight: 500 },
   vacioBox: { alignItems: 'center', paddingVertical: spacing.xl + spacing.md, paddingHorizontal: spacing.md },
   vacioHalo: {
@@ -473,8 +486,9 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    flexShrink: 0,
   },
-  filaTxt: { flex: 1, minWidth: 0 },
+  filaTxt: { flex: 1, minWidth: 0, flexShrink: 1, zIndex: 1 },
   filaChips: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' },
   tipoChip: {
     borderWidth: 1,
@@ -484,8 +498,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.15)',
   },
   tipoChipTxt: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
-  filaTit: { color: colors.text, fontWeight: '800', fontSize: 16, lineHeight: 22 },
-  filaSub: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 4 },
+  filaTit: {
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 16,
+    lineHeight: 22,
+    flexShrink: 1,
+  },
+  filaSub: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+    flexShrink: 1,
+  },
   flechaPill: {
     width: 32,
     height: 32,
@@ -494,6 +520,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 4,
+    flexShrink: 0,
   },
   flechaSpacer: { width: 8 },
 });
