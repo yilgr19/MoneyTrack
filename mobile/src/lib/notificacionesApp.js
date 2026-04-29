@@ -260,8 +260,9 @@ function notificacionesCategorias(state, ref) {
 }
 
 /**
- * Aviso cuando el gasto del mes (según reglas de la app) supera el tope fijado en presupuesto mensual.
- * Cinco títulos y cinco detalles en rotación diaria, tono alineado al resto de avisos; máx. 2 emojis por frase.
+ * Aviso cuando el gasto del mes supera el presupuesto mensual.
+ * Títulos: solo gastado y disponible (negativo = exceso); no se muestra la cifra del límite/tope.
+ * Cinco títulos y cinco detalles en rotación diaria; máx. 2 emojis por frase.
  */
 function notificacionesPresupuestoMensual(state, ref) {
   const ahora = ref instanceof Date ? ref : new Date();
@@ -276,7 +277,6 @@ function notificacionesPresupuestoMensual(state, ref) {
   );
   if (gastosMes <= tope) return [];
   const ymd = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
-  const topeT = formatearNumero(tope, 0);
   const gTxt = formatearNumero(gastosMes, 0);
   const exceso = gastosMes - tope;
   const exT = formatearNumero(exceso, 0);
@@ -290,18 +290,18 @@ function notificacionesPresupuestoMensual(state, ref) {
       severidad: 'danger',
       puntuacionOrden: 875_000,
       titulo: rotarFrase(`presup-tit-${ymd}`, [
-        `Tope del mes roto: gastos ${gTxt}${mS} y planeaste ${topeT}${mS} 📊`,
-        `Te pasaste del presupuesto: ${gTxt}${mS} frente a ${topeT}${mS} tope. ⚠️`,
-        `En rojo: +${exT}${mS} sobre el tope anotado del mes. 🔥`,
-        `Las salidas del mes superan el límite: ${gTxt} vs tope ${topeT}. 📉`,
-        `Presupuesto mensual desbordado: vas a ${gTxt}${mS} y el tope era ${topeT}. ✋`,
+        `Gastado: ${gTxt}${mS} · Disponible: −${exT}${mS} 📉`,
+        `Este mes: ${gTxt}${mS} en gastos; disponible agotado (−${exT}${mS}). ⚠️`,
+        `Salidas ${gTxt}${mS} · sin margen (−${exT}${mS} disponible). 🔥`,
+        `Llevas ${gTxt}${mS} gastados; disponible −${exT}${mS}. ✋`,
+        `Gastado del mes ${gTxt}${mS} · exceso ${exT}${mS} sobre lo disponible. 📊`,
       ]),
       detalle: rotarFrase(`presup-det-${ymd}`, [
-        `Inicio y Saldo: revisa; puedes bajar tope a la realidad o revisar solo el ritmo. Gastos: detalle. 💡`,
-        `Ajusta el tope en Saldo si asumías poco, o ajusta gastos: el “disponible” baja con cada salida. ⏱️`,
-        `Pista: Ingreso no sube el tope: es otra cifra. El tope es solo tope de gasto del calendario. 🧭`,
-        `Nada de drama: frena un poco o edita tope. Así vuelve a cuadrar con lo que quieres este mes. ✨`,
-        `Más abajo en Inicio verás análisis por categoría; en Saldo el número del tope mensual. 📝`,
+        `Solo ves gastado y disponible en este aviso.\nInicio y Gastos: desglose. 💡`,
+        `La cifra máxima del mes no se repite aquí.\nSaldo: si quieres revisarla o cambiarla. ⏱️`,
+        `Disponible en negativo: vas por encima de lo que fijaste para gastar este mes.\nEl aviso no muestra esa cifra límite. 🧭`,
+        `Ajusta ritmo en Inicio o el límite mensual en Saldo.\nAquí solo resumen gastado / disponible. ✨`,
+        `“Disponible” es lo que aún cupo del mes; si es negativo, ya pasaste ese margen.\nSin mostrar el límite en números en el aviso. 📝`,
       ]),
     },
   ];

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { DeseosCompraBell } from './DeseosCompraBell';
+import { PresupuestoMedidorBell } from './PresupuestoMedidorBell';
 import { NotificacionBell } from './NotificacionBell';
 import { spacing, typography } from '../theme';
 
@@ -17,6 +18,7 @@ export function HeaderConCampana({ label, title, subtitle }) {
         </View>
         <View style={styles.iconsRow}>
           <DeseosCompraBell />
+          <PresupuestoMedidorBell />
           <NotificacionBell />
         </View>
       </View>

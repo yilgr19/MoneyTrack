@@ -423,6 +423,7 @@ export default function HomeScreen() {
       estadoMsg,
       estadoDetalle,
       estadoKind,
+      disponiblePresupuesto: presupuestoMensual - gastosMesActual,
     };
   }, [
     state,
@@ -442,10 +443,26 @@ export default function HomeScreen() {
     return null;
   }
 
-  const pctPresupuesto =
+  const pctPresupuestoReal =
     derived.presupuestoMensual > 0
-      ? Math.min(100, (derived.gastosMesActual / derived.presupuestoMensual) * 100)
+      ? (derived.gastosMesActual / derived.presupuestoMensual) * 100
       : 0;
+  const presupuestoBarColors =
+    pctPresupuestoReal >= 100
+      ? ['#fb7185', '#9f1239']
+      : pctPresupuestoReal >= 80
+        ? ['#fbbf24', '#c2410c']
+        : ['#4ade80', '#14b8a6'];
+  const presupuestoTituloColor =
+    derived.estadoKind === 'ok'
+      ? colors.mint
+      : derived.estadoKind === 'cuidado'
+        ? colors.warning
+        : derived.estadoKind === 'alerta'
+          ? colors.orange
+          : derived.estadoKind === 'superado'
+            ? colors.danger
+            : colors.textSecondary;
 
   const cuentasPatrimonioBloque = useMemo(() => {
     const list = derived.cuentasInicioPatrimonio;
@@ -1106,87 +1123,125 @@ export default function HomeScreen() {
         )}
       </UICard>
 
-      <UICard>
-        <Text style={typography.label}>Presupuesto mensual</Text>
-        <View style={styles.guiaPresup}>
-          <Text style={styles.guiaPresupTit}>Guía rápida</Text>
-          <Text style={styles.guiaPresupTxt}>
-            <Text style={styles.guiaPresupBold}>Tope</Text> = límite de gasto del mes (lo fijas tú).{' '}
-            <Text style={styles.guiaPresupBold}>Disponible</Text> = tope − gastos del mes.{' '}
-            <Text style={styles.guiaPresupBold}>Ingreso</Text> y <Text style={styles.guiaPresupBold}>flujo</Text> son
-            informativos (entradas y entradas − gastos); no suman al tope.
-          </Text>
-        </View>
-        {derived.presupuestoMensual > 0 ? (
-          <>
-            <View style={layoutStyles.rowBetween}>
-              <Text style={[typography.body, layoutStyles.rowLabel]}>Planeado (tope)</Text>
-              <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
-                {formatearNumero(derived.presupuestoMensual)} {moneda}
-              </Text>
-            </View>
-            <View style={layoutStyles.rowBetween}>
-              <Text style={[typography.body, layoutStyles.rowLabel]}>Ingresos (mes)</Text>
-              <Text style={[typography.monoAmount, layoutStyles.rowValue, { color: colors.mint }]}>
-                +{formatearNumero(derived.ingresosMesActual)} {moneda}
-              </Text>
-            </View>
-            <View style={layoutStyles.rowBetween}>
-              <Text style={[typography.body, layoutStyles.rowLabel]}>Gastos (mes)</Text>
-              <Text style={[typography.monoAmount, layoutStyles.rowValue, { color: colors.danger }]}>
-                −{formatearNumero(derived.gastosMesActual)} {moneda}
-              </Text>
-            </View>
-            <View style={layoutStyles.rowBetween}>
-              <Text style={[typography.body, layoutStyles.rowLabel]}>Flujo (mes)</Text>
-              <Text
-                style={[
-                  typography.monoAmount,
-                  layoutStyles.rowValue,
-                  { color: derived.flujoMes >= 0 ? colors.mint : colors.danger },
-                ]}
-              >
-                {derived.flujoMes >= 0 ? '+' : ''}
-                {formatearNumero(derived.flujoMes)} {moneda}
-              </Text>
-            </View>
-            <View style={layoutStyles.rowBetween}>
-              <Text style={[typography.body, layoutStyles.rowLabel]}>Disponible (tope)</Text>
-              <Text style={[typography.monoAmount, layoutStyles.rowValue, { color: colors.mint }]}>
-                {formatearNumero(Math.max(0, derived.presupuestoMensual - derived.gastosMesActual))}{' '}
-                {moneda}
-              </Text>
-            </View>
-            <Text style={[typography.small, { marginBottom: spacing.sm, color: colors.textFaint, marginTop: 2 }]}>
-              Disponible = tope − gastos (el ingreso no sube este saldo)
-            </Text>
-            <View style={styles.barBg}>
+      <View style={styles.presupuestoWrap}>
+        <LinearGradient
+          colors={['rgba(91, 33, 182, 0.35)', 'rgba(12, 8, 18, 0.97)', 'rgba(8, 20, 28, 0.98)']}
+          locations={[0, 0.45, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.presupuestoGrad}
+        >
+          <View style={styles.presupuestoHeadCol}>
+            <View style={styles.presupuestoHeadRow}>
               <LinearGradient
-                colors={['rgba(88, 82, 108, 0.85)', 'rgba(60, 52, 78, 0.95)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.barFill, { width: `${pctPresupuesto}%` }]}
-              />
+                colors={['rgba(167, 139, 250, 0.5)', 'rgba(45, 212, 191, 0.25)']}
+                style={styles.presupuestoIconCirc}
+              >
+                <Ionicons name="speedometer-outline" size={26} color={colors.accentBright} />
+              </LinearGradient>
+              <View style={styles.presupuestoHeadTxt}>
+                <Text style={styles.presupuestoEyebrow}>Presupuesto del mes</Text>
+                {derived.presupuestoMensual > 0 ? (
+                  <>
+                    <Text style={[styles.presupuestoEstadoTit, { color: presupuestoTituloColor }]}>
+                      {derived.estadoMsg}
+                    </Text>
+                    {derived.estadoDetalle ? (
+                      <Text style={styles.presupuestoEstadoSub}>{derived.estadoDetalle}</Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <Text style={styles.presupuestoEstadoSub}>
+                    Define un tope para ver el semáforo del mes · también en Saldo inicial
+                  </Text>
+                )}
+              </View>
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert('Presupuesto', '¿Eliminar presupuesto?', [
-                  { text: 'Cancelar', style: 'cancel' },
-                  {
-                    text: 'Eliminar',
-                    style: 'destructive',
-                    onPress: () => replaceState((s) => ({ ...s, presupuestoMensual: 0 })),
-                  },
-                ]);
-              }}
-            >
-              <Text style={styles.link}>Eliminar presupuesto</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <PresupuestoQuickInput onSave={guardarPresupuesto} />
-        )}
-      </UICard>
+            {derived.presupuestoMensual > 0 ? (
+              <View style={styles.presupuestoPctRow}>
+                <View style={styles.presupuestoPctRing}>
+                  <Text style={styles.presupuestoPctBig}>{Math.min(999, Math.round(pctPresupuestoReal))}</Text>
+                  <Text style={styles.presupuestoPctSuf}>%</Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+
+          {derived.presupuestoMensual > 0 ? (
+            <>
+              <View style={styles.presupuestoBarOuter}>
+                <LinearGradient
+                  colors={presupuestoBarColors}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={[
+                    styles.presupuestoBarFill,
+                    {
+                      width: `${Math.min(100, pctPresupuestoReal)}%`,
+                      minWidth: pctPresupuestoReal > 0.5 ? 4 : 0,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.presupuestoGrid}>
+                <View style={styles.presupuestoCell}>
+                  <Text style={styles.presupuestoCellLab}>Tope</Text>
+                  <Text style={styles.presupuestoCellVal} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+                    {formatearNumero(derived.presupuestoMensual)} {moneda}
+                  </Text>
+                </View>
+                <View style={[styles.presupuestoCell, styles.presupuestoCellSecond]}>
+                  <Text style={styles.presupuestoCellLab}>Queda</Text>
+                  <Text
+                    style={[
+                      styles.presupuestoCellVal,
+                      {
+                        color:
+                          derived.disponiblePresupuesto > 0
+                            ? colors.mint
+                            : derived.disponiblePresupuesto < 0
+                              ? colors.danger
+                              : colors.textSecondary,
+                      },
+                    ]}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                  >
+                    {formatearNumero(derived.disponiblePresupuesto)} {moneda}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.presupuestoIngresoFlujo}>
+                Ingresos {formatearNumero(derived.ingresosMesActual)} {moneda} · Flujo{' '}
+                <Text style={{ color: derived.flujoMes >= 0 ? colors.mint : colors.danger }}>
+                  {derived.flujoMes >= 0 ? '+' : ''}
+                  {formatearNumero(derived.flujoMes)} {moneda}
+                </Text>
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert('Presupuesto', '¿Eliminar presupuesto?', [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                      text: 'Eliminar',
+                      style: 'destructive',
+                      onPress: () => replaceState((s) => ({ ...s, presupuestoMensual: 0 })),
+                    },
+                  ]);
+                }}
+                style={styles.presupuestoEliminarTouch}
+              >
+                <Text style={styles.presupuestoEliminarTxt}>Eliminar presupuesto</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.presupuestoQuickSlot}>
+              <PresupuestoQuickInput onSave={guardarPresupuesto} />
+            </View>
+          )}
+        </LinearGradient>
+      </View>
 
       <UICard>
         <Text style={typography.label}>Últimos movimientos</Text>
@@ -1305,26 +1360,147 @@ function PresupuestoQuickInput({ onSave }) {
 }
 
 const styles = StyleSheet.create({
-  guiaPresup: {
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: radii.md,
-    padding: spacing.md,
+  presupuestoWrap: {
+    marginBottom: spacing.md,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.35)',
+    ...Platform.select({
+      ios: shadows.soft,
+      android: { elevation: 6 },
+      default: {},
+    }),
+  },
+  presupuestoGrad: {
+    padding: spacing.lg,
+    borderRadius: radii.xl,
+  },
+  presupuestoHeadCol: {
+    width: '100%',
+    minWidth: 0,
+    marginBottom: spacing.md,
+  },
+  presupuestoHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    width: '100%',
+    minWidth: 0,
+  },
+  presupuestoPctRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+    marginTop: spacing.sm,
+    minWidth: 0,
+  },
+  presupuestoIconCirc: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    flexShrink: 0,
+  },
+  presupuestoHeadTxt: { flex: 1, minWidth: 0, alignSelf: 'stretch' },
+  presupuestoEyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.3,
+    textTransform: 'uppercase',
+    color: colors.accent,
+    marginBottom: 6,
+  },
+  presupuestoEstadoTit: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    lineHeight: 26,
+    flexShrink: 1,
+    alignSelf: 'stretch',
+  },
+  presupuestoEstadoSub: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 20,
+    fontWeight: '500',
+    flexShrink: 1,
+    alignSelf: 'stretch',
+  },
+  presupuestoPctRing: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    flexShrink: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.lg,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  presupuestoPctBig: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
+  },
+  presupuestoPctSuf: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.textMuted,
+    marginLeft: 1,
+  },
+  presupuestoBarOuter: {
+    height: 11,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    overflow: 'hidden',
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    borderLeftWidth: 3,
-    borderLeftColor: 'rgba(160, 140, 190, 0.55)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  guiaPresupTit: {
+  presupuestoBarFill: {
+    height: '100%',
+    borderRadius: radii.pill,
+  },
+  presupuestoGrid: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  presupuestoCell: { flex: 1, minWidth: 0 },
+  presupuestoCellSecond: {
+    borderLeftWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingLeft: spacing.md,
+  },
+  presupuestoCellLab: {
     fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 1.1,
+    fontWeight: '700',
+    color: colors.textFaint,
     textTransform: 'uppercase',
-    marginBottom: spacing.xs,
-    color: colors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: 4,
   },
-  guiaPresupTxt: { ...typography.small, color: colors.textSecondary, lineHeight: 20 },
-  guiaPresupBold: { fontWeight: '600', color: colors.text },
+  presupuestoCellVal: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
+  },
+  presupuestoIngresoFlujo: {
+    fontSize: 12,
+    color: colors.textFaint,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  presupuestoEliminarTouch: { alignSelf: 'center', paddingVertical: spacing.xs },
+  presupuestoEliminarTxt: { color: colors.accentBright, fontWeight: '700', fontSize: 14 },
+  presupuestoQuickSlot: { marginTop: spacing.xs },
   analisisSectionTit: {
     fontSize: 10,
     fontWeight: '600',

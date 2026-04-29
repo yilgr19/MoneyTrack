@@ -71,7 +71,8 @@ function NotificacionFila({ it, index, open, onTarjeta, esTocable }) {
         duration: 420,
         delay,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        /* opacity + texto: con driver nativo a veces el texto queda en una sola línea recortada (Android) */
+        useNativeDriver: false,
       }),
       Animated.spring(y, {
         toValue: 0,
@@ -117,8 +118,12 @@ function NotificacionFila({ it, index, open, onTarjeta, esTocable }) {
             </View>
             <Ionicons name={s.icon} size={15} color={s.color} style={{ marginLeft: 4 }} />
           </View>
-          <Text style={styles.filaTit}>{it.titulo}</Text>
-          <Text style={styles.filaSub}>{it.detalle}</Text>
+          <Text style={styles.filaTit} selectable>
+            {it.titulo}
+          </Text>
+          <Text style={styles.filaSub} selectable>
+            {it.detalle}
+          </Text>
         </View>
         {esTocable ? (
           <View style={styles.flechaPill}>
@@ -305,7 +310,7 @@ export function NotificacionBell() {
             ) : (
               <ScrollView
                 style={styles.list}
-                contentContainerStyle={{ paddingBottom: spacing.xl }}
+                contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
@@ -398,7 +403,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   titBloque: { flex: 1, minWidth: 0, marginRight: spacing.sm },
-  titFilaIcon: { flexDirection: 'row', alignItems: 'flex-start' },
+  titFilaIcon: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'stretch',
+  },
   titTxtCol: { flex: 1, minWidth: 0, flexShrink: 1, paddingRight: 2 },
   titIconCirc: {
     width: 48,
@@ -418,6 +429,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 25,
     flexShrink: 1,
+    width: '100%',
   },
   contadorFila: { marginTop: spacing.md },
   contPill: {
@@ -450,8 +462,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     lineHeight: 19,
     flexShrink: 1,
+    width: '100%',
   },
-  list: { maxHeight: 500 },
+  list: { maxHeight: 500, width: '100%' },
+  listContent: { paddingBottom: spacing.xl, width: '100%' },
   vacioBox: { alignItems: 'center', paddingVertical: spacing.xl + spacing.md, paddingHorizontal: spacing.md },
   vacioHalo: {
     width: 120,
@@ -464,7 +478,13 @@ const styles = StyleSheet.create({
   },
   vacioTit: { fontSize: 20, fontWeight: '800', color: colors.text, marginTop: spacing.lg, textAlign: 'center' },
   vacioSub: { ...typography.body, textAlign: 'center', marginTop: spacing.sm, color: colors.textSecondary },
-  filaPress: { marginBottom: spacing.md, borderRadius: radii.lg, overflow: 'visible' },
+  filaPress: {
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
+    overflow: 'visible',
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   filaPressOn: { transform: [{ scale: 0.99 }] },
   filaCard: {
     borderRadius: radii.lg,
@@ -473,10 +493,19 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     overflow: 'hidden',
     padding: spacing.md,
+    paddingBottom: spacing.md + 4,
     position: 'relative',
+    width: '100%',
+    alignSelf: 'stretch',
   },
   filaGrad: { ...StyleSheet.absoluteFillObject },
-  filaTop: { flexDirection: 'row', alignItems: 'flex-start' },
+  filaTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'stretch',
+  },
   iconHalo: {
     width: 48,
     height: 48,
@@ -488,7 +517,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     flexShrink: 0,
   },
-  filaTxt: { flex: 1, minWidth: 0, flexShrink: 1, zIndex: 1 },
+  filaTxt: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    zIndex: 1,
+    alignSelf: 'stretch',
+  },
   filaChips: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' },
   tipoChip: {
     borderWidth: 1,
@@ -504,13 +539,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     flexShrink: 1,
+    alignSelf: 'stretch',
   },
   filaSub: {
     color: colors.textSecondary,
     fontSize: 14,
-    lineHeight: 20,
-    marginTop: 4,
+    lineHeight: 21,
+    marginTop: 6,
     flexShrink: 1,
+    alignSelf: 'stretch',
   },
   flechaPill: {
     width: 32,
