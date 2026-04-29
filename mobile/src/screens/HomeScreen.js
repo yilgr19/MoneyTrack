@@ -335,6 +335,33 @@ export default function HomeScreen() {
     };
   }, [ingresoMesAhorro, porcentajeAhorroSobreIngreso]);
 
+  const ahorroCeroPulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const cero = ingresoMesAhorro > 0 && segmentosAhorroBolsillosMetas.length === 0;
+    if (!cero) {
+      ahorroCeroPulse.setValue(1);
+      return undefined;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ahorroCeroPulse, {
+          toValue: 1.05,
+          duration: 1500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(ahorroCeroPulse, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [ingresoMesAhorro, segmentosAhorroBolsillosMetas.length]);
+
   const indiceMensajeAhorro = useMemo(() => {
     const s = Math.floor(
       totalAhorroBolsillosYMetas * 3 + ingresoMesAhorro * 2 + (derived.totalAportesMetas || 0)
@@ -445,7 +472,7 @@ export default function HomeScreen() {
 
   const chartsStack = winW < 400;
   const chartSize = chartsStack ? 148 : 136;
-  const chartSizeAhorro = Math.min(200, Math.max(160, winW * 0.48));
+  const chartSizeAhorro = Math.min(228, Math.max(172, Math.round(winW * 0.52)));
 
   const FRASES_AHORRO_30_SI = [
     '¡Lo lograste! Tu ahorro en bolsillos y metas suma al menos el 30% de lo que entra este mes. Sigue reforzando el hábito: cada quincena cuenta.',
@@ -836,18 +863,43 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.chartPanel, styles.chartPanelFull, styles.ahorroPanel]}>
-          <Text style={styles.ahorroPanelTit}>Ahorro: bolsillos · metas</Text>
+        <LinearGradient
+          colors={['rgba(45, 212, 191, 0.16)', 'rgba(167, 216, 222, 0.1)', 'rgba(20, 14, 28, 0.94)']}
+          locations={[0, 0.38, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.chartPanel, styles.chartPanelFull, styles.ahorroPanel, styles.ahorroPanelGrad]}
+        >
+          <View style={styles.ahorroHeaderRow}>
+            <LinearGradient
+              colors={['rgba(125, 193, 145, 0.55)', 'rgba(167, 216, 222, 0.4)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.ahorroIconBadge}
+            >
+              <Ionicons name="sparkles" size={22} color={colors.text} />
+            </LinearGradient>
+            <View style={styles.ahorroHeaderText}>
+              <Text style={styles.ahorroPanelTit}>Ahorro: bolsillos · metas</Text>
+              <Text style={styles.ahorroPanelTagline}>Visual dinámico vs tu ingreso del mes</Text>
+            </View>
+          </View>
           <Text style={styles.ahorroPanelSub}>
-            Ahorro considerado: {formatearNumero(derived.totalEnBolsillos)} {moneda} (bolsillos) + {formatearNumero(derived.totalAportesMetas)} {moneda} (metas) ={' '}
+            Ahorro considerado: {formatearNumero(derived.totalEnBolsillos)} {moneda} (bolsillos) +{' '}
+            {formatearNumero(derived.totalAportesMetas)} {moneda} (metas) ={' '}
             <Text style={{ fontWeight: '700', color: colors.text }}>{formatearNumero(totalAhorroBolsillosYMetas)} {moneda}</Text>
             {ingresoMesAhorro > 0
               ? ` · Guía: al menos 30% del ingreso del mes = ${formatearNumero(ingresoMesAhorro * 0.3)} ${moneda}`
               : ' · Añade ingresos del mes para calcular el % y la guía del 30%.'}
           </Text>
           {ingresoMesAhorro > 0 && !segmentosAhorroBolsillosMetas.length ? (
-            <View style={styles.ahorroCeroBloq}>
-              <Ionicons name="wallet-outline" size={36} color={colors.textFaint} style={{ marginBottom: spacing.sm }} />
+            <Animated.View style={[styles.ahorroCeroBloq, { transform: [{ scale: ahorroCeroPulse }] }]}>
+              <LinearGradient
+                colors={['rgba(125, 193, 145, 0.2)', 'rgba(217, 180, 74, 0.12)']}
+                style={styles.ahorroCeroRing}
+              >
+                <Ionicons name="wallet-outline" size={38} color={colors.mint} />
+              </LinearGradient>
               <Text style={styles.ahorroCeroPct}>0%</Text>
               <Text style={styles.ahorroCeroLey} numberOfLines={2}>
                 del ingreso (mes) en bolsillos + metas
@@ -855,7 +907,7 @@ export default function HomeScreen() {
               <Text style={styles.ahorroMetaG}>
                 Mínimo sugerido 30%: {formatearNumero(ingresoMesAhorro * 0.3)} {moneda}
               </Text>
-            </View>
+            </Animated.View>
           ) : (
             <DonutChart
               segments={segmentosAhorroBolsillosMetas}
@@ -885,7 +937,7 @@ export default function HomeScreen() {
               podemos comparar bolsillos+metas con el 30% recomendado.
             </Text>
           )}
-        </View>
+        </LinearGradient>
         {derived.mayorGasto ? (
           <Text style={typography.body}>
             Mayor gasto: <Text style={{ fontWeight: '700', color: colors.text }}>{derived.mayorGasto.nombre}</Text> —{' '}
@@ -1213,16 +1265,43 @@ const styles = StyleSheet.create({
   chartPanelFull: { maxWidth: '100%', width: '100%' },
   ahorroPanel: {
     marginTop: spacing.sm,
-    borderColor: 'rgba(125, 193, 145, 0.22)',
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    borderColor: 'rgba(125, 193, 145, 0.35)',
+    borderWidth: 1,
+    overflow: 'hidden',
+    ...shadows.soft,
   },
+  /** Evita que el fondo sólido de `chartPanel` tape el degradado del panel de ahorro */
+  ahorroPanelGrad: { backgroundColor: 'transparent' },
+  ahorroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  ahorroIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  ahorroHeaderText: { flex: 1, minWidth: 0 },
   ahorroPanelTit: {
     fontSize: 10,
     fontWeight: '600',
     color: colors.textMuted,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-    marginBottom: spacing.sm,
+    marginBottom: 4,
+  },
+  ahorroPanelTagline: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.mint,
+    letterSpacing: 0.2,
+    opacity: 0.95,
   },
   ahorroPanelSub: {
     ...typography.small,
@@ -1235,7 +1314,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     marginBottom: spacing.sm,
   },
-  ahorroCeroPct: { fontSize: 36, fontWeight: '800', color: colors.text, fontVariant: ['tabular-nums'] },
+  ahorroCeroRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 193, 145, 0.35)',
+  },
+  ahorroCeroPct: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: colors.mint,
+    fontVariant: ['tabular-nums'],
+  },
   ahorroCeroLey: { fontSize: 12, color: colors.textFaint, textAlign: 'center', marginTop: 2 },
   ahorroMetaG: { fontSize: 13, fontWeight: '600', color: colors.warning, marginTop: spacing.md },
   ahorroMens: { fontSize: 14, lineHeight: 22, marginTop: spacing.md, padding: spacing.md, borderRadius: radii.md },
