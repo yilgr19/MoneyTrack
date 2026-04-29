@@ -1,11 +1,9 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
-  Alert,
   useWindowDimensions,
   Animated,
   Easing,
@@ -21,7 +19,6 @@ import { NotificacionBell } from '../components/NotificacionBell';
 import UICard from '../components/UICard';
 import DonutChart from '../components/charts/DonutChart';
 import CategoriaGastoBarFun from '../components/CategoriaGastoBarFun';
-import { PrimaryButton } from '../components/Buttons';
 import { useApp, tieneDatosPrevios } from '../context/AppContext';
 import {
   formatearNumero,
@@ -228,7 +225,7 @@ const cuentaPatStyles = StyleSheet.create({
 });
 
 export default function HomeScreen() {
-  const { state, ready, replaceState } = useApp();
+  const { state, ready } = useApp();
   const navigation = useNavigation();
   const { width: winW } = useWindowDimensions();
   const moneda = state?.moneda || '';
@@ -256,7 +253,6 @@ export default function HomeScreen() {
         flujoMes: 0,
         totalGastos: 0,
         alertaTc: { mostrar: false, limite: 0, gastado: 0, porcentaje: 0, tarjetas: [] },
-        presupuestoMensual: 0,
         mayorGasto: null,
         categoriasData: [],
         gastosMesPorCategoria: {},
@@ -266,9 +262,6 @@ export default function HomeScreen() {
         mesActual: new Date().getMonth(),
         añoActual: new Date().getFullYear(),
         nombreMes,
-        estadoMsg: '',
-        estadoDetalle: '',
-        estadoKind: 'info',
         cuentasInicio: [],
         cuentasInicioPatrimonio: [],
         mostrarTarjetaCupoAparte: false,
@@ -319,7 +312,6 @@ export default function HomeScreen() {
     );
     const flujoMes = ingresosMesActual - gastosMesActual;
     const alertaTc = verificarAlertaTarjetaCredito(state);
-    const presupuestoMensual = state.presupuestoMensual || 0;
 
     const gastosConEfectoMes = gastos.map((g) => ({
       g,
@@ -352,36 +344,6 @@ export default function HomeScreen() {
       })
       .slice(0, 8);
 
-    let estadoMsg = '';
-    let estadoDetalle = '';
-    let estadoKind = 'info';
-    if (presupuestoMensual <= 0) {
-      estadoMsg = 'Sin tope mensual no hay semáforo (abajo o Saldo).';
-      if (ingresosMesActual > 0 || gastosMesActual > 0) {
-        estadoDetalle = `+${formatearNumero(ingresosMesActual)} / flujo ${formatearNumero(flujoMes)} ${moneda}`;
-      }
-    } else {
-      const disponible = presupuestoMensual - gastosMesActual;
-      const pctUsado = (gastosMesActual / presupuestoMensual) * 100;
-      if (disponible > 0 && pctUsado < 80) {
-        estadoMsg = '¡Dentro del tope!';
-        estadoDetalle = `Quedan ${formatearNumero(disponible)} ${moneda} de tu límite de gasto.`;
-        estadoKind = 'ok';
-      } else if (disponible > 0 && pctUsado >= 80) {
-        estadoMsg = 'Cerca del tope del mes';
-        estadoDetalle = `Quedan ${formatearNumero(disponible)} ${moneda}.`;
-        estadoKind = 'cuidado';
-      } else if (disponible === 0) {
-        estadoMsg = 'Límite de gasto alcanzado';
-        estadoDetalle = `${formatearNumero(presupuestoMensual)} ${moneda} este mes.`;
-        estadoKind = 'alerta';
-      } else {
-        estadoMsg = 'Sobre el tope fijado';
-        estadoDetalle = `+${formatearNumero(Math.abs(disponible))} ${moneda} sobre límite.`;
-        estadoKind = 'superado';
-      }
-    }
-
     const cuentasInicio = CUENTAS.filter((c) =>
       cuentaVisibleEnResumenInicio(c.id, state, saldosPorCuenta)
     );
@@ -409,7 +371,6 @@ export default function HomeScreen() {
       flujoMes,
       totalGastos,
       alertaTc,
-      presupuestoMensual,
       mayorGasto,
       categoriasData,
       gastosMesPorCategoria,
@@ -420,10 +381,6 @@ export default function HomeScreen() {
       mesActual,
       añoActual,
       nombreMes,
-      estadoMsg,
-      estadoDetalle,
-      estadoKind,
-      disponiblePresupuesto: presupuestoMensual - gastosMesActual,
     };
   }, [
     state,
@@ -442,27 +399,6 @@ export default function HomeScreen() {
   if (!ready || !state) {
     return null;
   }
-
-  const pctPresupuestoReal =
-    derived.presupuestoMensual > 0
-      ? (derived.gastosMesActual / derived.presupuestoMensual) * 100
-      : 0;
-  const presupuestoBarColors =
-    pctPresupuestoReal >= 100
-      ? ['#fb7185', '#9f1239']
-      : pctPresupuestoReal >= 80
-        ? ['#fbbf24', '#c2410c']
-        : ['#4ade80', '#14b8a6'];
-  const presupuestoTituloColor =
-    derived.estadoKind === 'ok'
-      ? colors.mint
-      : derived.estadoKind === 'cuidado'
-        ? colors.warning
-        : derived.estadoKind === 'alerta'
-          ? colors.orange
-          : derived.estadoKind === 'superado'
-            ? colors.danger
-            : colors.textSecondary;
 
   const cuentasPatrimonioBloque = useMemo(() => {
     const list = derived.cuentasInicioPatrimonio;
@@ -666,14 +602,6 @@ export default function HomeScreen() {
   const fraseAhorroMotiv = ahorroSuperaTercioIngreso
     ? FRASES_AHORRO_30_SI[indiceMensajeAhorro]
     : FRASES_AHORRO_30_NO[indiceMensajeAhorro];
-
-  function guardarPresupuesto(val) {
-    const n = parseFloat(val) || 0;
-    replaceState((s) => ({
-      ...s,
-      presupuestoMensual: n > 0 ? n : 0,
-    }));
-  }
 
   if (!tieneDatosPrevios(state)) {
     return (
@@ -1123,126 +1051,6 @@ export default function HomeScreen() {
         )}
       </UICard>
 
-      <View style={styles.presupuestoWrap}>
-        <LinearGradient
-          colors={['rgba(91, 33, 182, 0.35)', 'rgba(12, 8, 18, 0.97)', 'rgba(8, 20, 28, 0.98)']}
-          locations={[0, 0.45, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.presupuestoGrad}
-        >
-          <View style={styles.presupuestoHeadCol}>
-            <View style={styles.presupuestoHeadRow}>
-              <LinearGradient
-                colors={['rgba(167, 139, 250, 0.5)', 'rgba(45, 212, 191, 0.25)']}
-                style={styles.presupuestoIconCirc}
-              >
-                <Ionicons name="speedometer-outline" size={26} color={colors.accentBright} />
-              </LinearGradient>
-              <View style={styles.presupuestoHeadTxt}>
-                <Text style={styles.presupuestoEyebrow}>Presupuesto del mes</Text>
-                {derived.presupuestoMensual > 0 ? (
-                  <>
-                    <Text style={[styles.presupuestoEstadoTit, { color: presupuestoTituloColor }]}>
-                      {derived.estadoMsg}
-                    </Text>
-                    {derived.estadoDetalle ? (
-                      <Text style={styles.presupuestoEstadoSub}>{derived.estadoDetalle}</Text>
-                    ) : null}
-                  </>
-                ) : (
-                  <Text style={styles.presupuestoEstadoSub}>
-                    Define un tope para ver el semáforo del mes · también en Saldo inicial
-                  </Text>
-                )}
-              </View>
-            </View>
-            {derived.presupuestoMensual > 0 ? (
-              <View style={styles.presupuestoPctRow}>
-                <View style={styles.presupuestoPctRing}>
-                  <Text style={styles.presupuestoPctBig}>{Math.min(999, Math.round(pctPresupuestoReal))}</Text>
-                  <Text style={styles.presupuestoPctSuf}>%</Text>
-                </View>
-              </View>
-            ) : null}
-          </View>
-
-          {derived.presupuestoMensual > 0 ? (
-            <>
-              <View style={styles.presupuestoBarOuter}>
-                <LinearGradient
-                  colors={presupuestoBarColors}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={[
-                    styles.presupuestoBarFill,
-                    {
-                      width: `${Math.min(100, pctPresupuestoReal)}%`,
-                      minWidth: pctPresupuestoReal > 0.5 ? 4 : 0,
-                    },
-                  ]}
-                />
-              </View>
-              <View style={styles.presupuestoGrid}>
-                <View style={styles.presupuestoCell}>
-                  <Text style={styles.presupuestoCellLab}>Tope</Text>
-                  <Text style={styles.presupuestoCellVal} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
-                    {formatearNumero(derived.presupuestoMensual)} {moneda}
-                  </Text>
-                </View>
-                <View style={[styles.presupuestoCell, styles.presupuestoCellSecond]}>
-                  <Text style={styles.presupuestoCellLab}>Queda</Text>
-                  <Text
-                    style={[
-                      styles.presupuestoCellVal,
-                      {
-                        color:
-                          derived.disponiblePresupuesto > 0
-                            ? colors.mint
-                            : derived.disponiblePresupuesto < 0
-                              ? colors.danger
-                              : colors.textSecondary,
-                      },
-                    ]}
-                    numberOfLines={2}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.85}
-                  >
-                    {formatearNumero(derived.disponiblePresupuesto)} {moneda}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.presupuestoIngresoFlujo}>
-                Ingresos {formatearNumero(derived.ingresosMesActual)} {moneda} · Flujo{' '}
-                <Text style={{ color: derived.flujoMes >= 0 ? colors.mint : colors.danger }}>
-                  {derived.flujoMes >= 0 ? '+' : ''}
-                  {formatearNumero(derived.flujoMes)} {moneda}
-                </Text>
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert('Presupuesto', '¿Eliminar presupuesto?', [
-                    { text: 'Cancelar', style: 'cancel' },
-                    {
-                      text: 'Eliminar',
-                      style: 'destructive',
-                      onPress: () => replaceState((s) => ({ ...s, presupuestoMensual: 0 })),
-                    },
-                  ]);
-                }}
-                style={styles.presupuestoEliminarTouch}
-              >
-                <Text style={styles.presupuestoEliminarTxt}>Eliminar presupuesto</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={styles.presupuestoQuickSlot}>
-              <PresupuestoQuickInput onSave={guardarPresupuesto} />
-            </View>
-          )}
-        </LinearGradient>
-      </View>
-
       <UICard>
         <Text style={typography.label}>Últimos movimientos</Text>
         {derived.gastos.length === 0 ? (
@@ -1333,174 +1141,7 @@ function Step({ n, text }) {
   );
 }
 
-function PresupuestoQuickInput({ onSave }) {
-  const [v, setV] = React.useState('');
-  const { width } = useWindowDimensions();
-  const stackVertical = width < 368;
-  return (
-    <View style={[styles.presRow, stackVertical && styles.presRowStack]}>
-      <TextInput
-        style={[styles.input, stackVertical && styles.inputStacked]}
-        value={v}
-        onChangeText={setV}
-        placeholder="Ej. 2000"
-        placeholderTextColor={colors.textFaint}
-        keyboardType="decimal-pad"
-      />
-      <PrimaryButton
-        title="Guardar"
-        style={stackVertical ? styles.presBtnStacked : { flexShrink: 0, minWidth: 108 }}
-        onPress={() => {
-          onSave(v);
-          setV('');
-        }}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  presupuestoWrap: {
-    marginBottom: spacing.md,
-    borderRadius: radii.xl,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.35)',
-    ...Platform.select({
-      ios: shadows.soft,
-      android: { elevation: 6 },
-      default: {},
-    }),
-  },
-  presupuestoGrad: {
-    padding: spacing.lg,
-    borderRadius: radii.xl,
-  },
-  presupuestoHeadCol: {
-    width: '100%',
-    minWidth: 0,
-    marginBottom: spacing.md,
-  },
-  presupuestoHeadRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    width: '100%',
-    minWidth: 0,
-  },
-  presupuestoPctRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    width: '100%',
-    marginTop: spacing.sm,
-    minWidth: 0,
-  },
-  presupuestoIconCirc: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    flexShrink: 0,
-  },
-  presupuestoHeadTxt: { flex: 1, minWidth: 0, alignSelf: 'stretch' },
-  presupuestoEyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.3,
-    textTransform: 'uppercase',
-    color: colors.accent,
-    marginBottom: 6,
-  },
-  presupuestoEstadoTit: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    lineHeight: 26,
-    flexShrink: 1,
-    alignSelf: 'stretch',
-  },
-  presupuestoEstadoSub: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 4,
-    lineHeight: 20,
-    fontWeight: '500',
-    flexShrink: 1,
-    alignSelf: 'stretch',
-  },
-  presupuestoPctRing: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-    flexShrink: 0,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radii.lg,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  presupuestoPctBig: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.text,
-    fontVariant: ['tabular-nums'],
-  },
-  presupuestoPctSuf: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.textMuted,
-    marginLeft: 1,
-  },
-  presupuestoBarOuter: {
-    height: 11,
-    borderRadius: radii.pill,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    overflow: 'hidden',
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  presupuestoBarFill: {
-    height: '100%',
-    borderRadius: radii.pill,
-  },
-  presupuestoGrid: {
-    flexDirection: 'row',
-    marginBottom: spacing.sm,
-    gap: spacing.md,
-  },
-  presupuestoCell: { flex: 1, minWidth: 0 },
-  presupuestoCellSecond: {
-    borderLeftWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    paddingLeft: spacing.md,
-  },
-  presupuestoCellLab: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textFaint,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 4,
-  },
-  presupuestoCellVal: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-    fontVariant: ['tabular-nums'],
-  },
-  presupuestoIngresoFlujo: {
-    fontSize: 12,
-    color: colors.textFaint,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  presupuestoEliminarTouch: { alignSelf: 'center', paddingVertical: spacing.xs },
-  presupuestoEliminarTxt: { color: colors.accentBright, fontWeight: '700', fontSize: 14 },
-  presupuestoQuickSlot: { marginTop: spacing.xs },
   analisisSectionTit: {
     fontSize: 10,
     fontWeight: '600',
@@ -1827,29 +1468,6 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   stepNum: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  presRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  presRowStack: { flexDirection: 'column', alignItems: 'stretch' },
-  presBtnStacked: { alignSelf: 'stretch', width: '100%' },
-  inputStacked: { marginRight: 0, width: '100%' },
-  input: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    color: colors.text,
-    fontSize: 16,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
   metaInicioFila: {
     flexDirection: 'row',
     alignItems: 'center',

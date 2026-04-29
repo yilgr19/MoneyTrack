@@ -17,8 +17,8 @@ export function HeaderConCampana({ label, title, subtitle }) {
           {title ? <Text style={typography.hero}>{title}</Text> : null}
         </View>
         <View style={styles.iconsRow}>
-          <DeseosCompraBell />
           <PresupuestoMedidorBell />
+          <DeseosCompraBell />
           <NotificacionBell />
         </View>
       </View>
