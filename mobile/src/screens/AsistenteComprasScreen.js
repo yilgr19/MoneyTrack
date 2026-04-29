@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import ScreenWrap from '../components/ScreenWrap';
@@ -34,12 +35,36 @@ import {
   ordenarLineasListaSuper,
   URGENCIA_LISTA_SUPER,
 } from '../lib/asistenteComprasLogic';
-import { colors, spacing, radii, typography } from '../theme';
+import { colors, spacing, radii, typography, shadows } from '../theme';
 
 const TABS = [
-  { id: 'intencion', label: 'Intención' },
-  { id: 'deseos', label: 'Deseos' },
-  { id: 'super', label: 'Súper / básicos' },
+  {
+    id: 'intencion',
+    label: 'Intención',
+    icon: 'flash-outline',
+    grad: ['rgba(167, 139, 250, 0.55)', 'rgba(91, 33, 182, 0.5)', 'rgba(30, 22, 40, 0.85)'],
+    border: 'rgba(196, 181, 253, 0.45)',
+    fg: '#f5f3ff',
+    fgMuted: 'rgba(196, 181, 253, 0.75)',
+  },
+  {
+    id: 'deseos',
+    label: 'Deseos',
+    icon: 'heart-outline',
+    grad: ['rgba(251, 113, 133, 0.45)', 'rgba(192, 38, 211, 0.42)', 'rgba(30, 22, 40, 0.88)'],
+    border: 'rgba(251, 182, 196, 0.42)',
+    fg: '#fdf2f8',
+    fgMuted: 'rgba(251, 182, 196, 0.72)',
+  },
+  {
+    id: 'super',
+    label: 'Súper / básicos',
+    icon: 'basket-outline',
+    grad: ['rgba(45, 212, 191, 0.5)', 'rgba(167, 216, 222, 0.38)', 'rgba(18, 14, 28, 0.9)'],
+    border: 'rgba(125, 211, 192, 0.5)',
+    fg: colors.text,
+    fgMuted: 'rgba(125, 211, 192, 0.7)',
+  },
 ];
 
 const LISTA_SUPER_BASE = [
@@ -430,16 +455,41 @@ export default function AsistenteComprasScreen({ route }) {
         Intenciones (sin gasto hasta que confirmes), valor y lista de súper guiada por tus registros.
       </Text>
 
-      <View style={styles.tabRow}>
-        {TABS.map((x) => (
-          <TouchableOpacity
-            key={x.id}
-            style={[styles.tabBtn, tab === x.id && styles.tabBtnActive]}
-            onPress={() => setTab(x.id)}
-          >
-            <Text style={[styles.tabLbl, tab === x.id && styles.tabLblActive]}>{x.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.tabSegmentOuter}>
+        {TABS.map((x) => {
+          const active = tab === x.id;
+          return (
+            <TouchableOpacity
+              key={x.id}
+              style={styles.tabSegTouch}
+              onPress={() => setTab(x.id)}
+              activeOpacity={0.88}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+            >
+              {active ? (
+                <LinearGradient
+                  colors={x.grad}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.tabSegActive, { borderColor: x.border }]}
+                >
+                  <Ionicons name={x.icon} size={22} color={x.fg} style={styles.tabSegIcon} />
+                  <Text style={[styles.tabSegLblOn, { color: x.fg }]} numberOfLines={2}>
+                    {x.label}
+                  </Text>
+                </LinearGradient>
+              ) : (
+                <View style={styles.tabSegIdle}>
+                  <Ionicons name={x.icon} size={20} color={x.fgMuted} style={styles.tabSegIcon} />
+                  <Text style={[styles.tabSegLblOff, { color: colors.textFaint }]} numberOfLines={2}>
+                    {x.label}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <ScrollView
@@ -840,20 +890,54 @@ export default function AsistenteComprasScreen({ route }) {
 
 const styles = StyleSheet.create({
   scrollMain: { flex: 1, backgroundColor: 'transparent' },
-  tabRow: { flexDirection: 'row', marginBottom: spacing.md },
-  tabBtn: {
-    flex: 1,
-    marginHorizontal: spacing.xs,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.md,
+  tabSegmentOuter: {
+    flexDirection: 'row',
+    marginBottom: spacing.lg,
+    padding: 5,
+    borderRadius: radii.xl,
+    backgroundColor: 'rgba(0,0,0,0.22)',
     borderWidth: 1,
-    borderColor: colors.stroke,
-    alignItems: 'center',
-    backgroundColor: colors.surfaceSolid,
+    borderColor: 'rgba(255,255,255,0.07)',
+    gap: 6,
   },
-  tabBtnActive: { borderColor: colors.chartBlue, backgroundColor: 'rgba(167, 216, 222, 0.08)' },
-  tabLbl: { ...typography.small, fontWeight: '600', color: colors.textMuted },
-  tabLblActive: { color: colors.text },
+  tabSegTouch: { flex: 1, minWidth: 0 },
+  tabSegActive: {
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 76,
+    overflow: 'hidden',
+    ...shadows.soft,
+  },
+  tabSegIdle: {
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 76,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  tabSegIcon: { marginBottom: 6 },
+  tabSegLblOn: {
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    lineHeight: 14,
+  },
+  tabSegLblOff: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 0.15,
+    lineHeight: 14,
+  },
   lab: { ...typography.label, marginTop: spacing.md, marginBottom: spacing.xs },
   input: {
     borderWidth: 1,
