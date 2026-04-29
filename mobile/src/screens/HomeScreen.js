@@ -35,6 +35,7 @@ import {
   normalizarCategoria,
   normalizarMeta,
   totalSaldoBolsillos,
+  parseFechaHoraLocal,
 } from '../lib/finance';
 import {
   colors,
@@ -157,7 +158,15 @@ export default function HomeScreen() {
 
     const metasData = state.metas || [];
     const totalAportesMetas = contribuciones.reduce((s, c) => s + (parseFloat(c.cantidad) || 0), 0);
-    const ultimosGastos = gastos.slice().reverse().slice(0, 8);
+    const ultimosGastos = gastos
+      .slice()
+      .sort((a, b) => {
+        const ta = parseFechaHoraLocal(a.fecha)?.getTime() ?? 0;
+        const tb = parseFechaHoraLocal(b.fecha)?.getTime() ?? 0;
+        if (tb !== ta) return tb - ta;
+        return String(b.nombre || '').localeCompare(String(a.nombre || ''));
+      })
+      .slice(0, 8);
 
     let estadoMsg = '';
     let estadoDetalle = '';
@@ -1051,15 +1060,23 @@ export default function HomeScreen() {
             <Text style={[typography.small, { marginBottom: spacing.sm, color: colors.textFaint }]}>
               Total: {formatearNumero(derived.totalGastos)} {moneda}
             </Text>
-            {derived.ultimosGastos.map((g, i) => (
-              <View key={i} style={styles.moveRow}>
-                <View style={styles.moveDot} />
-                <Text style={styles.moveText}>
-                  {g.nombre} · {formatearNumero(g.cantidad)} {moneda}{' '}
-                  <Text style={{ color: colors.textFaint }}>({g.categoria})</Text>
-                </Text>
-              </View>
-            ))}
+            {derived.ultimosGastos.map((g, i) => {
+              const fd = parseFechaHoraLocal(g.fecha);
+              const fTxt =
+                fd && !Number.isNaN(fd.getTime())
+                  ? fd.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
+                  : '';
+              return (
+                <View key={i} style={styles.moveRow}>
+                  <View style={styles.moveDot} />
+                  <Text style={styles.moveText}>
+                    {g.nombre}
+                    {fTxt ? ` · ${fTxt}` : ''} · {formatearNumero(g.cantidad)} {moneda}{' '}
+                    <Text style={{ color: colors.textFaint }}>({g.categoria})</Text>
+                  </Text>
+                </View>
+              );
+            })}
           </>
         )}
       </UICard>

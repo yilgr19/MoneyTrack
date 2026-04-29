@@ -5,6 +5,8 @@
   "scripts": {
     "start": "node scripts/run-expo.cjs start",
     "start:wifi": "node scripts/run-expo.cjs start --dev-client --lan --clear --port 8082",
+    "android:adb-reverse": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:8082 tcp:8082",
+    "android:purge-native-cache": "node scripts/purge-android-native-cache.cjs",
     "start:offline": "node scripts/run-expo.cjs start --offline",
     "start:web-mobile": "node scripts/run-expo.cjs start --web",
     "start:offline:web-mobile": "node scripts/run-expo.cjs start --offline --web",

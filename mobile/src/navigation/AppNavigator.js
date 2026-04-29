@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { rootNavigationRef } from './rootNavigationRef';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -51,6 +51,10 @@ const stackOptions = {
     color: colors.text,
   },
   headerShadowVisible: false,
+  /**
+   * Mismo tono que el tema: en Android, `transparent` en Native Stack suele dejar una capa oscura
+   * encima/detrás del contenido en varias versiones de react-native-screens.
+   */
   contentStyle: { flex: 1, backgroundColor: colors.bg },
 };
 
@@ -110,12 +114,28 @@ function tabActivaDesdeEstadoRoot(state) {
   return state.routes[state.index]?.name ?? 'Inicio';
 }
 
-export default function AppNavigator() {
-  const [rutaPestaña, setRutaPestaña] = useState('Inicio');
+/**
+ * El FAB (+) solo en Inicio/Saldo y en la rejilla Más. En pantallas empujadas (Bolsillos, Asistente…)
+ * se oculta: en varios Android el overlay absoluto tapaba el scroll aunque el botón fuera pequeño.
+ *
+ * `getFocusedRouteNameFromRoute` puede ser `undefined` si el estado del stack aún no está hidratado;
+ * antes caíamos en `?? 'MoreMenu'` y el FAB seguía visible encima de Asistente/Movimientos.
+ */
+function calcularFabVisible(navState) {
+  if (!navState?.routes) return true;
+  if (tabActivaDesdeEstadoRoot(navState) === 'Gastos') return false;
+  const tab = navState.routes[navState.index];
+  if (tab?.name !== 'Mas') return true;
+  const nested = getFocusedRouteNameFromRoute(tab);
+  return nested === 'MoreMenu';
+}
 
-  const syncPestañaActiva = useCallback((state) => {
+export default function AppNavigator() {
+  const [fabVisible, setFabVisible] = useState(true);
+
+  const sincronizarNavegacion = useCallback((state) => {
     if (state == null) return;
-    setRutaPestaña(tabActivaDesdeEstadoRoot(state));
+    setFabVisible(calcularFabVisible(state));
   }, []);
 
   return (
@@ -125,10 +145,10 @@ export default function AppNavigator() {
       onReady={() => {
         if (rootNavigationRef.isReady()) {
           const s = rootNavigationRef.getRootState();
-          if (s) setRutaPestaña(tabActivaDesdeEstadoRoot(s));
+          if (s) sincronizarNavegacion(s);
         }
       }}
-      onStateChange={syncPestañaActiva}
+      onStateChange={sincronizarNavegacion}
     >
       <NavegacionTrasOnboarding />
       <View style={{ flex: 1 }}>
@@ -179,7 +199,7 @@ export default function AppNavigator() {
         <Tab.Screen name="Saldo" component={SaldoScreen} options={{ headerShown: false }} />
         <Tab.Screen name="Mas" component={MoreStack} options={{ headerShown: false }} />
       </Tab.Navigator>
-      <FabRegistrarGastos visible={rutaPestaña !== 'Gastos'} />
+      <FabRegistrarGastos visible={fabVisible} />
       </View>
     </NavigationContainer>
   );

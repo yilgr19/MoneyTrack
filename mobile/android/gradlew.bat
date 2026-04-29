@@ -35,6 +35,12 @@ set APP_HOME=%DIRNAME%
 @rem Resolve any "." and ".." in APP_HOME to make it shorter.
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
+@rem MoneyTrack: Ninja/react-native-screens falla con "Filename longer than 260 characters" si la caché
+@rem de Gradle queda bajo OneDrive. Misma ruta que mobile/scripts/run-expo.cjs (sustituible con GRADLE_USER_HOME).
+if not defined GRADLE_USER_HOME (
+  set "GRADLE_USER_HOME=C:\GradleMoneyTrack"
+)
+
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
 

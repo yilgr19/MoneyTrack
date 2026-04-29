@@ -220,7 +220,7 @@ export default function MisBolsillosScreen() {
       <HeaderConCampana label="Ahorro" title="Mis bolsillos" subtitle="Separa dinero sin sumarlo al patrimonio" />
 
       <ScrollView
-        style={{ flex: 1 }}
+        style={styles.scrollMain}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets={Platform.OS !== 'web'}
@@ -424,6 +424,7 @@ export default function MisBolsillosScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollMain: { flex: 1, backgroundColor: 'transparent' },
   lab: {
     ...typography.label,
     marginTop: spacing.md,

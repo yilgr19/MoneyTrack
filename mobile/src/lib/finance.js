@@ -1030,8 +1030,8 @@ export function deudaGastosTarjetaAcumuladaHastaCorte(data, ref = new Date()) {
 
 /**
  * Importe de un gasto que se imputa a un mes calendario: tarjeta en N cuotas reparte una cuota en cada
- * mes de corte; contado, el mes del primer corte posterior a la compra.
- * Sin patrón de corte, reparte en meses consecutivos desde la fecha de compra.
+ * mes de corte; **contado (1 cuota)** imputa al mes de la fecha de compra (coherente con Inicio y topes).
+ * Sin patrón de corte en cuotas, reparte en meses consecutivos desde la fecha de compra.
  */
 export function montoGastoAfectaSaldoEnMes(g, data, mes, año) {
   if (!g) return 0;
@@ -1047,13 +1047,22 @@ export function montoGastoAfectaSaldoEnMes(g, data, mes, año) {
   }
   const q = numCuotasGasto(g);
   const cuo = cuotaMensualGastoTC(g);
+  /**
+   * Contado (1 cuota): Inicio, topes y notificaciones usan el mes de la compra.
+   * Antes solo contaba el mes del corte bancario → el gasto “no existía” en el mes en curso hasta el corte.
+   */
+  if (q === 1) {
+    const m = obtenerMesAño(g.fecha);
+    if (m.mes === mes && m.año === año) return nNum(g.cantidad);
+    return 0;
+  }
   const pat = patCorteParaTarjetaId(data, g.tarjetaCreditoId);
   const r0 = parseFechaHoraLocal(g.fecha) || new Date();
   if (!pat) {
     for (let i = 0; i < q; i++) {
       const t = new Date(r0.getFullYear(), r0.getMonth() + i, Math.min(28, r0.getDate()), 12, 0, 0);
       if (t.getMonth() === mes && t.getFullYear() === año) {
-        return q > 1 ? cuo : nNum(g.cantidad);
+        return cuo;
       }
     }
     return 0;
@@ -1061,7 +1070,7 @@ export function montoGastoAfectaSaldoEnMes(g, data, mes, año) {
   const fchs = fechasCortesGastoConFallback(g.fecha, q, data, g.tarjetaCreditoId);
   for (const fc of fchs) {
     if (fc.getMonth() === mes && fc.getFullYear() === año) {
-      return q > 1 ? cuo : nNum(g.cantidad);
+      return cuo;
     }
   }
   return 0;
@@ -1075,6 +1084,10 @@ export function aniosMesesDondeAfectaGasto(g, data) {
     return m.mes < 0 ? [] : [{ mes: m.mes, año: m.año }];
   }
   const q = numCuotasGasto(g);
+  if (q === 1) {
+    const m = obtenerMesAño(g.fecha);
+    return m.mes < 0 ? [] : [{ mes: m.mes, año: m.año }];
+  }
   const f = fechasCortesGastoConFallback(g.fecha, q, data, g.tarjetaCreditoId);
   if (f.length === 0) {
     const m = obtenerMesAño(g.fecha);
@@ -1796,6 +1809,29 @@ export function proyeccionEficienciaInicio(data, ref = new Date()) {
     total6: t6,
     ahorro: Math.max(0, t6 - t3),
   };
+}
+
+/**
+ * Tras escanear un recibo: Inicio, donuts y topes usan el **mes en curso**. Si el OCR devuelve una fecha
+ * de otro mes (ruido, ticket viejo, confusión dd/mm), el gasto quedaba guardado fuera del mes visible.
+ * Se mantiene día y hora del ticket solo cuando ya cae en el mismo mes calendario que `ref`; si no, se
+ * usa la fecha de `ref` (puedes corregirla en el formulario antes de guardar).
+ */
+export function fechaGastoRecomendadaTrasOCR(fechaTicket, ref = new Date()) {
+  if (!(fechaTicket instanceof Date) || Number.isNaN(fechaTicket.getTime())) {
+    return new Date(ref);
+  }
+  const mismoMes =
+    fechaTicket.getMonth() === ref.getMonth() && fechaTicket.getFullYear() === ref.getFullYear();
+  if (mismoMes) return fechaTicket;
+  return new Date(
+    ref.getFullYear(),
+    ref.getMonth(),
+    ref.getDate(),
+    ref.getHours(),
+    ref.getMinutes(),
+    ref.getSeconds()
+  );
 }
 
 /**

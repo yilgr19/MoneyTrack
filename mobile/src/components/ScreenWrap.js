@@ -26,7 +26,13 @@ export default function ScreenWrap({
   const flatContent = contentStyle != null ? StyleSheet.flatten(contentStyle) : {};
   const topExtra = typeof flatContent.paddingTop === 'number' ? flatContent.paddingTop : 0;
   const { paddingTop: _ignorePt, ...contentRest } = flatContent;
-  const bottomPad = screenPadding.paddingBottom + TAB_BAR_SCROLL_PADDING;
+  /**
+   * El área útil de cada pestaña ya termina *encima* de la barra inferior; no hace falta reservar otra vez
+   * la altura completa del tab bar. Ese padding extra en el contenedor con `scrollEnabled={false}` dejaba
+   * una franja vacía (transparente) que en Android se dibujaba negra y cubría el final del formulario/lista.
+   */
+  /** Solo aire bajo el último control; el “home indicator” en iOS queda ya fuera del área útil respecto al tab bar. */
+  const bottomPad = screenPadding.paddingBottom;
 
   const keyboardHeight = useKeyboardHeight();
 
@@ -57,7 +63,7 @@ export default function ScreenWrap({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.scroll, styles.content, styles.fillColumn, paddingStyle, contentRest]}>
+    <View style={[styles.scroll, styles.fillColumn, paddingStyle, contentRest]}>
       {children}
     </View>
   );
@@ -73,6 +79,9 @@ export default function ScreenWrap({
         style={StyleSheet.absoluteFill}
       />
       {Platform.OS === 'web' ? (
+        keyboardBody
+      ) : Platform.OS === 'android' ? (
+        /** Android: `adjustResize` en el manifest + padding con teclado; KAV+padding suele dejar franja negra. */
         keyboardBody
       ) : (
         <KeyboardAvoidingView

@@ -443,7 +443,7 @@ export default function AsistenteComprasScreen({ route }) {
       </View>
 
       <ScrollView
-        style={{ flex: 1 }}
+        style={styles.scrollMain}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -839,6 +839,7 @@ export default function AsistenteComprasScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
+  scrollMain: { flex: 1, backgroundColor: 'transparent' },
   tabRow: { flexDirection: 'row', marginBottom: spacing.md },
   tabBtn: {
     flex: 1,

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet, SectionList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
 import { useApp } from '../context/AppContext';
@@ -29,6 +29,29 @@ function cortarLabelCuenta(label) {
   return i > 0 ? label.slice(0, i).trim() : label;
 }
 
+const NOMBRES_MES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+];
+
+/** Clave YYYY-MM para ordenar meses; null si no hay fecha útil */
+function claveMesDesdeTs(ts) {
+  if (ts == null || ts <= 0) return null;
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export default function ReportesScreen() {
   const { state } = useApp();
   const moneda = (state.moneda && String(state.moneda).trim()) || '';
@@ -50,7 +73,7 @@ export default function ReportesScreen() {
     return { labelCuenta: fn };
   }, [state]);
 
-  const filas = useMemo(() => {
+  const seccionesMovs = useMemo(() => {
     const out = [];
     const metas = state.metas || [];
     (state.ingresos || []).forEach((i, idx) => {
@@ -95,8 +118,35 @@ export default function ReportesScreen() {
         detalle: null,
       });
     });
-    out.sort((a, b) => b.ts - a.ts);
-    return out;
+    out.sort((a, b) => {
+      if (b.ts !== a.ts) return b.ts - a.ts;
+      return String(b.id).localeCompare(String(a.id));
+    });
+
+    const porMes = new Map();
+    const sinFecha = [];
+    for (const row of out) {
+      const k = claveMesDesdeTs(row.ts);
+      if (k == null) {
+        sinFecha.push(row);
+        continue;
+      }
+      if (!porMes.has(k)) porMes.set(k, []);
+      porMes.get(k).push(row);
+    }
+
+    const clavesOrdenadas = Array.from(porMes.keys()).sort((a, b) => b.localeCompare(a));
+    const secciones = clavesOrdenadas.map((k) => {
+      const [ys, ms] = k.split('-');
+      const y = parseInt(ys, 10);
+      const m = parseInt(ms, 10) - 1;
+      const titulo = Number.isFinite(y) && m >= 0 && m <= 11 ? `${NOMBRES_MES[m]} ${y}` : k;
+      return { title: titulo, keyMes: k, data: porMes.get(k) };
+    });
+    if (sinFecha.length > 0) {
+      secciones.push({ title: 'Sin fecha clara', keyMes: '_sin', data: sinFecha });
+    }
+    return secciones;
   }, [state, labelCuenta]);
 
   const prefijoMonto = (kind) => (kind === 'ingreso' ? '+' : '−');
@@ -118,18 +168,24 @@ export default function ReportesScreen() {
       <Text style={typography.label}>Historial</Text>
       <Text style={typography.hero}>Movimientos</Text>
       <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>
-        Ingresos, gastos (incl. tarjeta) y aportes a metas, por fecha
+        Ingresos, gastos (incl. tarjeta) y aportes a metas, agrupados por mes (más reciente arriba)
       </Text>
-      {filas.length === 0 ? (
+      {seccionesMovs.length === 0 ? (
         <View style={styles.vacio}>
           <Text style={typography.small}>Aún no hay movimientos registrados.</Text>
         </View>
       ) : (
-        <FlatList
-          data={filas}
+        <SectionList
+          sections={seccionesMovs}
           keyExtractor={(it) => it.id}
           style={styles.listaMovs}
           contentContainerStyle={{ paddingBottom: spacing.xl }}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>{section.title}</Text>
+            </View>
+          )}
           renderItem={({ item }) => (
             <View style={styles.row}>
               <View style={styles.iconCircle}>
@@ -165,7 +221,21 @@ export default function ReportesScreen() {
 }
 
 const styles = StyleSheet.create({
-  listaMovs: { flex: 1, minHeight: 0 },
+  listaMovs: { flex: 1, minHeight: 0, backgroundColor: 'transparent' },
+  sectionHeader: {
+    backgroundColor: colors.bg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    marginBottom: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.stroke,
+  },
+  sectionHeaderText: {
+    ...typography.label,
+    color: colors.textSecondary,
+    fontSize: 13,
+    letterSpacing: 0.8,
+  },
   vacio: {
     padding: spacing.lg,
     backgroundColor: colors.surface,

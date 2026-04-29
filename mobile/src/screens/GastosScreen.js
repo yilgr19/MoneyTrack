@@ -30,6 +30,7 @@ import {
   pagoProgramadoCumplidoPorGasto,
   abonoCoindiceCorteMensual,
   claveRecordatorioPagoCumplido,
+  fechaGastoRecomendadaTrasOCR,
 } from '../lib/finance';
 import { colors, spacing, radii, typography, shadows } from '../theme';
 
@@ -121,6 +122,8 @@ export default function GastosScreen() {
   const [origen, setOrigen] = useState('');
   const [cuotas, setCuotas] = useState(1);
   const [nota, setNota] = useState('');
+  /** Si el usuario indica que la nota enumera todos los productos/cantidades del recibo (metadata en el gasto). */
+  const [notaListadoTicketCompleto, setNotaListadoTicketCompleto] = useState(false);
   /** manual | ocr | hibrido — cómo se rellenó el formulario (OCR no guarda solo; el usuario confirma). */
   const [tipoEntrada, setTipoEntrada] = useState('manual');
   const ocrSnapshotRef = useRef(null);
@@ -227,6 +230,7 @@ export default function GastosScreen() {
   function aplicarPagoProgramado(p) {
     setTipoEntrada('manual');
     ocrSnapshotRef.current = null;
+    setNotaListadoTicketCompleto(false);
     setNombre(p.concepto || '');
     setCantidad(String(p.monto ?? ''));
     setCategoria(p.categoria || (categorias[0]?.nombre ?? ''));
@@ -264,15 +268,17 @@ export default function GastosScreen() {
     if (tipoEntrada === 'ocr' && ocrSnapshotRef.current != null && t !== ocrSnapshotRef.current.nota) {
       setTipoEntrada('hibrido');
     }
+    if (!String(t).trim()) setNotaListadoTicketCompleto(false);
     setNota(t);
   }
 
-  function aplicarDatosDesdeRecibo({ monto, establecimiento, fecha: fechaParsed, textoCompleto }) {
+  function aplicarDatosDesdeRecibo({ monto, establecimiento, fecha: fechaParsed, textoCompleto, productos }) {
     const est = String(establecimiento || '').trim();
     const fechaValida =
       fechaParsed instanceof Date && !Number.isNaN(fechaParsed.getTime()) ? fechaParsed : null;
+    const listaProd = Array.isArray(productos) ? productos.filter((s) => String(s || '').trim()) : [];
     const hayAlgoParseado =
-      (monto != null && monto > 0) || est.length > 0 || fechaValida != null;
+      (monto != null && monto > 0) || est.length > 0 || fechaValida != null || listaProd.length > 0;
     if (!hayAlgoParseado) {
       const ocrVacio = !String(textoCompleto || '').trim();
       Alert.alert(
@@ -283,17 +289,29 @@ export default function GastosScreen() {
       );
       return;
     }
-    const fechaNueva = fechaValida != null ? fechaValida : fecha;
+    /**
+     * Fecha para el gasto: si el OCR da otro mes, usamos hoy para que Inicio/análisis del mes en curso
+     * incluyan el registro (la fecha sigue siendo editable antes de guardar).
+     */
+    const fechaNueva = fechaGastoRecomendadaTrasOCR(fechaValida, new Date());
     let cantStr = '';
     if (monto != null && monto > 0) {
       const v = Math.round(Number(monto) * 100) / 100;
       cantStr = Number.isInteger(v) ? String(v) : v.toFixed(2);
     }
+    /** Nombre = lugar / comercio detectado en el ticket */
     const nombreVal = est || 'Recibo';
-    const notaVal = est || 'Recibo escaneado';
+    /** Nota = detalle: ítems enumerados cuando el OCR los reconoce */
+    let notaVal = '';
+    if (listaProd.length > 0) {
+      notaVal = listaProd.map((line, i) => `${i + 1}. ${line}`).join('\n');
+    } else {
+      notaVal = est ? `Recibo: ${est}` : 'Recibo escaneado';
+    }
     setCantidad(cantStr);
     setNombre(nombreVal);
     setNota(notaVal);
+    setNotaListadoTicketCompleto(false);
     setFecha(fechaNueva);
     ocrSnapshotRef.current = {
       cantidad: cantStr,
@@ -303,7 +321,18 @@ export default function GastosScreen() {
     };
     setTipoEntrada('ocr');
     if (monto == null || monto <= 0) {
-      Alert.alert('Lectura incompleta', 'No se detectó el total del recibo. Revisa el monto o vuelve a capturar.');
+      const partes = [];
+      if (est.length) partes.push(`lugar: ${est}`);
+      if (fechaValida) {
+        partes.push(
+          `fecha: ${fechaValida.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}`
+        );
+      }
+      if (listaProd.length) partes.push(`${listaProd.length} productos en la nota`);
+      Alert.alert(
+        'Lectura incompleta',
+        `No se detectó el total del recibo.${partes.length ? `\n\nSí pudimos leer: ${partes.join(' · ')}.` : ''}\n\nIndica el monto a mano o vuelve a capturar el ticket.`
+      );
     }
   }
 
@@ -414,6 +443,7 @@ export default function GastosScreen() {
       categoria,
       origen: origenGuardado,
       nota: nota.trim() || null,
+      ...(notaListadoTicketCompleto && nota.trim() ? { notaListadoTicketCompleto: true } : {}),
       cuotas: esTcCarga ? cuotasVal : 1,
       cuotaMensual: esTcCarga ? cuotaMensualVal : cantNum,
       ...(abonoDeudaTarjeta ? { esAbonoDeudaTarjeta: true } : {}),
@@ -515,6 +545,7 @@ export default function GastosScreen() {
     setNombre('');
     setCantidad('');
     setNota('');
+    setNotaListadoTicketCompleto(false);
     setTipoEntrada('manual');
     ocrSnapshotRef.current = null;
     setCuotas(1);
@@ -797,12 +828,33 @@ export default function GastosScreen() {
         ) : null}
 
         <FieldLabel>Nota (opcional)</FieldLabel>
+        <Text style={[typography.small, { marginBottom: spacing.xs, color: colors.textSecondary, lineHeight: 18 }]}>
+          Puedes enumerar todos los productos y cantidades (una línea por ítem). El texto se guarda tal como lo
+          escribes; el total del gasto sigue siendo el campo «Cantidad».
+        </Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, styles.inputNota]}
           value={nota}
           onChangeText={onNotaChange}
+          placeholder="Ej.: 1. Producto — cantidad o total de línea…"
           placeholderTextColor={colors.textFaint}
+          multiline
+          textAlignVertical="top"
         />
+        <View style={[styles.switchRow, { marginTop: spacing.sm }]}>
+          <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.md }}>
+            <Text style={styles.fieldLab}>La nota incluye todo lo comprado en el recibo</Text>
+            <Text style={typography.small}>
+              Actívalo cuando hayas identificado todos los ítems y cantidades que quieras dejar registrados.
+            </Text>
+          </View>
+          <Switch
+            value={notaListadoTicketCompleto}
+            onValueChange={setNotaListadoTicketCompleto}
+            trackColor={{ false: colors.stroke, true: colors.accentDeep }}
+            thumbColor={notaListadoTicketCompleto ? colors.accentBright : colors.textFaint}
+          />
+        </View>
 
         <PrimaryButton title="Guardar gasto" onPress={onSubmit} style={{ marginTop: spacing.lg }} />
       </UICard>
@@ -1032,6 +1084,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     backgroundColor: 'rgba(0,0,0,0.18)',
+  },
+  inputNota: {
+    minHeight: 120,
+    paddingTop: spacing.md,
   },
   pickerWrap: {
     borderWidth: 1,

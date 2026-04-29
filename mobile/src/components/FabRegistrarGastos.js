@@ -14,8 +14,6 @@ export default function FabRegistrarGastos({ visible = true }) {
 
   if (!visible) return null;
 
-  const bottom = TAB_BAR_SCROLL_PADDING + spacing.lg;
-
   function cerrarYA(fn) {
     setSheetOpen(false);
     fn();
@@ -23,8 +21,9 @@ export default function FabRegistrarGastos({ visible = true }) {
 
   return (
     <View
-      style={[styles.wrap, { bottom }]}
+      style={[styles.wrap, { bottom: TAB_BAR_SCROLL_PADDING + spacing.lg }]}
       pointerEvents="box-none"
+      collapsable={false}
     >
       <Modal visible={sheetOpen} animationType="fade" transparent onRequestClose={() => setSheetOpen(false)}>
         <View style={styles.mOverlay}>
@@ -116,10 +115,18 @@ export default function FabRegistrarGastos({ visible = true }) {
 const SIZE = 58;
 
 const styles = StyleSheet.create({
+  /**
+   * Tamaño fijo: en Android un View absolute solo con right/bottom puede ocupar todo el ancho
+   * y tapar listas/scroll (rectángulo oscuro + bloqueo de toques).
+   */
   wrap: {
     position: 'absolute',
     right: spacing.lg,
+    width: SIZE,
+    height: SIZE,
     zIndex: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fab: {
     width: SIZE,
