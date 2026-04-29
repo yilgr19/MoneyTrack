@@ -49,6 +49,182 @@ import {
 } from '../theme';
 import { ordenarLineasListaSuper } from '../lib/asistenteComprasLogic';
 
+function iconoCuentaPatrimonio(cuentaId) {
+  switch (cuentaId) {
+    case 'efectivo':
+      return { name: 'cash-outline', bg: 'rgba(217, 180, 74, 0.24)', fg: colors.accentGold };
+    case 'banco':
+      return { name: 'business-outline', bg: 'rgba(167, 216, 222, 0.2)', fg: colors.chartBlue };
+    case 'tarjetaCredito':
+      return { name: 'card-outline', bg: 'rgba(125, 193, 145, 0.22)', fg: colors.mint };
+    case 'nequi':
+      return { name: 'phone-portrait-outline', bg: 'rgba(167, 139, 250, 0.22)', fg: '#a78bfa' };
+    case 'daviplata':
+      return { name: 'phone-portrait-outline', bg: 'rgba(52, 211, 153, 0.2)', fg: '#34d399' };
+    default:
+      return { name: 'layers-outline', bg: 'rgba(199, 195, 227, 0.16)', fg: colors.accent };
+  }
+}
+
+function fmtPctCuenta(n) {
+  const x = Math.max(0, Math.min(999, n));
+  const r = Math.round(x * 10) / 10;
+  if (r > 0 && r < 10) return String(r).replace('.', ',');
+  return String(Math.round(x));
+}
+
+/** Fila animada: icono, barra de % del patrimonio y mini-indicadores */
+function CuentaPatrimonioFila({ cuenta, monto, pctRaw, moneda, index, onPress, pctLegend }) {
+  const meta = iconoCuentaPatrimonio(cuenta.id);
+  const barAnim = useRef(new Animated.Value(0)).current;
+  const negativo = monto < 0;
+  const pctVis = negativo ? 0 : Math.max(0, Math.min(100, pctRaw));
+  const wFinal = monto !== 0 && !negativo ? Math.max(2.8, Math.min(100, pctVis)) : 0;
+  const barW = barAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', `${wFinal}%`],
+  });
+  const nombre = cuenta.id === 'tarjetaCredito' ? `${cuenta.nombre} (cupo libre)` : cuenta.nombre;
+  const dotsLit = Math.min(5, Math.max(0, Math.ceil(pctVis / 20)));
+
+  useEffect(() => {
+    barAnim.setValue(0);
+    Animated.timing(barAnim, {
+      toValue: 1,
+      duration: 640,
+      delay: 64 + index * 84,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [cuenta.id, monto, pctVis, index, barAnim]);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={cuentaPatStyles.row}
+      accessibilityRole="button"
+      accessibilityLabel={`${nombre}, ${formatearNumero(monto)} ${moneda}`}
+    >
+      <LinearGradient
+        colors={[meta.bg, 'rgba(10, 8, 16, 0.5)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={cuentaPatStyles.iconWrap}
+      >
+        <Ionicons name={meta.name} size={22} color={meta.fg} />
+      </LinearGradient>
+      <View style={cuentaPatStyles.body}>
+        <View style={cuentaPatStyles.top}>
+          <Text style={cuentaPatStyles.nombre} numberOfLines={1}>
+            {nombre}
+          </Text>
+          <Text
+            style={[cuentaPatStyles.monto, negativo && { color: colors.danger }]}
+            numberOfLines={1}
+          >
+            {formatearNumero(monto)} {moneda}
+          </Text>
+        </View>
+        <View style={cuentaPatStyles.track}>
+          <Animated.View
+            style={[
+              cuentaPatStyles.bar,
+              {
+                width: barW,
+                backgroundColor: negativo ? colors.danger : meta.fg,
+              },
+            ]}
+          />
+        </View>
+        <View style={cuentaPatStyles.pctRow}>
+          <View style={cuentaPatStyles.dots}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <View
+                key={i}
+                style={[
+                  cuentaPatStyles.dot,
+                  i < dotsLit && { backgroundColor: meta.fg, opacity: 0.92 },
+                ]}
+              />
+            ))}
+          </View>
+          <Text style={cuentaPatStyles.pctTxt}>
+            {!pctLegend
+              ? '—'
+              : negativo
+                ? `−${fmtPctCuenta(Math.abs(pctRaw))}% ${pctLegend}`
+                : pctVis > 0.04
+                  ? `${fmtPctCuenta(pctVis)}% ${pctLegend}`
+                  : monto === 0
+                    ? `0% ${pctLegend}`
+                    : `— ${pctLegend}`}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const cuentaPatStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  iconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  body: { flex: 1, minWidth: 0 },
+  top: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 },
+  nombre: { ...typography.body, fontWeight: '700', flex: 1, marginRight: spacing.sm, minWidth: 0 },
+  monto: { ...typography.monoAmount, fontSize: 14, flexShrink: 0 },
+  track: {
+    height: 8,
+    borderRadius: radii.sm,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  bar: {
+    height: '100%',
+    borderRadius: radii.sm,
+    minWidth: 0,
+  },
+  pctRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: spacing.sm,
+  },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  pctTxt: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+    flex: 1,
+    textAlign: 'right',
+    letterSpacing: 0.2,
+  },
+});
+
 export default function HomeScreen() {
   const { state, ready, replaceState } = useApp();
   const navigation = useNavigation();
@@ -254,6 +430,22 @@ export default function HomeScreen() {
     derived.presupuestoMensual > 0
       ? Math.min(100, (derived.gastosMesActual / derived.presupuestoMensual) * 100)
       : 0;
+
+  const cuentasPatrimonioBloque = useMemo(() => {
+    const list = derived.cuentasInicio;
+    const total = derived.saldoActual;
+    const sumaPos = list.reduce((s, c) => s + Math.max(0, derived.saldosPorCuenta[c.id] ?? 0), 0);
+    const denom = total > 0 ? total : sumaPos;
+    const denomSafe = denom > 0 ? denom : 1;
+    const leyenda = total > 0 ? 'del patrimonio' : sumaPos > 0 ? 'del total en cuentas' : '';
+    const filas = list.map((c) => {
+      const raw = derived.saldosPorCuenta[c.id] ?? 0;
+      const pct =
+        total > 0 ? (raw / denomSafe) * 100 : (Math.max(0, raw) / denomSafe) * 100;
+      return { cuenta: c, monto: raw, pct };
+    });
+    return { filas, leyenda };
+  }, [derived.cuentasInicio, derived.saldosPorCuenta, derived.saldoActual]);
 
   const segmentosDonutCategorias = useMemo(() => {
     const entries = Object.entries(derived.gastosMesPorCategoria || {})
@@ -573,6 +765,48 @@ export default function HomeScreen() {
         </View>
       </LinearGradient>
 
+      <LinearGradient
+        colors={['rgba(32, 28, 48, 0.95)', 'rgba(14, 11, 22, 0.98)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.cuentasPatCard}
+      >
+        <View style={styles.cuentasPatHead}>
+          <View style={styles.cuentasPatHeadIcon}>
+            <Ionicons name="pie-chart-outline" size={20} color={colors.mint} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.cuentasPatTit}>Por cuenta</Text>
+            <Text style={styles.cuentasPatSub}>Saldo y parte del patrimonio, al instante</Text>
+          </View>
+        </View>
+        {derived.cuentasInicio.length === 0 ? (
+          <Text style={[typography.small, { color: colors.textFaint, marginBottom: spacing.sm }]}>
+            Añade saldo o un ingreso (pestaña Saldo).
+          </Text>
+        ) : (
+          cuentasPatrimonioBloque.filas.map((row, idx) => (
+            <CuentaPatrimonioFila
+              key={row.cuenta.id}
+              cuenta={row.cuenta}
+              monto={row.monto}
+              pctRaw={row.pct}
+              moneda={moneda}
+              index={idx}
+              pctLegend={cuentasPatrimonioBloque.leyenda}
+              onPress={() => navigation.navigate('Saldo')}
+            />
+          ))
+        )}
+        <Text style={styles.cuentasPatMes}>
+          {derived.nombreMes}: ingresos {formatearNumero(derived.ingresosMesActual)} {moneda} · gastos{' '}
+          {formatearNumero(derived.gastosMesActual)} {moneda}
+          {derived.contribuciones.reduce((s, c) => s + c.cantidad, 0) > 0
+            ? ` · Metas ${formatearNumero(derived.contribuciones.reduce((s, c) => s + c.cantidad, 0))} ${moneda}`
+            : ''}
+        </Text>
+      </LinearGradient>
+
       {datosWidgetAsistente.nDecisiones > 0 ? (
         <TouchableOpacity
           activeOpacity={0.94}
@@ -796,45 +1030,6 @@ export default function HomeScreen() {
       ) : null}
 
       <UICard>
-        <Text style={typography.label}>Por cuenta</Text>
-        {derived.cuentasInicio.length === 0 ? (
-          <Text style={[typography.small, { color: colors.textFaint, marginTop: 4 }]}>
-            Añade saldo o un ingreso (pestaña Saldo).
-          </Text>
-        ) : (
-          derived.cuentasInicio.map((c) => (
-            <View key={c.id} style={{ marginBottom: spacing.sm }}>
-              <View style={layoutStyles.rowBetween}>
-                <Text style={[typography.body, layoutStyles.rowLabel]}>
-                  {c.id === 'tarjetaCredito' ? `${c.nombre} (cupo libre)` : c.nombre}
-                </Text>
-                <Text style={[typography.monoAmount, layoutStyles.rowValue]}>
-                  {formatearNumero(derived.saldosPorCuenta[c.id] ?? 0)} {moneda}
-                </Text>
-              </View>
-              {c.id === 'tarjetaCredito' && (derived.topeTarjeta > 0 || derived.deudaTarjeta > 0) ? (
-                <Text style={[typography.small, { marginTop: 4, color: colors.textFaint, paddingRight: 4 }]}>
-                  Tope {formatearNumero(derived.topeTarjeta)} · deuda {formatearNumero(derived.deudaTarjeta)}{' '}
-                  {moneda} · ajusta en Saldo
-                </Text>
-              ) : c.id === 'tarjetaCredito' && (state.tarjetasCredito || []).length > 0 ? (
-                <Text style={[typography.small, { marginTop: 4, color: colors.textFaint, paddingRight: 4 }]}>
-                  Saldo: cupo total − deuda (Saldo → Tarjeta)
-                </Text>
-              ) : null}
-            </View>
-          ))
-        )}
-        <Text style={[typography.small, { marginTop: spacing.sm }]}>
-          {derived.nombreMes}: ingresos {formatearNumero(derived.ingresosMesActual)} {moneda} · gastos{' '}
-          {formatearNumero(derived.gastosMesActual)} {moneda}
-          {derived.contribuciones.reduce((s, c) => s + c.cantidad, 0) > 0
-            ? ` · Metas ${formatearNumero(derived.contribuciones.reduce((s, c) => s + c.cantidad, 0))} ${moneda}`
-            : ''}
-        </Text>
-      </UICard>
-
-      <UICard>
         <Text style={styles.analisisSectionTit}>Análisis</Text>
         <Text style={styles.analisisSectionSub}>
           Periodo: mes en curso. Ahorro = saldo en bolsillos + aportes acumulados a metas; se compara con el ingreso
@@ -938,46 +1133,6 @@ export default function HomeScreen() {
             </Text>
           )}
         </LinearGradient>
-        {derived.mayorGasto ? (
-          <Text style={typography.body}>
-            Mayor gasto: <Text style={{ fontWeight: '700', color: colors.text }}>{derived.mayorGasto.nombre}</Text> —{' '}
-            {formatearNumero(derived.mayorGasto.cantidad)} {moneda}
-          </Text>
-        ) : (
-          <Text style={typography.small}>Sin gastos este mes.</Text>
-        )}
-        {(derived.topeTarjeta > 0 ||
-          derived.deudaTarjeta > 0 ||
-          (state.tarjetasCredito || []).length > 0 ||
-          (derived.saldosPorCuenta.tarjetaCredito || 0) > 0) && (
-          <View style={{ marginTop: spacing.sm }}>
-            <Text style={typography.body}>
-              Cupo libre:{' '}
-              <Text style={{ fontWeight: '700', color: colors.mint }}>
-                {formatearNumero(derived.saldosPorCuenta.tarjetaCredito ?? 0)} {moneda}
-              </Text>
-            </Text>
-            {derived.topeTarjeta > 0 || derived.deudaTarjeta > 0 ? (
-              <Text style={[typography.small, { marginTop: 4, color: colors.textFaint }]}>
-                Tope {formatearNumero(derived.topeTarjeta)} · deuda {formatearNumero(derived.deudaTarjeta)} {moneda}
-              </Text>
-            ) : null}
-          </View>
-        )}
-        <Text
-          style={[
-            styles.estado,
-            derived.estadoKind === 'ok' && styles.estadoOk,
-            derived.estadoKind === 'cuidado' && styles.estadoCuidado,
-            derived.estadoKind === 'alerta' && styles.estadoAlerta,
-            derived.estadoKind === 'superado' && styles.estadoSuperado,
-          ]}
-        >
-          {derived.estadoMsg}
-        </Text>
-        {!!derived.estadoDetalle && (
-          <Text style={[typography.body, { marginTop: 4, flexShrink: 1 }]}>{derived.estadoDetalle}</Text>
-        )}
       </UICard>
 
       <UICard>
@@ -1390,6 +1545,53 @@ const styles = StyleSheet.create({
   heroStatLab: { fontSize: 10, fontWeight: '600', color: colors.textFaint, letterSpacing: 0.6, marginBottom: 4 },
   heroStatVal: { fontSize: 14, fontWeight: '600', color: colors.mint, fontVariant: ['tabular-nums'] },
   heroStatSep: { width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: spacing.md },
+  cuentasPatCard: {
+    borderRadius: radii.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 193, 145, 0.2)',
+    ...shadows.soft,
+  },
+  cuentasPatHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.md,
+  },
+  cuentasPatHeadIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(125, 193, 145, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(125, 193, 145, 0.28)',
+  },
+  cuentasPatTit: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textMuted,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  cuentasPatSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  cuentasPatMes: {
+    ...typography.small,
+    color: colors.textFaint,
+    marginTop: spacing.xs,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    lineHeight: 20,
+  },
   alerta: {
     backgroundColor: colors.alertBg,
     borderWidth: 1,
