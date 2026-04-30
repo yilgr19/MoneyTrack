@@ -35,6 +35,7 @@ import {
   normalizarMeta,
   totalSaldoBolsillos,
   parseFechaHoraLocal,
+  normalizarOrigenCuenta,
 } from '../lib/finance';
 import {
   colors,
@@ -47,6 +48,15 @@ import {
   shadows,
 } from '../theme';
 import { ordenarLineasListaSuper } from '../lib/asistenteComprasLogic';
+
+/** Icono por origen del gasto (movimiento de salida). */
+function iconoUltimoMovimiento(g) {
+  if (g?.esTransferenciaBolsillo) {
+    return { name: 'swap-horizontal', bg: 'rgba(45, 212, 191, 0.22)', fg: '#2dd4bf' };
+  }
+  const id = normalizarOrigenCuenta(g?.origen) || 'billeteras';
+  return iconoCuentaPatrimonio(id);
+}
 
 function iconoCuentaPatrimonio(cuentaId) {
   switch (cuentaId) {
@@ -1051,35 +1061,114 @@ export default function HomeScreen() {
         )}
       </UICard>
 
-      <UICard>
-        <Text style={typography.label}>Últimos movimientos</Text>
-        {derived.gastos.length === 0 ? (
-          <Text style={typography.small}>Aún no hay gastos.</Text>
-        ) : (
-          <>
-            <Text style={[typography.small, { marginBottom: spacing.sm, color: colors.textFaint }]}>
-              Total: {formatearNumero(derived.totalGastos)} {moneda}
-            </Text>
-            {derived.ultimosGastos.map((g, i) => {
-              const fd = parseFechaHoraLocal(g.fecha);
-              const fTxt =
-                fd && !Number.isNaN(fd.getTime())
-                  ? fd.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
-                  : '';
-              return (
-                <View key={i} style={styles.moveRow}>
-                  <View style={styles.moveDot} />
-                  <Text style={styles.moveText}>
-                    {g.nombre}
-                    {fTxt ? ` · ${fTxt}` : ''} · {formatearNumero(g.cantidad)} {moneda}{' '}
-                    <Text style={{ color: colors.textFaint }}>({g.categoria})</Text>
-                  </Text>
+      <View style={styles.movNotesOuter}>
+        <LinearGradient
+          colors={['rgba(36, 28, 52, 0.95)', 'rgba(14, 11, 22, 0.98)', 'rgba(18, 14, 28, 1)']}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.movNotesGrad}
+        >
+          <View style={styles.movNotesPaperShine} pointerEvents="none" />
+          <View style={styles.movNotesHeader}>
+            <LinearGradient
+              colors={['rgba(217, 180, 74, 0.35)', 'rgba(199, 195, 227, 0.2)']}
+              style={styles.movNotesIconCirc}
+            >
+              <Ionicons name="pulse-outline" size={24} color={colors.accentGold} />
+            </LinearGradient>
+            <View style={styles.movNotesHeaderTxt}>
+              <Text style={styles.movNotesTitle}>Últimos movimientos</Text>
+              <Text style={styles.movNotesSubtitle}>Notas de tu libreta · reciente primero</Text>
+            </View>
+          </View>
+
+          {derived.gastos.length === 0 ? (
+            <View style={styles.movNotesEmpty}>
+              <View style={styles.movNotesEmptyIcons}>
+                <Ionicons name="wallet-outline" size={34} color={colors.accentGold} />
+                <Ionicons name="receipt-outline" size={34} color={colors.chartBlue} />
+                <Ionicons name="card-outline" size={34} color={colors.mint} />
+              </View>
+              <Text style={styles.movNotesEmptyTit}>Libreta en blanco</Text>
+              <Text style={styles.movNotesEmptySub}>Cuando registres gastos, aparecerán aquí como notas.</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.movNotesTotalStrip}>
+                <LinearGradient
+                  colors={['rgba(217, 180, 74, 0.22)', 'rgba(167, 139, 250, 0.12)']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.movNotesTotalRow}>
+                  <View style={styles.movNotesTotalIconBox}>
+                    <Ionicons name="layers-outline" size={22} color={colors.accentGold} />
+                  </View>
+                  <View style={styles.movNotesTotalTexts}>
+                    <Text style={styles.movNotesTotalLab}>Total registrado</Text>
+                    <Text style={styles.movNotesTotalVal}>
+                      {formatearNumero(derived.totalGastos)} {moneda}
+                    </Text>
+                  </View>
+                  <Ionicons name="trending-down-outline" size={22} color="rgba(240, 160, 174, 0.85)" />
                 </View>
-              );
-            })}
-          </>
-        )}
-      </UICard>
+              </View>
+              <View style={styles.movNotesList}>
+                {derived.ultimosGastos.map((g, i) => {
+                  const fd = parseFechaHoraLocal(g.fecha);
+                  const fTxt =
+                    fd && !Number.isNaN(fd.getTime())
+                      ? fd.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
+                      : '';
+                  const rowKey = g.id != null ? String(g.id) : `g-${i}-${String(g.fecha || '')}`;
+                  const alt = i % 2 === 1;
+                  const movIco = iconoUltimoMovimiento(g);
+                  return (
+                    <View
+                      key={rowKey}
+                      style={[styles.moveNote, alt && styles.moveNoteAlt]}
+                    >
+                      <LinearGradient
+                        colors={[colors.accentGold + 'cc', colors.accent + '99']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0, y: 1 }}
+                        style={styles.moveNoteSpine}
+                      />
+                      <View style={[styles.moveNoteIconWrap, { backgroundColor: movIco.bg }]}>
+                        <Ionicons name={movIco.name} size={20} color={movIco.fg} />
+                      </View>
+                      <View style={styles.moveNoteInner}>
+                        <View style={styles.moveNoteTop}>
+                          <Text style={styles.moveNoteName} numberOfLines={2}>
+                            {g.nombre || 'Sin nombre'}
+                          </Text>
+                          {fTxt ? (
+                            <View style={styles.moveNoteDatePill}>
+                              <Text style={styles.moveNoteDate}>{fTxt}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <View style={styles.moveNoteBottom}>
+                          <Text style={styles.moveNoteAmount}>
+                            −{formatearNumero(g.cantidad)} {moneda}
+                          </Text>
+                          <View style={styles.moveNoteCatPill}>
+                            <Text style={styles.moveNoteCat} numberOfLines={1}>
+                              {g.categoria || '—'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
+        </LinearGradient>
+      </View>
 
       <UICard style={{ marginBottom: 0 }}>
         <Text style={typography.label}>Metas</Text>
@@ -1447,16 +1536,228 @@ const styles = StyleSheet.create({
   estadoCuidado: { color: colors.warning },
   estadoAlerta: { color: colors.orange },
   estadoSuperado: { color: colors.danger },
-  moveRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.sm },
-  moveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.accentDeep,
-    marginTop: 7,
-    marginRight: spacing.sm,
+  movNotesOuter: {
+    marginBottom: spacing.md,
+    borderRadius: radii.lg + 2,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(199, 195, 227, 0.14)',
+    ...Platform.select({
+      ios: shadows.card,
+      android: { elevation: 8 },
+      default: {},
+    }),
   },
-  moveText: { flex: 1, minWidth: 0, ...typography.small, color: colors.textSecondary },
+  movNotesGrad: {
+    padding: spacing.lg,
+    borderRadius: radii.lg + 2,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  movNotesPaperShine: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 252, 245, 0.02)',
+    opacity: 0.9,
+  },
+  movNotesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.md,
+  },
+  movNotesIconCirc: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 180, 74, 0.35)',
+    flexShrink: 0,
+  },
+  movNotesHeaderTxt: { flex: 1, minWidth: 0 },
+  movNotesTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  movNotesSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textFaint,
+    marginTop: 3,
+    letterSpacing: 0.2,
+  },
+  movNotesEmpty: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
+  movNotesEmptyIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+    opacity: 0.95,
+  },
+  movNotesEmptyTit: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  movNotesEmptySub: {
+    ...typography.small,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    color: colors.textFaint,
+    lineHeight: 20,
+  },
+  movNotesTotalStrip: {
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 180, 74, 0.25)',
+    position: 'relative',
+  },
+  movNotesTotalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 1,
+    gap: spacing.sm,
+  },
+  movNotesTotalIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 180, 74, 0.28)',
+    flexShrink: 0,
+  },
+  movNotesTotalTexts: { flex: 1, minWidth: 0 },
+  movNotesTotalLab: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: colors.accentGold,
+  },
+  movNotesTotalVal: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    marginTop: 4,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.4,
+  },
+  movNotesList: { gap: spacing.sm },
+  moveNote: {
+    flexDirection: 'row',
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(199, 195, 227, 0.1)',
+  },
+  moveNoteAlt: {
+    backgroundColor: 'rgba(167, 139, 250, 0.06)',
+    borderColor: 'rgba(167, 139, 250, 0.12)',
+  },
+  moveNoteSpine: {
+    width: 5,
+    alignSelf: 'stretch',
+    minHeight: 72,
+  },
+  moveNoteIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginLeft: spacing.xs,
+    marginRight: spacing.xs,
+    flexShrink: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  moveNoteInner: {
+    flex: 1,
+    minWidth: 0,
+    padding: spacing.md,
+    paddingLeft: spacing.xs,
+  },
+  moveNoteTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  moveNoteName: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 20,
+    letterSpacing: -0.2,
+  },
+  moveNoteDatePill: {
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(199, 195, 227, 0.12)',
+    flexShrink: 0,
+  },
+  moveNoteDate: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    fontVariant: ['tabular-nums'],
+  },
+  moveNoteBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  moveNoteAmount: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#f0a0ae',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.3,
+    flexShrink: 0,
+  },
+  moveNoteCatPill: {
+    flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(199, 195, 227, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(199, 195, 227, 0.14)',
+  },
+  moveNoteCat: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
+    textAlign: 'right',
+  },
   stepRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md },
   stepBadge: {
     width: 28,
