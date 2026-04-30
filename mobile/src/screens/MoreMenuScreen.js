@@ -13,6 +13,12 @@ const ITEMS = [
     sub: 'Por banco y mes',
     icon: 'receipt',
   },
+  {
+    key: 'InformesMensuales',
+    title: 'Reportes',
+    sub: 'Informe por mes, gráficos y detalle',
+    icon: 'pie-chart-outline',
+  },
   { key: 'Categorias', title: 'Categorías', sub: 'Etiquetas de gasto', icon: 'grid' },
   { key: 'MisBolsillos', title: 'Mis bolsillos', sub: 'Apartados de ahorro', icon: 'wallet' },
   {

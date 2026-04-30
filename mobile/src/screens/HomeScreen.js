@@ -49,6 +49,90 @@ import {
 } from '../theme';
 import { ordenarLineasListaSuper } from '../lib/asistenteComprasLogic';
 
+/** Subtítulo rotativo bajo «Análisis»: tono cercano y guía suave (10 variantes). */
+const FRASES_ANALISIS_AHORRO_SUB = [
+  'Mes en curso: gastos por categoría, ingreso vs gasto y lo que apartas en bolsillos y metas. La guía del 30% es un empujón amable, no una nota mala.',
+  'Aquí el resumen te habla claro: qué gastaste, qué entró y cuánto queda para ti. Vamos paso a paso contigo.',
+  'Tu app te acompaña en el mes: categorías, flujo de plata y ahorro real en bolsillos y metas. El 30% es referencia para sentirte tranquilo.',
+  'Todo en un vistazo: el mapa del gasto, el equilibrio ingreso–salida y tu esfuerzo de ahorro. Nos importa que te sientas en control.',
+  'Estos gráficos cuentan tu historia del mes sin juzgar. El de ahorro celebra lo que ya apartaste y te invita a seguir.',
+  'Revisa con calma: categorías, números del mes y el espacio que creas para el futuro. Cada aporte cuenta.',
+  'Inicio es tu tablero: gastos ordenados, ingresos honestos y ahorro visible. La guía del 30% solo quiere verte bien.',
+  'Lo importante es la constancia, no la perfección. Aquí ves categorías, flujo y cuánto vas guardando; seguimos cuando tú quieras.',
+  'Tu relación con el dinero merece este espacio: clara, sin estrés. Gráficos de gasto, flujo y ahorro con cariño.',
+  'Misma información, distinto ángulo: dónde va la plata, qué entra y qué reservas. Estamos de tu lado en el proceso.',
+];
+
+/** Aviso bajo la gráfica cuando ya vas ≥30% del ingreso en bolsillos + metas. */
+const FRASES_AHORRO_30_SI = [
+  '¡Qué bien! Vas con el 30% o más en bolsillos y metas: eso es cuidarte de verdad. Sigue celebrando cada aporte 🌟',
+  'Tu esfuerzo se nota: apartas al menos un tercio de lo que entra. La app celebra contigo; sigue así 💛',
+  'Nivel top: bolsillos y metas ya pasan la guía del 30%. Ese hábito te abre espacio para lo que viene ✨',
+  'Así se construye tranquilidad: reservas bien y el mes lo refleja. Orgullo por tu constancia.',
+  'Separar ahorro y gasto te está saliendo genial. El porcentaje lo dice; tú lo estás haciendo posible.',
+  'Cuando apartas con intención, el futuro te lo agradece. Vas por buen camino con bolsillos y metas 🤝',
+  'Más del 30% en ahorro del mes: no es suerte, es decisión. Aquí seguimos cuando quieras afinar.',
+  'Tu “yo del mes que viene” ya está sonriendo gracias a lo que apartas hoy. ¡Bravo!',
+  'Guía cumplida con estilo: ingreso que entra y ahorro que se queda. Eso es conexión real con tus metas.',
+  'La gráfica sonríe contigo: vas fuerte en bolsillos y metas. Un pequeño logro que vale oro.',
+];
+
+/** Aviso cuando aún no llegas al 30%: animar sin presión. */
+const FRASES_AHORRO_30_NO = [
+  'Aún no llegas al 30% y está bien: cada peso a metas o bolsillos acerca el objetivo. Prueba un poquito al cobrar 💛',
+  'La guía del 30% es un faro, no un examen. Aparta lo que puedas en Más → Bolsillos o Metas; suma de a poco.',
+  'Nadie arranca perfecto: si apartas algo esta semana, ya ganaste claridad. Te animamos desde aquí ✨',
+  'Pequeños pasos en bolsillos o metas cambian la gráfica y tu ánimo. Tú marcas el ritmo; nosotros te recordamos con cariño.',
+  'Si el mes apretó, respira y aparta lo mínimo que no duela. La app no juzga; solo te acompaña.',
+  'Cerca del 30% o lejos, lo importante es intentar. Un aporte hoy ya es victoria para tu futuro yo.',
+  'Metas y bolsillos te esperan en Más: un toque y empiezas a ver el % crecer. Vamos juntos en esto.',
+  'No compitas con nadie: compite con el ayer tuyo. Un poco más de ahorro esta semana y ya es progreso.',
+  'Tu bienestar financiero también es autocuidado. Aparta algo simbólico y celebra el gesto 🌿',
+  'La gráfica es una conversación amable contigo. Cuando puedas, refuerza bolsillos o metas; aquí estamos.',
+];
+
+/** Leyenda bajo el 0% cuando hay ingreso pero sin bolsillos/metas aún (corta, 1–2 líneas). */
+const FRASES_AHORRO_CERO_LEY = [
+  'Del ingreso del mes aún sin bolsillos ni metas · empieza cuando quieras, sin culpas.',
+  'En ahorro visible este mes · un primer paso en Metas o Bolsillos ya cambia la foto.',
+  'Sin apartado todavía · la app te espera para tu primer aporte, chico o grande.',
+  '0% hoy no define tu historia · toca Más y suma algo a metas o bolsillos 💛',
+  'El mes entró y el ahorro puede empezar ahora · tú decides el monto.',
+  'Aún sin reserva en la gráfica · cada peso que apartes te acerca a la guía del 30%.',
+  'Espacio en blanco = oportunidad · registra un bolsillo o meta y mira cómo sube.',
+  'Tu gráfica pide el primer color · un aporte y ya no es cero: es progreso.',
+  'Tranqui: el 0 es solo el punto de partida · MoneyTrack va contigo.',
+  'Cuando apartes algo, esto cobra vida · hasta entonces, respira: no hay apuro feo.',
+];
+
+/** Cuando no hay ingresos del mes registrados. */
+const FRASES_AHORRO_SIN_INGRESO = [
+  'Registra lo que entró este mes en Más → Ingresos y la gráfica te muestra el % de ahorro con cariño.',
+  'Sin ingreso del mes aún no podemos calcular el % · anota entradas y te acompañamos en el resto.',
+  'Un ingreso registrado y esta sección cobra sentido · paso simple en Más → Ingresos ✨',
+  'Tu mes empieza con lo que anotas: suma ingresos y vemos juntos bolsillos, metas y guía del 30%.',
+  'La app quiere reflejar tu realidad: carga ingresos del mes y el análisis se activa.',
+  'Cuando registres entradas, aquí verás qué parte vas apartando · te esperamos de ese lado.',
+  'Pequeño recordatorio amable: ingresos del mes en la app = gráfica de ahorro completa.',
+  'Sin datos de ingreso la dona espera · un minuto en Ingresos y listo.',
+  'Conecta lo que cobraste con la app: así el análisis te habla con números reales.',
+  'Ingresos del mes anotados = menos dudas y más claridad en tu ahorro 💛',
+];
+
+/** Hints del Donut de ahorro vacío (hay ingreso pero sin segmentos). */
+const FRASES_AHORRO_DONUT_VACIO = [
+  'Añade bolsillos o metas en Más · la gráfica quiere mostrar tu esfuerzo.',
+  'Toca Metas o Bolsillos y empieza a pintar este círculo con tus ahorros.',
+  'Un aporte y la dona cobra vida · Más → Metas o Mis bolsillos.',
+  'Tu ahorro merece verse aquí: registra algo en bolsillos o metas.',
+  'La app está lista cuando tú quieras: primer movimiento a meta o bolsillo ✨',
+  'Pequeño paso en Más y esta gráfica te celebra.',
+  'Sin segmentos aún · suma un bolsillo o un aporte a meta.',
+  'Aquí va tu historia de ahorro: empieza en Metas o Bolsillos.',
+  'Un toque en Más y el gráfico te acompaña.',
+  'Bolsillos + metas = colores en la dona · anímate cuando puedas 💛',
+];
+
 /** Icono por origen del gasto (movimiento de salida). */
 function iconoUltimoMovimiento(g) {
   if (g?.esTransferenciaBolsillo) {
@@ -550,7 +634,7 @@ export default function HomeScreen() {
     const s = Math.floor(
       totalAhorroBolsillosYMetas * 3 + ingresoMesAhorro * 2 + (derived.totalAportesMetas || 0)
     );
-    return Math.abs(s) % 5;
+    return Math.abs(s) % 10;
   }, [totalAhorroBolsillosYMetas, ingresoMesAhorro, derived.totalAportesMetas]);
 
   const datosWidgetAsistente = useMemo(() => {
@@ -595,23 +679,13 @@ export default function HomeScreen() {
   const chartSize = chartsStack ? 148 : 136;
   const chartSizeAhorro = Math.min(228, Math.max(172, Math.round(winW * 0.52)));
 
-  const FRASES_AHORRO_30_SI = [
-    'Vas ≥30% del ingreso en bolsillos + metas. ¡Sigue así!',
-    'Superaste la guía del 30%. Buen hábito.',
-    'Bolsillos y metas ≥30% del mes. Excelente.',
-    'Separas bien ahorro y gasto (≥30%).',
-    'Nivel de ahorro sano respecto a lo que entra.',
-  ];
-  const FRASES_AHORRO_30_NO = [
-    'Aún bajo el 30%. Aparta algo en bolsillos o metas.',
-    'Guía: reservar ≥30% del ingreso del mes.',
-    'Cada aporte a metas/bolsillos suma; apunta al 30%.',
-    'El 30% es referencia: aparta al cobrar si puedes.',
-    'Sube poco a poco hasta ~30% del ingreso.',
-  ];
   const fraseAhorroMotiv = ahorroSuperaTercioIngreso
     ? FRASES_AHORRO_30_SI[indiceMensajeAhorro]
     : FRASES_AHORRO_30_NO[indiceMensajeAhorro];
+  const fraseAnalisisSub = FRASES_ANALISIS_AHORRO_SUB[indiceMensajeAhorro];
+  const fraseAhorroCeroLey = FRASES_AHORRO_CERO_LEY[indiceMensajeAhorro];
+  const fraseAhorroSinIngreso = FRASES_AHORRO_SIN_INGRESO[indiceMensajeAhorro];
+  const fraseAhorroDonutVacio = FRASES_AHORRO_DONUT_VACIO[indiceMensajeAhorro];
 
   if (!tieneDatosPrevios(state)) {
     return (
@@ -702,9 +776,6 @@ export default function HomeScreen() {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.cuentasPatTit}>Por cuenta</Text>
-            <Text style={styles.cuentasPatSub}>
-              Cuentas que sí forman el patrimonio; la tarjeta va aparte si tienes cupo configurado.
-            </Text>
           </View>
         </View>
         {derived.cuentasInicioPatrimonio.length === 0 ? (
@@ -919,7 +990,7 @@ export default function HomeScreen() {
 
       <UICard>
         <Text style={styles.analisisSectionTit}>Análisis</Text>
-        <Text style={styles.analisisSectionSub}>Mes actual. Ahorro = bolsillos + metas vs ingreso (guía 30%).</Text>
+        <Text style={styles.analisisSectionSub}>{fraseAnalisisSub}</Text>
         <View style={[styles.chartsRow, chartsStack && styles.chartsRowStack]}>
           <View style={[styles.chartPanel, chartsStack && styles.chartPanelFull]}>
             <DonutChart
@@ -964,15 +1035,6 @@ export default function HomeScreen() {
               <Text style={styles.ahorroPanelTagline}>Vs ingreso del mes</Text>
             </View>
           </View>
-          <Text style={styles.ahorroPanelSub}>
-            Bolsillos {formatearNumero(derived.totalEnBolsillos)} + metas {formatearNumero(derived.totalAportesMetas)} ={' '}
-            <Text style={{ fontWeight: '700', color: colors.text }}>
-              {formatearNumero(totalAhorroBolsillosYMetas)} {moneda}
-            </Text>
-            {ingresoMesAhorro > 0
-              ? ` · Meta 30%: ${formatearNumero(ingresoMesAhorro * 0.3)} ${moneda}`
-              : ' · Registra ingresos del mes para ver %.'}
-          </Text>
           {ingresoMesAhorro > 0 && !segmentosAhorroBolsillosMetas.length ? (
             <Animated.View style={[styles.ahorroCeroBloq, { transform: [{ scale: ahorroCeroPulse }] }]}>
               <LinearGradient
@@ -982,8 +1044,8 @@ export default function HomeScreen() {
                 <Ionicons name="wallet-outline" size={38} color={colors.mint} />
               </LinearGradient>
               <Text style={styles.ahorroCeroPct}>0%</Text>
-              <Text style={styles.ahorroCeroLey} numberOfLines={2}>
-                del ingreso (mes) en bolsillos + metas
+              <Text style={styles.ahorroCeroLey} numberOfLines={3}>
+                {fraseAhorroCeroLey}
               </Text>
               <Text style={styles.ahorroMetaG}>
                 Mínimo sugerido 30%: {formatearNumero(ingresoMesAhorro * 0.3)} {moneda}
@@ -994,9 +1056,7 @@ export default function HomeScreen() {
               segments={segmentosAhorroBolsillosMetas}
               title=""
               emptyHint={
-                ingresoMesAhorro > 0
-                  ? 'Añade bolsillos o metas (Más).'
-                  : 'Sin datos: revisa ingresos o bolsillos (Más).'
+                ingresoMesAhorro > 0 ? fraseAhorroDonutVacio : 'Sin datos: revisa ingresos o bolsillos (Más).'
               }
               size={chartSizeAhorro}
               centerLine1={ingresoMesAhorro > 0 ? centroDonutAhorro.line1 : undefined}
@@ -1013,9 +1073,7 @@ export default function HomeScreen() {
               {fraseAhorroMotiv}
             </Text>
           ) : (
-            <Text style={styles.ahorroMensTip}>
-              <Text style={{ fontWeight: '700' }}>Más → Ingresos</Text>: registra lo del mes para ver el %.
-            </Text>
+            <Text style={styles.ahorroMensTip}>{fraseAhorroSinIngreso}</Text>
           )}
         </LinearGradient>
       </UICard>
@@ -1291,12 +1349,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     opacity: 0.95,
   },
-  ahorroPanelSub: {
-    ...typography.small,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: spacing.md,
-  },
   ahorroCeroBloq: {
     alignItems: 'center',
     paddingVertical: spacing.lg,
@@ -1409,12 +1461,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     marginBottom: 4,
-  },
-  cuentasPatSub: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    lineHeight: 18,
   },
   cuentasPatMes: {
     ...typography.small,

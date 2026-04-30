@@ -71,6 +71,7 @@ export const iconSemantic = {
     GastosFab: { fg: '#fb7185', bg: 'rgba(251, 113, 133, 0.14)' },
     Ingresos: { fg: '#34d399', bg: 'rgba(52, 211, 153, 0.16)' },
     ExtractosTarjetas: { fg: colors.chartBlue, bg: 'rgba(167, 216, 222, 0.12)' },
+    InformesMensuales: { fg: '#34d399', bg: 'rgba(52, 211, 153, 0.14)' },
     Categorias: { fg: '#a78bfa', bg: 'rgba(167, 139, 250, 0.14)' },
     MisBolsillos: { fg: '#2dd4bf', bg: 'rgba(45, 212, 191, 0.12)' },
     Metas: { fg: colors.accentGold, bg: 'rgba(217, 180, 74, 0.18)' },
