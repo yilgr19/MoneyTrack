@@ -164,7 +164,7 @@ export function DeseosCompraBell() {
                   </LinearGradient>
                   <View style={styles.titTxtCol}>
                     <Text style={styles.titEtiq}>Deseos de compra</Text>
-                    <Text style={styles.titGde}>Pendientes hasta que compres o los descartes</Text>
+                    <Text style={styles.titGde}>Lista rápida de pendientes</Text>
                   </View>
                 </View>
                 {n > 0 ? (
@@ -191,7 +191,7 @@ export function DeseosCompraBell() {
 
             <TouchableOpacity onPress={irAsistenteDeseos} style={styles.linkAsistente} activeOpacity={0.85}>
               <Ionicons name="open-outline" size={18} color={colors.accent} style={styles.linkAsistenteIco} />
-              <Text style={styles.linkAsistenteTxt}>Abrir asistente (pestaña Deseos)</Text>
+              <Text style={styles.linkAsistenteTxt}>Abrir asistente · Deseos</Text>
             </TouchableOpacity>
 
             {pendientes.length === 0 ? (
@@ -200,9 +200,7 @@ export function DeseosCompraBell() {
                   <Ionicons name="heart-outline" size={56} color={colors.textSecondary} />
                 </LinearGradient>
                 <Text style={styles.vacioTit}>Sin deseos pendientes</Text>
-                <Text style={styles.vacioSub}>
-                  Cuando guardes una intención de compra, aparecerá aquí hasta que la registres o la descartes.
-                </Text>
+                <Text style={styles.vacioSub}>Los deseos guardados aparecen aquí.</Text>
               </View>
             ) : (
               <ScrollView

@@ -21,7 +21,6 @@ import {
   fechasCortesGastoConFallback,
   pagoDebeMostrarseParaPagar,
   obtenerCuentasOrigenGastoElegible,
-  obtenerCuentasDestinoIngreso,
   obtenerSaldoDisponibleParaOrigenMovimiento,
   totalSaldoLiquido,
   agregarOFusionarPagoProgramadoCuotaCorte,
@@ -43,11 +42,11 @@ const LIMITE_CAT_ALERT_TITULOS = [
   'Uff, ojo: este gasto pasa el límite de la categoría\n😱 😉',
 ];
 const LIMITE_CAT_ALERT_MSGS = [
-  'Con este gasto te pasas del tope del mes. Puedes cambiar el límite en Más → Categorías o bajar un poco los gastos. ¿Seguir y registrarlo igual?',
-  'Pasas el tope con este registro. Cambia el límite en Categorías o gasta menos en lo que te queda. ¿Lo guardas igual?',
-  'Este registro pasa el límite. Cambia el tope en Más → Categorías o baja un poco lo que sigues gastando. ¿Continuar?',
-  'Te pasas del tope: puedes subirlo en Categorías o cuidar lo que aún te falta de mes. ¿Registrar igual?',
-  'El límite se quedó chico. Más → Categorías o menos gasto en el mes, tú eliges. ¿Sigo con el guardado?',
+  'Pasas el tope de la categoría. ¿Guardar igual?',
+  'Superas el límite del mes en esta categoría. ¿Continuar?',
+  'Este monto pasa el tope. ¿Registrar?',
+  'Vas por encima del límite de categoría. ¿Sigo?',
+  'Tope de categoría superado. ¿Guardar?',
 ];
 
 const CUOTAS_OPTS = [1, 2, 3, 6, 12, 24];
@@ -184,21 +183,15 @@ export default function GastosScreen() {
     const tTxt = formatearNumero(liq, 0);
     if (liq >= cantNum) {
       if (abonoDeudaTarjeta) {
-        return `En efectivo, bancos y billeteras tenías unos ${tTxt} en total: alcanza el monto, pero en ninguna línea suelta hay el valor completo. Mueve plata o divide el pago.`;
+        return `Hay ~${tTxt} en total, pero ninguna caja sola alcanza el monto. Divide el pago o mueve saldo.`;
       }
-      return `En efectivo, bancos y billeteras (sin cupo de tarjeta) tenías unos ${tTxt} en total: alcanza el monto, pero en ninguna cuenta o línea suelta hay el valor completo. Mueve plata, usa tarjeta, o anota el gasto en dos partes.`;
+      return `Hay ~${tTxt} en total, pero ninguna cuenta sola alcanza el monto. Usa TC, divide o mueve saldo.`;
     }
     if (abonoDeudaTarjeta) {
-      return 'No alcanza el monto con el saldo en efectivo, bancos y billeteras. Revisa Saldo, agrega un ingreso o ajusta el monto o la cuenta (no aplica abonar con la propia tarjeta).';
+      return 'No alcanza en efectivo/bancos/apps. Revisa Saldo o baja el monto.';
     }
-    return 'No alcanza el monto con el saldo que la app en efectivo, bancos y billeteras. Revisa Saldo, suma un ingreso o ajusta el monto o la cuenta (incluida la tarjeta en cuota).';
+    return 'No alcanza en cajas líquidas. Revisa Saldo, ingresos o usa tarjeta/cuotas.';
   }, [state, cantNum, cuentasDisponibles.length, abonoDeudaTarjeta]);
-
-  /** Saldos por línea (incl. 0,00) para ver cajas aunque no alcance el gasto. */
-  const lineasSaldosReferencia = useMemo(
-    () => obtenerCuentasDestinoIngreso(state || {}),
-    [state]
-  );
 
   useEffect(() => {
     if (origen && !cuentasDisponibles.some((c) => c.value === origen)) {
@@ -558,11 +551,7 @@ export default function GastosScreen() {
   return (
     <View style={styles.pantalla}>
     <ScreenWrap contentStyle={{ paddingTop: spacing.xs }}>
-      <HeaderConCampana
-        label="Movimientos"
-        title="Registrar gasto"
-        subtitle="Registra cada salida de dinero"
-      />
+      <HeaderConCampana label="Movimientos" title="Registrar gasto" subtitle="Salidas de dinero" />
 
       {pagosPendientes.length > 0 && (
         <View style={styles.pagosCardOuter}>
@@ -578,7 +567,7 @@ export default function GastosScreen() {
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.pagosHeaderTit}>Pagos programados</Text>
-                <Text style={styles.pagosHeaderSub}>Toca un ítem y el formulario se rellenará</Text>
+                <Text style={styles.pagosHeaderSub}>Toca para rellenar el formulario</Text>
               </View>
             </View>
             {pagosPendientes.map((p, idx) => {
@@ -620,9 +609,9 @@ export default function GastosScreen() {
       <UICard style={{ marginBottom: 0 }}>
         <Text style={typography.label}>Detalle</Text>
         <Text style={styles.entradaHint} accessibilityLiveRegion="polite">
-          {tipoEntrada === 'manual' && 'Entrada: manual (teclado).'}
-          {tipoEntrada === 'ocr' && 'Entrada: sugerencias desde recibo — revisa categoría y cuenta antes de guardar.'}
-          {tipoEntrada === 'hibrido' && 'Entrada: mixta (recibo OCR + tus ajustes).'}
+          {tipoEntrada === 'manual' && 'Entrada: manual.'}
+          {tipoEntrada === 'ocr' && 'Desde recibo: revisa categoría y cuenta.'}
+          {tipoEntrada === 'hibrido' && 'Mixto: recibo + tus cambios.'}
         </Text>
 
         <FieldLabel>Nombre</FieldLabel>
@@ -704,11 +693,8 @@ export default function GastosScreen() {
 
         <View style={styles.switchRow}>
           <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.md }}>
-            <Text style={styles.fieldLab}>Pago o abono a la tarjeta (sin cargo nuevo a la TC)</Text>
-            <Text style={typography.small}>
-              Actívalo para liquidar o abonar deuda: solo verás cajas con dinero (efectivo, bancos, Nequi, etc.), no
-              la tarjeta.
-            </Text>
+            <Text style={styles.fieldLab}>Abono a tarjeta (sin nuevo cargo a TC)</Text>
+            <Text style={typography.small}>Solo cajas con saldo; no eliges tarjeta como origen.</Text>
           </View>
           <Switch
             value={abonoDeudaTarjeta}
@@ -744,7 +730,7 @@ export default function GastosScreen() {
         <FieldLabel>Cuenta</FieldLabel>
         {cuentasDisponibles.length === 0 ? (
           <Text style={styles.warn}>
-            {avisoCuentaContexto || 'Escribe un monto o ajusta: no hay saldo en una sola línea o cuenta que alcance, o aún faltan datos en Saldo.'}
+            {avisoCuentaContexto || 'Monto o cuenta: revisa Saldo o el valor ingresado.'}
           </Text>
         ) : (
           <View style={styles.pickerWrap}>
@@ -797,41 +783,18 @@ export default function GastosScreen() {
             </View>
             {cuotasNum > 1 && (
               <Text style={typography.small}>
-                Cuota mensual aprox.: {formatearNumero(cantNum / cuotasNum)} {moneda}. Cada cuota (incl. la 1) se
-                contabiliza en el mes de la fecha de corte definida en Saldo → Tarjeta.
+                ~{formatearNumero(cantNum / cuotasNum)} {moneda}/mes · imputación según corte (Saldo → Tarjeta).
               </Text>
             )}
             {origenCuenta === 'tarjetaCredito' && cuotasNum === 1 && (
-              <Text style={typography.small}>
-                Un solo pago: se imputa al mes de tu próximo corte (según Saldo → Tarjeta).
-              </Text>
+              <Text style={typography.small}>Un pago: mes según tu corte en Saldo → Tarjeta.</Text>
             )}
           </>
         )}
 
-        {lineasSaldosReferencia.length > 0 ? (
-          <View style={styles.refSaldosBlock}>
-            <Text style={typography.label}>Saldos actuales (referencia)</Text>
-            <Text style={styles.refSaldosHint}>
-              Aunque una caja esté en 0,00 o no alcance el monto, sigues viendo dónde está cada parte; añade ingresos
-              en Más → Ingresos o ajusta en Saldo.
-            </Text>
-            {lineasSaldosReferencia.map((row) => (
-              <Text key={row.value} style={styles.refSaldosLinea}>
-                • {row.label}
-              </Text>
-            ))}
-            <Text style={styles.refSaldosLinea}>
-              Líquido (sin cupo de tarjeta en esta suma): {formatearNumero(totalSaldoLiquido(state || {}), 0)}{' '}
-              {moneda}
-            </Text>
-          </View>
-        ) : null}
-
         <FieldLabel>Nota (opcional)</FieldLabel>
         <Text style={[typography.small, { marginBottom: spacing.xs, color: colors.textSecondary, lineHeight: 18 }]}>
-          Puedes enumerar todos los productos y cantidades (una línea por ítem). El texto se guarda tal como lo
-          escribes; el total del gasto sigue siendo el campo «Cantidad».
+          Detalle libre; el total oficial es «Cantidad».
         </Text>
         <TextInput
           style={[styles.input, styles.inputNota]}
@@ -844,10 +807,8 @@ export default function GastosScreen() {
         />
         <View style={[styles.switchRow, { marginTop: spacing.sm }]}>
           <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.md }}>
-            <Text style={styles.fieldLab}>La nota incluye todo lo comprado en el recibo</Text>
-            <Text style={typography.small}>
-              Actívalo cuando hayas identificado todos los ítems y cantidades que quieras dejar registrados.
-            </Text>
+            <Text style={styles.fieldLab}>Nota = ítems completos del recibo</Text>
+            <Text style={typography.small}>Actívalo si la nota lista todo lo comprado.</Text>
           </View>
           <Switch
             value={notaListadoTicketCompleto}
@@ -872,7 +833,7 @@ export default function GastosScreen() {
           <Text style={styles.flashPagoSub}>
             {cortePagoMensaje.detalle}
             {'\n\n'}
-            Queda registrado: cubriste el monto al corte. Puedes seguir con tranquilidad o revisar Saldo.
+            Pago al corte registrado.
           </Text>
           <PrimaryButton
             title="Listo, gracias"
@@ -1108,14 +1069,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.08)',
   },
   warn: { color: colors.danger, marginVertical: spacing.sm, fontSize: 14 },
-  refSaldosBlock: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderWidth: 1,
-    borderColor: colors.stroke,
-  },
-  refSaldosHint: { ...typography.small, color: colors.textFaint, marginTop: spacing.xs, lineHeight: 18 },
-  refSaldosLinea: { ...typography.small, color: colors.textSecondary, marginTop: 4, lineHeight: 19 },
 });

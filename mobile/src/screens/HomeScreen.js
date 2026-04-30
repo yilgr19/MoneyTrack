@@ -352,7 +352,7 @@ export default function HomeScreen() {
         if (tb !== ta) return tb - ta;
         return String(b.nombre || '').localeCompare(String(a.nombre || ''));
       })
-      .slice(0, 8);
+      .slice(0, 5);
 
     const cuentasInicio = CUENTAS.filter((c) =>
       cuentaVisibleEnResumenInicio(c.id, state, saldosPorCuenta)
@@ -561,9 +561,9 @@ export default function HomeScreen() {
   const copyGanchoSuper = useMemo(() => {
     const salt = (datosWidgetAsistente.superPendientes.length || 0) % 3;
     const m = [
-      'Lo urgente arriba; no vayas al mercado sin mirar esto.',
-      'Lista viva: son los ítems que pediste recordar.',
-      'Un vistazo rápido antes del súper te ahorra vueltas (y plata).',
+      'Revisa la lista antes de comprar.',
+      'Ítems que pediste recordar.',
+      'Vistazo rápido al súper.',
     ];
     return m[salt];
   }, [datosWidgetAsistente.superPendientes.length]);
@@ -596,18 +596,18 @@ export default function HomeScreen() {
   const chartSizeAhorro = Math.min(228, Math.max(172, Math.round(winW * 0.52)));
 
   const FRASES_AHORRO_30_SI = [
-    '¡Lo lograste! Tu ahorro en bolsillos y metas suma al menos el 30% de lo que entra este mes. Sigue reforzando el hábito: cada quincena cuenta.',
-    'Excelente: estás en terreno sano. Superaste la guía del 30% frente a tus ingresos del mes. Mantén el ritmo y sube el listón cuando puedas.',
-    'Tu disciplina se nota: bolsillos y metas ya cubren al menos un tercio de lo ingresado. Sigue y amplía la meta; la calma financiera se construye así.',
-    'Bravo. Por encima del mínimo del 30%: separar ahorro del gasto te da margen. Un paso más hacia la estabilidad que buscas.',
-    'Así se avanza: con este nivel de ahorro respecto al ingreso del mes, vas bien encaminado. Sigue priorizando el colchón y celebra el avance.',
+    'Vas ≥30% del ingreso en bolsillos + metas. ¡Sigue así!',
+    'Superaste la guía del 30%. Buen hábito.',
+    'Bolsillos y metas ≥30% del mes. Excelente.',
+    'Separas bien ahorro y gasto (≥30%).',
+    'Nivel de ahorro sano respecto a lo que entra.',
   ];
   const FRASES_AHORRO_30_NO = [
-    'Aún no llegas al 30%: no pasa nada. Pequeñas aportaciones a bolsillos o metas suman; apunta a reservar al menos un tercio de lo que entra.',
-    'La guía es ahorrar al menos el 30% de tus ingresos del mes. Revisa bolsillos y metas: separa aunque sea poco, con constancia ganas.',
-    'Sigue adelante: la estabilidad pasa por un colchón. Cada aporte a metas o movimiento a bolsillos te acerca al objetivo del 30%.',
-    'Aún estás bajo el piso sugerido. Ajusta el ritmo: nada más cobrar, aparta; el 30% es guía, no presión, pero te protege en imprevistos.',
-    'Puedes lograrlo: bolsillos y aportes a metas suman lo que se considera ahorro aquí. Sube poco a poco hasta al menos un tercio del ingreso.',
+    'Aún bajo el 30%. Aparta algo en bolsillos o metas.',
+    'Guía: reservar ≥30% del ingreso del mes.',
+    'Cada aporte a metas/bolsillos suma; apunta al 30%.',
+    'El 30% es referencia: aparta al cobrar si puedes.',
+    'Sube poco a poco hasta ~30% del ingreso.',
   ];
   const fraseAhorroMotiv = ahorroSuperaTercioIngreso
     ? FRASES_AHORRO_30_SI[indiceMensajeAhorro]
@@ -666,9 +666,7 @@ export default function HomeScreen() {
           {formatearNumero(derived.saldoActual)} <Text style={styles.heroMoneda}>{moneda}</Text>
         </Text>
         {derived.mostrarTarjetaCupoAparte ? (
-          <Text style={styles.heroBolsillos}>
-            Sin sumar el cupo disponible de tarjeta (lo ves abajo en «Por cuenta»).
-          </Text>
+          <Text style={styles.heroBolsillos}>Sin cupo de TC en este total (ver Por cuenta).</Text>
         ) : null}
         {derived.totalEnBolsillos > 0 ? (
           <Text style={styles.heroBolsillos}>
@@ -790,7 +788,7 @@ export default function HomeScreen() {
                   <Ionicons name="basket" size={26} color="#2dd4bf" />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.widgetSuperTitle}>Tu súper espera una vuelta</Text>
+                  <Text style={styles.widgetSuperTitle}>Lista súper</Text>
                   <Text style={styles.widgetSuperSubtitle} numberOfLines={2}>
                     {copyGanchoSuper}
                   </Text>
@@ -824,7 +822,7 @@ export default function HomeScreen() {
                 </Text>
               ) : null}
               <View style={styles.widgetSuperFooter}>
-                <Text style={styles.widgetSuperCta}>Abrir checklist y marcar lo comprado</Text>
+                <Text style={styles.widgetSuperCta}>Abrir lista</Text>
                 <Ionicons name="chevron-forward" size={22} color={colors.mint} />
               </View>
             </LinearGradient>
@@ -921,10 +919,7 @@ export default function HomeScreen() {
 
       <UICard>
         <Text style={styles.analisisSectionTit}>Análisis</Text>
-        <Text style={styles.analisisSectionSub}>
-          Periodo: mes en curso. Ahorro = saldo en bolsillos + aportes acumulados a metas; se compara con el ingreso
-          del mes y la guía del 30%.
-        </Text>
+        <Text style={styles.analisisSectionSub}>Mes actual. Ahorro = bolsillos + metas vs ingreso (guía 30%).</Text>
         <View style={[styles.chartsRow, chartsStack && styles.chartsRowStack]}>
           <View style={[styles.chartPanel, chartsStack && styles.chartPanelFull]}>
             <DonutChart
@@ -966,16 +961,17 @@ export default function HomeScreen() {
             </LinearGradient>
             <View style={styles.ahorroHeaderText}>
               <Text style={styles.ahorroPanelTit}>Ahorro: bolsillos · metas</Text>
-              <Text style={styles.ahorroPanelTagline}>Visual dinámico vs tu ingreso del mes</Text>
+              <Text style={styles.ahorroPanelTagline}>Vs ingreso del mes</Text>
             </View>
           </View>
           <Text style={styles.ahorroPanelSub}>
-            Ahorro considerado: {formatearNumero(derived.totalEnBolsillos)} {moneda} (bolsillos) +{' '}
-            {formatearNumero(derived.totalAportesMetas)} {moneda} (metas) ={' '}
-            <Text style={{ fontWeight: '700', color: colors.text }}>{formatearNumero(totalAhorroBolsillosYMetas)} {moneda}</Text>
+            Bolsillos {formatearNumero(derived.totalEnBolsillos)} + metas {formatearNumero(derived.totalAportesMetas)} ={' '}
+            <Text style={{ fontWeight: '700', color: colors.text }}>
+              {formatearNumero(totalAhorroBolsillosYMetas)} {moneda}
+            </Text>
             {ingresoMesAhorro > 0
-              ? ` · Guía: al menos 30% del ingreso del mes = ${formatearNumero(ingresoMesAhorro * 0.3)} ${moneda}`
-              : ' · Añade ingresos del mes para calcular el % y la guía del 30%.'}
+              ? ` · Meta 30%: ${formatearNumero(ingresoMesAhorro * 0.3)} ${moneda}`
+              : ' · Registra ingresos del mes para ver %.'}
           </Text>
           {ingresoMesAhorro > 0 && !segmentosAhorroBolsillosMetas.length ? (
             <Animated.View style={[styles.ahorroCeroBloq, { transform: [{ scale: ahorroCeroPulse }] }]}>
@@ -999,8 +995,8 @@ export default function HomeScreen() {
               title=""
               emptyHint={
                 ingresoMesAhorro > 0
-                  ? 'Carga ahorro en bolsillos o aporta a metas (Más).'
-                  : 'Sin ahorro visible ni ingreso del mes; revisa bolsillos, metas o ingresos (Más).'
+                  ? 'Añade bolsillos o metas (Más).'
+                  : 'Sin datos: revisa ingresos o bolsillos (Más).'
               }
               size={chartSizeAhorro}
               centerLine1={ingresoMesAhorro > 0 ? centroDonutAhorro.line1 : undefined}
@@ -1018,8 +1014,7 @@ export default function HomeScreen() {
             </Text>
           ) : (
             <Text style={styles.ahorroMensTip}>
-              Registra en <Text style={{ fontWeight: '700' }}>Más → Ingresos</Text> lo que entra este mes; así
-              podemos comparar bolsillos+metas con el 30% recomendado.
+              <Text style={{ fontWeight: '700' }}>Más → Ingresos</Text>: registra lo del mes para ver el %.
             </Text>
           )}
         </LinearGradient>
@@ -1028,7 +1023,7 @@ export default function HomeScreen() {
       <UICard>
         <Text style={typography.label}>Gastos por categoría</Text>
         <Text style={[typography.small, { color: colors.textMuted, marginBottom: spacing.md, lineHeight: 20 }]}>
-          Cómo repartieron tus salidas: medallas, colores y barras con ritmo. ¡A competir con el bolsillo!
+          Tus gastos del mes por categoría.
         </Text>
         {derived.categoriasData.length === 0 ? (
           <Text style={typography.small}>Crea categorías primero.</Text>
@@ -1079,7 +1074,7 @@ export default function HomeScreen() {
             </LinearGradient>
             <View style={styles.movNotesHeaderTxt}>
               <Text style={styles.movNotesTitle}>Últimos movimientos</Text>
-              <Text style={styles.movNotesSubtitle}>Notas de tu libreta · reciente primero</Text>
+              <Text style={styles.movNotesSubtitle}>Los 5 más recientes · más nuevo arriba</Text>
             </View>
           </View>
 
@@ -1091,7 +1086,7 @@ export default function HomeScreen() {
                 <Ionicons name="card-outline" size={34} color={colors.mint} />
               </View>
               <Text style={styles.movNotesEmptyTit}>Libreta en blanco</Text>
-              <Text style={styles.movNotesEmptySub}>Cuando registres gastos, aparecerán aquí como notas.</Text>
+              <Text style={styles.movNotesEmptySub}>Aquí verás tus gastos al registrarlos.</Text>
             </View>
           ) : (
             <>

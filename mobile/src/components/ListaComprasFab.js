@@ -41,9 +41,9 @@ export default function ListaComprasFab() {
   const copyGancho = useMemo(() => {
     const salt = (pendientes.length || 0) % 3;
     const m = [
-      'Lo urgente arriba; no vayas al mercado sin mirar esto.',
-      'Lista viva: son los ítems que pediste recordar.',
-      'Un vistazo rápido antes del súper te ahorra vueltas (y plata).',
+      'Revisa antes de comprar.',
+      'Ítems que pediste recordar.',
+      'Vistazo rápido al súper.',
     ];
     return m[salt];
   }, [pendientes.length]);
@@ -64,8 +64,8 @@ export default function ListaComprasFab() {
         listaSuperCompraItems: (s.listaSuperCompraItems || []).filter((l) => l.id !== ln.id),
       }));
       Alert.alert(
-        'Marcado como comprado',
-        `«${nombre}» ya no está en la lista. Recuerda registrar el gasto en la pestaña Gastos para que tu saldo y presupuesto sigan cuadrando.`,
+        'Comprado',
+        `«${nombre}» quitado de la lista. Registra el gasto en Gastos.`,
         recordatorioGastosBtns
       );
     },
@@ -90,11 +90,7 @@ export default function ListaComprasFab() {
           onPress: () => {
             replaceState((s) => ({ ...s, listaSuperCompraItems: [] }));
             setOpen(false);
-            Alert.alert(
-              'Lista vaciada',
-              'No olvides registrar en Gastos lo que pagaste para mantener saldo y presupuesto al día.',
-              recordatorioGastosBtns
-            );
+            Alert.alert('Lista vaciada', 'Registra en Gastos lo que pagaste.', recordatorioGastosBtns);
           },
         },
       ]
@@ -168,7 +164,7 @@ export default function ListaComprasFab() {
                   <Ionicons name="basket" size={26} color="#2dd4bf" />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.heroTitle}>Tu súper espera una vuelta</Text>
+                  <Text style={styles.heroTitle}>Lista súper</Text>
                   <Text style={styles.heroSub}>{copyGancho}</Text>
                 </View>
                 <View style={styles.countPill}>
@@ -180,7 +176,7 @@ export default function ListaComprasFab() {
 
             <TouchableOpacity onPress={irListaCompleta} style={styles.linkFull} activeOpacity={0.85}>
               <Ionicons name="open-outline" size={18} color={colors.mint} />
-              <Text style={styles.linkFullTxt}>Abrir checklist completo en Asistente</Text>
+              <Text style={styles.linkFullTxt}>Lista completa (Asistente)</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -193,9 +189,7 @@ export default function ListaComprasFab() {
               <Ionicons name="checkmark-done-circle-outline" size={22} color={colors.accentBright} />
               <Text style={styles.btnTodosTxt}>Todos comprados</Text>
             </TouchableOpacity>
-            <Text style={styles.btnTodosHint}>
-              Vacía la lista de una vez si ya pasaste por caja; sigue disponible «Comprado» en cada ítem.
-            </Text>
+            <Text style={styles.btnTodosHint}>Si compraste todo, vacía aquí. O marca ítem por ítem.</Text>
 
             <ScrollView
               style={styles.scroll}

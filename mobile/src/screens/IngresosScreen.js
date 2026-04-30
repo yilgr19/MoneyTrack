@@ -47,7 +47,7 @@ export default function IngresosScreen() {
     <ScreenWrap includeTopInset={false} contentStyle={{ paddingTop: spacing.xs }}>
       <Text style={typography.label}>Entradas</Text>
       <Text style={typography.hero}>Ingresos</Text>
-      <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>Sueldo, ventas y otros</Text>
+      <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>Entradas de dinero</Text>
 
       <UICard style={{ marginBottom: 0 }}>
         <Text style={typography.label}>Registro</Text>
@@ -77,10 +77,7 @@ export default function IngresosScreen() {
         )}
         <Text style={styles.lab}>Cuenta destino</Text>
         {cuentasDestino.length === 0 ? (
-          <Text style={styles.warn}>
-            Aún no hay cajas listadas. Elige moneda en Más → Saldo y, si aplica, bancos o plataformas, para
-            asignar el ingreso.
-          </Text>
+          <Text style={styles.warn}>Configura moneda y cuentas en Más → Saldo.</Text>
         ) : (
           <View style={styles.pickerWrap}>
             <Picker selectedValue={origen} onValueChange={setOrigen} style={{ color: colors.text }}>

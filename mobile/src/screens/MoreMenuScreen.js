@@ -6,25 +6,25 @@ import { HeaderConCampana } from '../components/HeaderConCampana';
 import { colors, spacing, radii, typography, iconSemantic } from '../theme';
 
 const ITEMS = [
-  { key: 'Ingresos', title: 'Ingresos', sub: 'Registrar entradas de dinero', icon: 'trending-up' },
+  { key: 'Ingresos', title: 'Ingresos', sub: 'Entradas de dinero', icon: 'trending-up' },
   {
     key: 'ExtractosTarjetas',
     title: 'Extractos de tarjeta',
-    sub: 'Historial por entidad y mes',
+    sub: 'Por banco y mes',
     icon: 'receipt',
   },
-  { key: 'Categorias', title: 'Categorías', sub: 'Organiza tus gastos', icon: 'grid' },
-  { key: 'MisBolsillos', title: 'Mis bolsillos', sub: 'Ahorro separado de tu patrimonio', icon: 'wallet' },
+  { key: 'Categorias', title: 'Categorías', sub: 'Etiquetas de gasto', icon: 'grid' },
+  { key: 'MisBolsillos', title: 'Mis bolsillos', sub: 'Apartados de ahorro', icon: 'wallet' },
   {
     key: 'AsistenteCompras',
     title: 'Asistente de compras',
-    sub: 'Checklist y cupo mensual antes de comprar',
+    sub: 'Lista y deseos',
     icon: 'basket-outline',
   },
-  { key: 'Metas', title: 'Metas', sub: 'Ahorro y objetivos', icon: 'flag' },
-  { key: 'PagosProgramados', title: 'Pagos programados', sub: 'Suscripciones y recordatorios', icon: 'calendar' },
-  { key: 'Movimientos', title: 'Movimientos', sub: 'Ingresos, gastos, tarjeta y metas', icon: 'swap-vertical' },
-  { key: 'Administrar', title: 'Administrar', sub: 'Resets y diagnóstico', icon: 'settings-outline' },
+  { key: 'Metas', title: 'Metas', sub: 'Objetivos', icon: 'flag' },
+  { key: 'PagosProgramados', title: 'Pagos programados', sub: 'Recordatorios', icon: 'calendar' },
+  { key: 'Movimientos', title: 'Movimientos', sub: 'Historial', icon: 'swap-vertical' },
+  { key: 'Administrar', title: 'Administrar', sub: 'Ajustes avanzados', icon: 'settings-outline' },
 ];
 
 export default function MoreMenuScreen({ navigation }) {

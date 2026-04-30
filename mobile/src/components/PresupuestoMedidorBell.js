@@ -240,7 +240,7 @@ export function PresupuestoMedidorBell() {
                       <Ionicons name="speedometer-outline" size={26} color={colors.accentBright} />
                     </LinearGradient>
                     <View style={styles.cardHeadTxt}>
-                      <Text style={styles.cardEyebrow}>Mismo resumen que en Inicio</Text>
+                      <Text style={styles.cardEyebrow}>Resumen del mes</Text>
                       {r.presupuestoMensual > 0 ? (
                         <>
                           <Text style={[styles.cardEstadoTit, { color: tituloColor }]}>{r.estadoMsg}</Text>

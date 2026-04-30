@@ -48,6 +48,7 @@ const TIPO_ACENTO = {
   presupuesto: { icon: 'speedometer-outline', color: colors.accentGold, label: 'Presupuesto' },
   tc: { icon: 'card-outline', color: colors.chartBlue, label: 'Tarjeta' },
   saldo: { icon: 'wallet-outline', color: colors.mint, label: 'Saldo' },
+  listaSuper: { icon: 'basket-outline', color: colors.mint, label: 'Lista súper' },
 };
 
 function NotificacionFila({ it, index, open, onTarjeta, esTocable }) {
@@ -65,13 +66,16 @@ function NotificacionFila({ it, index, open, onTarjeta, esTocable }) {
     const delay = 45 + index * 62;
     op.setValue(0);
     y.setValue(16);
+    /*
+     * No mezclar useNativeDriver true/false en el mismo nodo: en Android la opacidad puede quedar en 0
+     * y la lista se ve “vacía” aunque haya ítems. Opacity en vista hija (JS), translate en padre (nativo).
+     */
     Animated.parallel([
       Animated.timing(op, {
         toValue: 1,
         duration: 420,
         delay,
         easing: Easing.out(Easing.cubic),
-        /* opacity + texto: con driver nativo a veces el texto queda en una sola línea recortada (Android) */
         useNativeDriver: false,
       }),
       Animated.spring(y, {
@@ -85,54 +89,47 @@ function NotificacionFila({ it, index, open, onTarjeta, esTocable }) {
   }, [open, it.id, index, op, y]);
 
   const cuerpo = (
-    <Animated.View
-      style={[
-        styles.filaCard,
-        {
-          borderLeftColor: s.line,
-          opacity: op,
-          transform: [{ translateY: y }],
-        },
-      ]}
-    >
-      <LinearGradient
-        colors={s.grad}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={styles.filaGrad}
-        pointerEvents="none"
-      />
-      <View style={styles.filaTop}>
+    <Animated.View style={[styles.filaCard, { borderLeftColor: s.line, transform: [{ translateY: y }] }]}>
+      <Animated.View style={[styles.filaCardInner, { opacity: op }]}>
         <LinearGradient
-          colors={[ac.color + '45', ac.color + '14']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.iconHalo}
-        >
-          <Ionicons name={ac.icon} size={22} color={ac.color} />
-        </LinearGradient>
-        <View style={styles.filaTxt}>
-          <View style={styles.filaChips}>
-            <View style={[styles.tipoChip, { borderColor: ac.color + '55' }]}>
-              <Text style={[styles.tipoChipTxt, { color: ac.color }]}>{ac.label}</Text>
+          colors={s.grad}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.filaGrad}
+          pointerEvents="none"
+        />
+        <View style={styles.filaTop}>
+          <LinearGradient
+            colors={[ac.color + '45', ac.color + '14']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.iconHalo}
+          >
+            <Ionicons name={ac.icon} size={22} color={ac.color} />
+          </LinearGradient>
+          <View style={styles.filaTxt}>
+            <View style={styles.filaChips}>
+              <View style={[styles.tipoChip, { borderColor: ac.color + '55' }]}>
+                <Text style={[styles.tipoChipTxt, { color: ac.color }]}>{ac.label}</Text>
+              </View>
+              <Ionicons name={s.icon} size={15} color={s.color} style={{ marginLeft: 4 }} />
             </View>
-            <Ionicons name={s.icon} size={15} color={s.color} style={{ marginLeft: 4 }} />
+            <Text style={styles.filaTit} selectable>
+              {it.titulo}
+            </Text>
+            <Text style={styles.filaSub} selectable>
+              {it.detalle}
+            </Text>
           </View>
-          <Text style={styles.filaTit} selectable>
-            {it.titulo}
-          </Text>
-          <Text style={styles.filaSub} selectable>
-            {it.detalle}
-          </Text>
+          {esTocable ? (
+            <View style={styles.flechaPill}>
+              <Ionicons name="chevron-forward" size={18} color={colors.accent} />
+            </View>
+          ) : (
+            <View style={styles.flechaSpacer} />
+          )}
         </View>
-        {esTocable ? (
-          <View style={styles.flechaPill}>
-            <Ionicons name="chevron-forward" size={18} color={colors.accent} />
-          </View>
-        ) : (
-          <View style={styles.flechaSpacer} />
-        )}
-      </View>
+      </Animated.View>
     </Animated.View>
   );
 
@@ -167,10 +164,10 @@ export function NotificacionBell() {
     return reunirNotificacionesApp(state, new Date());
   }, [state]);
 
-  const noLeidas = useMemo(() => {
-    if (firmasLeidas === null) return 0;
-    return contarNoLeidas(items, firmasLeidas);
-  }, [items, firmasLeidas]);
+  const noLeidas = useMemo(
+    () => contarNoLeidas(items, firmasLeidas ?? {}),
+    [items, firmasLeidas]
+  );
 
   const itemsVisibles = useMemo(() => {
     if (firmasLeidas == null) return items;
@@ -268,7 +265,7 @@ export function NotificacionBell() {
                   </LinearGradient>
                   <View style={styles.titTxtCol}>
                     <Text style={styles.titEtiq}>Centro de avisos</Text>
-                    <Text style={styles.titGde}>Todo lo que importa, en un vistazo</Text>
+                    <Text style={styles.titGde}>Avisos recientes</Text>
                   </View>
                 </View>
                 {itemsVisibles.length > 0 ? (
@@ -292,10 +289,7 @@ export function NotificacionBell() {
                 <Ionicons name="close" size={22} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.ayudTxt}>
-              Lo más arriba es lo más reciente. Al salir, estos avisos dejan de mostrarse hasta que haya{' '}
-              novedades.
-            </Text>
+            <Text style={styles.ayudTxt}>Arriba = más reciente. Al cerrar, se ocultan hasta que haya algo nuevo.</Text>
 
             {itemsVisibles.length === 0 ? (
               <View style={styles.vacioBox}>
@@ -303,9 +297,7 @@ export function NotificacionBell() {
                   <Ionicons name="checkmark-circle" size={56} color={colors.mint} />
                 </LinearGradient>
                 <Text style={styles.vacioTit}>¡Bien! Sin pendientes</Text>
-                <Text style={styles.vacioSub}>
-                  Cuando tengas pagos, límites o recordatorios, aparecerán aquí con un toque de color.
-                </Text>
+                <Text style={styles.vacioSub}>Aquí verás pagos y avisos cuando existan.</Text>
               </View>
             ) : (
               <ScrollView
@@ -464,7 +456,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     width: '100%',
   },
-  list: { maxHeight: 500, width: '100%' },
+  list: { maxHeight: 500, width: '100%', minHeight: 120 },
   listContent: { paddingBottom: spacing.xl, width: '100%' },
   vacioBox: { alignItems: 'center', paddingVertical: spacing.xl + spacing.md, paddingHorizontal: spacing.md },
   vacioHalo: {
@@ -492,11 +484,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(199, 195, 227, 0.12)',
     borderLeftWidth: 4,
     overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  filaCardInner: {
     padding: spacing.md,
     paddingBottom: spacing.md + 4,
     position: 'relative',
     width: '100%',
-    alignSelf: 'stretch',
   },
   filaGrad: { ...StyleSheet.absoluteFillObject },
   filaTop: {
