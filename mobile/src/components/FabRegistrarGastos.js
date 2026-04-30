@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Pressable, StyleSheet, Platform, Modal, Text, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet, Platform, Modal, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import { colors, spacing, shadows, TAB_BAR_SCROLL_PADDING, radii, typography, iconSemantic } from '../theme';
@@ -11,6 +12,8 @@ import { colors, spacing, shadows, TAB_BAR_SCROLL_PADDING, radii, typography, ic
  */
 export default function FabRegistrarGastos({ visible = true }) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
 
   if (!visible) return null;
 
@@ -19,16 +22,31 @@ export default function FabRegistrarGastos({ visible = true }) {
     fn();
   }
 
+  const bottomFab = TAB_BAR_SCROLL_PADDING + spacing.lg;
+  const sheetPadBottom = Math.max(insets.bottom, spacing.lg) + (Platform.OS === 'ios' ? spacing.sm : 0);
+  const sheetMaxH = Math.min(Math.round(winH * 0.88), winH - insets.top - spacing.md);
+
   return (
-    <View
-      style={[styles.wrap, { bottom: TAB_BAR_SCROLL_PADDING + spacing.lg }]}
-      pointerEvents="box-none"
-      collapsable={false}
-    >
-      <Modal visible={sheetOpen} animationType="fade" transparent onRequestClose={() => setSheetOpen(false)}>
+    <View style={styles.layerFill} pointerEvents="box-none" collapsable={false}>
+      {/**
+       * El Modal NO debe colgar del contenedor 58×58 del FAB: en Android el panel puede quedar sin medir
+       * y solo verse el fondo oscuro.
+       */}
+      <Modal
+        visible={sheetOpen}
+        animationType="slide"
+        transparent
+        statusBarTranslucent={Platform.OS === 'android'}
+        onRequestClose={() => setSheetOpen(false)}
+      >
         <View style={styles.mOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSheetOpen(false)} />
-          <View style={styles.mSheet}>
+          <Pressable
+            style={styles.mBackdrop}
+            onPress={() => setSheetOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar acciones rápidas"
+          />
+          <View style={[styles.mSheet, { paddingBottom: sheetPadBottom, maxHeight: sheetMaxH }]}>
             <Text style={styles.sheetTitle}>Acciones rápidas</Text>
             <Text style={styles.sheetHint}>Elige cómo sigues desde el botón +</Text>
 
@@ -100,14 +118,22 @@ export default function FabRegistrarGastos({ visible = true }) {
         </View>
       </Modal>
 
-      <Pressable
-        onPress={() => setSheetOpen(true)}
-        style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir acciones rápidas: registrar gasto o asistente de compras"
+      <View
+        style={[styles.wrap, { bottom: bottomFab }]}
+        pointerEvents="box-none"
+        collapsable={false}
       >
-        <Ionicons name="add" size={32} color={colors.mint} />
-      </Pressable>
+        <Pressable
+          onPress={() => setSheetOpen(true)}
+          style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir acciones rápidas: registrar gasto o asistente de compras"
+          hitSlop={12}
+          android_ripple={{ borderless: true, color: 'rgba(255,255,255,0.2)' }}
+        >
+          <Ionicons name="add" size={32} color={colors.mint} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -115,6 +141,20 @@ export default function FabRegistrarGastos({ visible = true }) {
 const SIZE = 58;
 
 const styles = StyleSheet.create({
+  /**
+   * Capa a pantalla completa con box-none: el + queda por encima de escenas nativas (screens)
+   * sin interceptar toques fuera del botón. elevation alto en Android evita que cards con elevation
+   * roben el hit-test del FAB.
+   */
+  layerFill: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2000,
+    ...Platform.select({
+      ios: {},
+      android: { elevation: 24 },
+      default: {},
+    }),
+  },
   /**
    * Tamaño fijo: en Android un View absolute solo con right/bottom puede ocupar todo el ancho
    * y tapar listas/scroll (rectángulo oscuro + bloqueo de toques).
@@ -124,7 +164,7 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     width: SIZE,
     height: SIZE,
-    zIndex: 50,
+    zIndex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -139,23 +179,34 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     ...Platform.select({
       ios: { ...shadows.card },
-      android: { elevation: 8 },
+      android: { elevation: 26 },
     }),
   },
   mOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.52)',
     justifyContent: 'flex-end',
   },
+  /** Capa oscura detrás del sheet (zIndex por debajo del panel). */
+  mBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.52)',
+    zIndex: 0,
+  },
   mSheet: {
+    zIndex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
     backgroundColor: colors.bgElevated,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     padding: spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? 34 : spacing.lg,
     borderWidth: 1,
     borderColor: colors.stroke,
-    maxHeight: '88%',
+    ...Platform.select({
+      ios: { ...shadows.card },
+      android: { elevation: 16 },
+      default: {},
+    }),
   },
   sheetTitle: { ...typography.title, marginBottom: spacing.xs },
   sheetHint: { ...typography.small, color: colors.textMuted, marginBottom: spacing.md, lineHeight: 20 },

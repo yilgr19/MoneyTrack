@@ -133,6 +133,11 @@ function calcularFabVisible(navState) {
   const tab = navState.routes[navState.index];
   if (tab?.name !== 'Mas') return true;
   const nested = getFocusedRouteNameFromRoute(tab);
+  /**
+   * Si el estado del stack aún no está listo, `nested` puede ser `undefined` y antes el FAB quedaba oculto
+   * en la rejilla Más (solo `nested === 'MoreMenu'`). En Inicio/Saldo no aplica.
+   */
+  if (nested === undefined) return true;
   return nested === 'MoreMenu';
 }
 
