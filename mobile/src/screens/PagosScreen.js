@@ -16,6 +16,7 @@ import {
   parseFechaHoraLocal,
   claveRecordatorioPagoCumplido,
 } from '../lib/finance';
+import { notificacionesSistemaDisponibles } from '../lib/notificacionesLocalesEntorno';
 import { colors, spacing, radii, typography } from '../theme';
 
 const FLASH_DURACION_MS = 2800;
@@ -102,13 +103,30 @@ export default function PagosScreen() {
       activo,
       nota: nota.trim() || '',
     };
-    replaceState((s) => ({ ...s, pagosProgramados: [...(s.pagosProgramados || []), p] }));
+    replaceState((s) => {
+      const next = { ...s, pagosProgramados: [...(s.pagosProgramados || []), p] };
+      if (notificacionesSistemaDisponibles()) {
+        queueMicrotask(() => {
+          import('../lib/notificacionesLocalesPagosProgramados').then((mod) => {
+            mod.sincronizarNotificacionesLocalesPagosProgramados(next).catch((e) => {
+              if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[MoneyTrack] notif al guardar pago:', e);
+            });
+            mod.sincronizarNotificacionesLocalesTarjetasCredito(next).catch(() => {});
+          });
+        });
+      }
+      return next;
+    });
+    const avisoBarra =
+      Platform.OS !== 'web' && !notificacionesSistemaDisponibles()
+        ? ' (Expo Go: sin avisos en la barra; usa APK o dev build.)'
+        : '';
     if (frecuencia === 'mensual') {
-      mostrarFlash('Mensual: mismo día cada mes. Listo.');
+      mostrarFlash(`Mensual: mismo día cada mes. Listo.${avisoBarra}`);
     } else if (frecuencia === 'quincenal') {
-      mostrarFlash('Quincenal guardado.');
+      mostrarFlash(`Quincenal guardado.${avisoBarra}`);
     } else {
-      mostrarFlash('Semanal guardado.');
+      mostrarFlash(`Semanal guardado.${avisoBarra}`);
     }
     setConcepto('');
     setMonto('');

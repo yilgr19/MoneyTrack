@@ -8,12 +8,14 @@ import {
   clearStorageFull,
   loadOnboardingCompletado,
   setOnboardingCompletado,
+  clearOnboardingCompletado,
 } from '../lib/storage';
+import { exportarRespaldoCompartir, importarRespaldoElegirArchivo } from '../lib/backupMoneyTrack';
 import { reemplazarPagosRecordatorioTarjetas } from '../lib/finance';
 import { normalizarIntencionCompraPersistida, normalizarLineaListaSuper } from '../lib/asistenteComprasLogic';
 import { notificacionesSistemaDisponibles } from '../lib/notificacionesLocalesEntorno';
 
-function normalizeState(raw) {
+export function normalizeState(raw) {
   const saldos = raw.saldosCuentas
     ? { ...emptySaldosCuentas(), ...raw.saldosCuentas }
     : emptySaldosCuentas();
@@ -45,7 +47,15 @@ function normalizeState(raw) {
       ? raw.plataformasDetalle.filter((r) => r && typeof r === 'object')
       : [],
     tarjetasCredito: Array.isArray(raw.tarjetasCredito)
-      ? raw.tarjetasCredito.filter((r) => r && typeof r === 'object')
+      ? raw.tarjetasCredito
+          .filter((r) => r && typeof r === 'object')
+          .map((t) => {
+            const { deudaInicialDesdeCorte: _omitDeudaIni, ...rest } = t;
+            return {
+              ...rest,
+              cuotasDeudaInicial: Math.max(1, parseInt(String(t.cuotasDeudaInicial ?? '1'), 10) || 1),
+            };
+          })
       : [],
     extractosTarjetasHistorial: Array.isArray(raw.extractosTarjetasHistorial)
       ? raw.extractosTarjetasHistorial.filter((r) => r && typeof r === 'object' && r.id)
@@ -210,6 +220,11 @@ export function AppProvider({ children }) {
           .map((t) => `${String(t.fechaHoraCorte || '')}|${String(t.fechaHoraLimitePago || '')}`)
           .join('||')
       : '';
+  /** Pagos programados + TC + gastos (pago al día) para reprogramar avisos en barra con app cerrada. */
+  const claveParaNotificacionesLocales = useMemo(
+    () => `${claveParaNotificacionesPagos}|tc:${tcFechasHash}|n:${nTc}|g:${lenG}`,
+    [claveParaNotificacionesPagos, tcFechasHash, nTc, lenG]
+  );
   useEffect(() => {
     if (!ready || !state) return;
     replaceState((s) => ({
@@ -221,19 +236,32 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!ready || !state || mostrarOnboarding) return;
     if (!notificacionesSistemaDisponibles()) return;
-    import('../lib/notificacionesLocalesPagosProgramados').then((m) =>
-      m.sincronizarNotificacionesLocalesPagosProgramados(state).catch(() => {})
-    );
-  }, [ready, mostrarOnboarding, claveParaNotificacionesPagos]);
+    import('../lib/notificacionesLocalesPagosProgramados').then((m) => {
+      const log = (e, etiqueta) => {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) {
+          console.warn(`[MoneyTrack] ${etiqueta}`, e?.message || e);
+        }
+      };
+      m.sincronizarNotificacionesLocalesPagosProgramados(state).catch((e) => log(e, 'sync notif pagos'));
+      m.sincronizarNotificacionesLocalesTarjetasCredito(state).catch((e) => log(e, 'sync notif TC'));
+    });
+  }, [ready, mostrarOnboarding, claveParaNotificacionesLocales]);
 
   useEffect(() => {
     if (!ready || mostrarOnboarding) return;
     if (!notificacionesSistemaDisponibles()) return;
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'active' && stateRef.current) {
-        import('../lib/notificacionesLocalesPagosProgramados').then((m) =>
-          m.sincronizarNotificacionesLocalesPagosProgramados(stateRef.current).catch(() => {})
-        );
+        import('../lib/notificacionesLocalesPagosProgramados').then((m) => {
+          const cur = stateRef.current;
+          if (!cur) return;
+          m.sincronizarNotificacionesLocalesPagosProgramados(cur).catch((e) => {
+            if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[MoneyTrack] sync notif pagos (active)', e);
+          });
+          m.sincronizarNotificacionesLocalesTarjetasCredito(cur).catch((e) => {
+            if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[MoneyTrack] sync notif TC (active)', e);
+          });
+        });
       }
     });
     return () => sub.remove();
@@ -261,6 +289,40 @@ export function AppProvider({ children }) {
     setState(normalizeState(raw));
   }, []);
 
+  const exportarDatosRespaldo = useCallback(async () => {
+    if (!state) {
+      return { ok: false, mensaje: 'Aún no hay datos cargados.' };
+    }
+    const onboardingHecho = await loadOnboardingCompletado();
+    return exportarRespaldoCompartir(state, onboardingHecho);
+  }, [state]);
+
+  const importarDatosRespaldo = useCallback(async () => {
+    const r = await importarRespaldoElegirArchivo();
+    if (r.cancelado) {
+      return { ok: false, cancelado: true, mensaje: '' };
+    }
+    if (!r.ok) {
+      return { ok: false, mensaje: r.error || 'No se pudo importar.' };
+    }
+    const normalized = normalizeState(r.data);
+    await persistAppState(normalized);
+    if (r.onboardingCompletado) {
+      await setOnboardingCompletado();
+      setMostrarOnboarding(false);
+    } else {
+      await clearOnboardingCompletado();
+      setMostrarOnboarding(true);
+    }
+    setPostOnboardingIrASaldo(false);
+    setState(normalized);
+    const fecha = r.exportedAt ? `\nArchivo exportado: ${r.exportedAt}` : '';
+    return {
+      ok: true,
+      mensaje: `Datos restaurados. Reinicia la app si algo no se ve al instante.${fecha}`,
+    };
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
@@ -272,6 +334,8 @@ export function AppProvider({ children }) {
       replaceState,
       resetPartial,
       resetFull,
+      exportarDatosRespaldo,
+      importarDatosRespaldo,
     }),
     [
       state,
@@ -283,6 +347,8 @@ export function AppProvider({ children }) {
       replaceState,
       resetPartial,
       resetFull,
+      exportarDatosRespaldo,
+      importarDatosRespaldo,
     ]
   );
 

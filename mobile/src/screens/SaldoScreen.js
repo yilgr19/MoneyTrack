@@ -70,6 +70,24 @@ const CUENTA_ICONS = {
   tarjetaCredito: 'card-outline',
 };
 
+/** Cuotas en que se reparte la deuda inicial; solo valores del selector (Saldo → tarjetas). */
+const CUOTAS_DEUDA_OPCIONES = Object.freeze([1, 3, 6, 9, 12, 18, 24, 36, 48]);
+
+function cuotasDeudaInicialSnap(n) {
+  const num = Math.max(1, parseInt(String(n), 10) || 1);
+  if (CUOTAS_DEUDA_OPCIONES.includes(num)) return num;
+  let best = CUOTAS_DEUDA_OPCIONES[0];
+  let bestDiff = Infinity;
+  for (const o of CUOTAS_DEUDA_OPCIONES) {
+    const d = Math.abs(o - num);
+    if (d < bestDiff || (d === bestDiff && o < best)) {
+      bestDiff = d;
+      best = o;
+    }
+  }
+  return best;
+}
+
 /** Nequi, Daviplata y billeteras se editan solo en la tarjeta «Mis plataformas». */
 const CUENTA_IDS_CARD_PLATAFORMAS = new Set(['nequi', 'daviplata', 'billeteras']);
 
@@ -173,6 +191,11 @@ function defaultISOFromLegacyDia(diaRaw, kind) {
 function tcToDraft(t) {
   const fc = soloFechaGuardada(t.fechaHoraCorte) || defaultISOFromLegacyDia(t.diaCorte, 'corte');
   const fl = soloFechaGuardada(t.fechaHoraLimitePago) || defaultISOFromLegacyDia(t.diaLimitePago, 'pago');
+  const nCuot = cuotasDeudaInicialSnap(
+    t.cuotasDeudaInicial != null && String(t.cuotasDeudaInicial).trim() !== ''
+      ? t.cuotasDeudaInicial
+      : '1'
+  );
   return {
     id: t.id || generarIdTarjetaCredito(),
     nombreEntidad: t.nombreEntidad || '',
@@ -180,6 +203,7 @@ function tcToDraft(t) {
     cupoTotal: t.cupoTotal != null && String(t.cupoTotal).trim() !== '' ? String(t.cupoTotal) : '',
     cupoUtilizado:
       t.cupoUtilizado != null && String(t.cupoUtilizado).trim() !== '' ? String(t.cupoUtilizado) : '',
+    cuotasDeudaInicial: String(nCuot),
     fechaHoraCorte: fc,
     fechaHoraLimitePago: fl,
   };
@@ -190,6 +214,7 @@ function draftToTc(row) {
   const fl = soloFechaGuardada(row.fechaHoraLimitePago);
   const dc = parseFechaHoraLocal(fc);
   const dl = parseFechaHoraLocal(fl);
+  const nCuot = cuotasDeudaInicialSnap(row.cuotasDeudaInicial ?? '1');
   return {
     id: row.id,
     nombreEntidad: row.nombreEntidad.trim(),
@@ -200,6 +225,7 @@ function draftToTc(row) {
     fechaHoraLimitePago: fl,
     diaCorte: dc ? Math.min(28, dc.getDate()) : 15,
     diaLimitePago: dl ? Math.min(28, dl.getDate()) : 5,
+    cuotasDeudaInicial: nCuot,
   };
 }
 
@@ -210,6 +236,7 @@ function emptyTcDraft() {
     tasaEA: '',
     cupoTotal: '',
     cupoUtilizado: '',
+    cuotasDeudaInicial: '1',
     fechaHoraCorte: defaultISOFromLegacyDia(15, 'corte'),
     fechaHoraLimitePago: defaultISOFromLegacyDia(5, 'pago'),
   };
@@ -565,6 +592,7 @@ export default function SaldoScreen() {
       const fl = soloFechaGuardada(t.fechaHoraLimitePago);
       const corteOk = parseFechaHoraLocal(fc);
       const limOk = parseFechaHoraLocal(fl);
+      const nCuot = cuotasDeudaInicialSnap(t.cuotasDeudaInicial ?? '1');
       return {
         id: t.id || generarIdTarjetaCredito(),
         nombreEntidad: String(t.nombreEntidad || '').trim(),
@@ -575,6 +603,7 @@ export default function SaldoScreen() {
         fechaHoraLimitePago: limOk ? fl : '',
         diaCorte: corteOk ? Math.min(28, corteOk.getDate()) : 15,
         diaLimitePago: limOk ? Math.min(28, limOk.getDate()) : 5,
+        cuotasDeudaInicial: nCuot,
       };
     });
     setTarjetasCredito(tarjetasClean);
@@ -781,6 +810,7 @@ export default function SaldoScreen() {
       const fl = soloFechaGuardada(t.fechaHoraLimitePago);
       const corteOk = parseFechaHoraLocal(fc);
       const limOk = parseFechaHoraLocal(fl);
+      const nCuot = cuotasDeudaInicialSnap(t.cuotasDeudaInicial ?? '1');
       return {
         id: t.id || generarIdTarjetaCredito(),
         nombreEntidad: String(t.nombreEntidad || '').trim(),
@@ -791,6 +821,7 @@ export default function SaldoScreen() {
         fechaHoraLimitePago: limOk ? fl : '',
         diaCorte: corteOk ? Math.min(28, corteOk.getDate()) : 15,
         diaLimitePago: limOk ? Math.min(28, limOk.getDate()) : 5,
+        cuotasDeudaInicial: nCuot,
       };
     });
     const limitePersist =
@@ -1244,6 +1275,28 @@ export default function SaldoScreen() {
                           placeholder="0"
                           placeholderTextColor={colors.textFaint}
                         />
+                        <Text style={[styles.modalLab, { marginTop: spacing.sm }]}>
+                          En cuántas cuotas referencias esa deuda
+                        </Text>
+                        <Text style={[styles.modalHint, { marginBottom: spacing.xs }]}>
+                          El reparto cuenta desde cada fecha de corte: en varias cuotas, cada corte reconoce una parte
+                          de la deuda en el extracto y el cupo usado. En 1 cuota el monto completo cuenta de inmediato.
+                        </Text>
+                        <View style={styles.pickerWrap}>
+                          <Picker
+                            selectedValue={String(cuotasDeudaInicialSnap(line.cuotasDeudaInicial ?? '1'))}
+                            onValueChange={(v) => patchTcLine(idx, { cuotasDeudaInicial: v })}
+                            style={{ color: colors.text }}
+                          >
+                            {CUOTAS_DEUDA_OPCIONES.map((n) => (
+                              <Picker.Item
+                                key={n}
+                                label={n === 1 ? '1 cuota' : `${n} cuotas`}
+                                value={String(n)}
+                              />
+                            ))}
+                          </Picker>
+                        </View>
                         <Text style={[styles.modalLab, { marginTop: spacing.sm }]}>Fecha de corte</Text>
                         <TouchableOpacity
                           style={styles.input}
@@ -1277,11 +1330,14 @@ export default function SaldoScreen() {
                     {tcPicker != null && tcModalLines[tcPicker.idx] ? (
                       <DateTimePicker
                         value={
-                          parseFechaHoraLocal(
-                            tcPicker.field === 'corte'
-                              ? tcModalLines[tcPicker.idx].fechaHoraCorte
-                              : tcModalLines[tcPicker.idx].fechaHoraLimitePago
-                          ) || new Date()
+                          (() => {
+                            const ln = tcModalLines[tcPicker.idx];
+                            return (
+                              parseFechaHoraLocal(
+                                tcPicker.field === 'corte' ? ln.fechaHoraCorte : ln.fechaHoraLimitePago
+                              ) || new Date()
+                            );
+                          })()
                         }
                         mode="date"
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}

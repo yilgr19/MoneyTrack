@@ -9,6 +9,21 @@ const config = getDefaultConfig(__dirname);
  * expo-constants/android/bin; el FallbackWatcher de Metro hace lstat y revienta.
  */
 const poison = [/node_modules[/\\]expo-constants[/\\]android[/\\]bin[/\\].*/];
-config.resolver.blockList = [...(config.resolver.blockList ?? []), ...poison];
+
+/**
+ * `lightningcss` declara optionalDependencies para todas las plataformas; en Windows solo
+ * se instala win32-*. Metro a veces intenta vigilar carpetas inexistentes (symlink roto /
+ * OneDrive) y falla con ENOENT en p. ej. lightningcss-linux-arm-gnueabihf.
+ */
+const lightningcssOtrosSo =
+  process.platform === 'win32'
+    ? [/node_modules[/\\]lightningcss-(?!win32)[^/\\]*[/\\]?.*/]
+    : [];
+
+config.resolver.blockList = [
+  ...(config.resolver.blockList ?? []),
+  ...poison,
+  ...lightningcssOtrosSo,
+];
 
 module.exports = config;

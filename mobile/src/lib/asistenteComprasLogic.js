@@ -44,30 +44,155 @@ export function costoPorSesion(precio, vecesPorSemana, añosUso) {
   return total > 0 ? p / total : p;
 }
 
-const PRECIO_REF_CINE_DEFAULT = 10;
+/** Mínimo de tickets en la ventana para comparar con tu historial real (evita ruido). */
+const MIN_TICKETS_HISTORIAL_CONFIABLE = 3;
+const MESES_VENTANA_HISTORIAL = 3;
 
-export function mensajeCostoPorUso({
-  nombreProducto,
-  precio,
-  costoSesion,
-  precioReferenciaSesion = PRECIO_REF_CINE_DEFAULT,
-  etiquetaReferencia = 'una salida al cine',
-}) {
-  const nombre = String(nombreProducto || 'Este artículo').trim();
+/**
+ * Tickets de gasto en la categoría en los últimos `numMeses` meses calendario (incluye el mes en curso).
+ */
+export function benchmarkTicketsCategoriaUltimosMeses(state, nombreCategoria, numMeses = MESES_VENTANA_HISTORIAL) {
+  const nom = String(nombreCategoria || '').trim();
+  if (!nom) {
+    return { confiable: false, visitas: 0, promedio: 0, mediana: 0 };
+  }
+  const montos = [];
+  const d = new Date();
+  for (let k = 0; k < numMeses; k++) {
+    const ref = new Date(d.getFullYear(), d.getMonth() - k, 15);
+    const mes = ref.getMonth();
+    const año = ref.getFullYear();
+    const gastos = state?.gastos || [];
+    for (let i = 0; i < gastos.length; i++) {
+      const g = gastos[i];
+      if (!g || String(g.categoria || '').trim() !== nom) continue;
+      const ma = obtenerMesAño(g.fecha);
+      if (ma.mes !== mes || ma.año !== año) continue;
+      const monto = montoGastoAfectaSaldoEnMes(g, state, mes, año);
+      if (monto > 0) montos.push(monto);
+    }
+  }
+  if (montos.length === 0) {
+    return { confiable: false, visitas: 0, promedio: 0, mediana: 0 };
+  }
+  const suma = montos.reduce((a, b) => a + b, 0);
+  const promedio = suma / montos.length;
+  const sorted = [...montos].sort((a, b) => a - b);
+  const mediana = sorted[Math.floor(sorted.length / 2)];
+  return {
+    confiable: montos.length >= MIN_TICKETS_HISTORIAL_CONFIABLE,
+    visitas: montos.length,
+    promedio,
+    mediana,
+  };
+}
+
+function parrafoHistorialConfiable(bench, cat, precio) {
+  if (!bench || !bench.confiable) return '';
+  const nom = String(cat || '').trim();
+  const p = formatearNumero(bench.promedio);
+  const m = formatearNumero(bench.mediana);
+  const n = bench.visitas;
+  if (precio <= bench.promedio * 0.88) {
+    return `Según tus ${n} gastos registrados recientes en «${nom}», sueles mover cerca de ${p} por compra (mediana ~${m}). Lo que evalúas va por debajo de ese ritmo: los datos no apuntan a un exceso claro.`;
+  }
+  if (precio <= bench.promedio * 1.18) {
+    return `Con ${n} compras recientes en «${nom}», tu ticket típico ronda ${p} (mediana ~${m}). El precio que miras va en la línea de lo que ya registraste; el patrón es reconocible.`;
+  }
+  return `Tus últimos registros en «${nom}» (${n} compras) sitúan un ticket habitual cerca de ${p} (mediana ~${m}). Estás por encima de ese patrón: merece la pena asegurarse del motivo antes de gastar.`;
+}
+
+function fnv1aHash32(str) {
+  let h = 2166136261;
+  const s = String(str || '');
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/**
+ * 20 avisos rotativos (tono cercano). Banda según sesiones totales estimadas (datos del formulario), sin referencias externas ficticias.
+ */
+const PLANTILLAS_ANALISIS_INTENCION = [
+  (c) =>
+    `${c.nombre} encaja bien si el uso es real: repartes ${c.precioFmt} en unas ${c.sesionesFmt} sesiones estimadas y cada uso queda en ~${c.csFmt}.`,
+  (c) =>
+    `Con tantas sesiones previstas, el costo por uso (~${c.csFmt}) se mantiene razonable frente al total (${c.precioFmt}). Solo evita duplicar algo que ya tienes.`,
+  (c) =>
+    `La amortización acompaña: muchos usos diluyen el precio. Si cumples ese ritmo, el gasto se defiende con números.`,
+  (c) =>
+    `Por cómo lo contaste, cada vez que lo uses “cuesta” ~${c.csFmt}; para el total ${c.precioFmt} eso suele ser señal de compra pensada, no impulsiva.`,
+  (c) =>
+    `El “precio por uso” sale contenido. Eso invita a decir sí solo si de verdad lo vas a integrar al día a día.`,
+  (c) =>
+    `Los supuestos de uso que pusiste hacen que el número por sesión sea amable. Falta que encaje con tu mes y con tus prioridades, no con la calculadora.`,
+  (c) =>
+    `En términos de uso frecuente, el reparto del ${c.precioFmt} tiene sentido. La duda ya no es la división, sino si lo sacarás tanto del armario.`,
+  (c) =>
+    `Zona intermedia: cada uso ~${c.csFmt} con ~${c.sesionesFmt} sesiones estimadas. Si el uso real es menor del que anotaste, el costo por vez sube; vale la pena ser honesto.`,
+  (c) =>
+    `No es alarmante, pero ya pide constancia. Si al final lo usarás pocas veces, el ~${c.csFmt} por uso se va a sentir caro.`,
+  (c) =>
+    `Aquí el hábito marca la diferencia: con las sesiones que estimaste, el gasto se entiende; sin ese hábito, conviene frenar.`,
+  (c) =>
+    `El total (${c.precioFmt}) aún se puede defender si las sesiones son reales. Revisa veces por semana y años de uso: un pequeño cambio mueve mucho el costo por uso.`,
+  (c) =>
+    `Ni luz verde chillona ni roja fuerte: el ~${c.csFmt} por uso pide que confirmes si lo necesitas o si hay alternativa más barata.`,
+  (c) =>
+    `Un “tal vez” sincero: si puedes esperar oferta, comparar otra marca o segunda mano, este tramo intermedio suele premiar la paciencia.`,
+  (c) =>
+    `Vuelve a mirar el formulario: minutos por sesión y veces por semana definen esas ${c.sesionesFmt} sesiones. Si dudas de los datos, duda también del veredicto.`,
+  (c) =>
+    `Si la vida real te aleja de los usos que pusiste, el costo por uso real será mayor que ~${c.csFmt}. Ajusta cifras o asume el riesgo.`,
+  (c) =>
+    `Pocas sesiones estimadas: cada uso ~${c.csFmt} pesa mucho frente al ${c.precioFmt}. Sin uso intensivo, el dinero suele encontrar mejor sitio.`,
+  (c) =>
+    `La amortización va justa: salvo que sea imprescindible y lo uses muy seguido, es fácil arrepentirse del precio por cada vez.`,
+  (c) =>
+    `Los números piden pausa: repartir ${c.precioFmt} en tan pocas sesiones encarece cada uso. Valora esperar o buscar sustituto.`,
+  (c) =>
+    `Por uso, sale caro. Tiene sentido solo si el valor práctico o emocional es muy alto para ti.`,
+  (c) =>
+    `No es un gasto que se diluya solo con un uso esporádico: sin constancia, ~${c.csFmt} por vez duele; prioriza necesidad real sobre impulso.`,
+];
+
+/**
+ * Texto principal del análisis de intención + si hubo comparación con historial real.
+ */
+export function construirAnalisisMensajeIntencion(state, editando, costoSesion) {
+  const nombre = String(editando?.nombre || 'Esto').trim() || 'Esto';
+  const precio = Math.max(0, parseFloat(editando?.precioEstimado) || 0);
+  const cat = String(editando?.nombreCategoria || '').trim();
   const cs = Math.max(0, costoSesion || 0);
-  const ref = Math.max(0.01, precioReferenciaSesion);
-  const ratio = cs / ref;
-  const csFmt = formatearNumero(cs);
-  const refFmt = formatearNumero(ref);
-  const precioFmt = formatearNumero(parseFloat(precio) || 0);
-
-  if (ratio <= 1.15) {
-    return `${nombre} sale ${csFmt} por uso estimado frente a ~${refFmt} en ${etiquetaReferencia}. Si lo usarás tanto como piensas, tiene sentido frente al ocio fuera de casa.`;
+  const sesTot = Math.max(0, totalSesionesEstimadas(editando.vecesPorSemana, editando.añosUso));
+  /** Solo datos del formulario: más sesiones → mejor amortización del precio. */
+  const bucket = sesTot >= 45 ? 'alta' : sesTot >= 12 ? 'media' : 'baja';
+  const bench = benchmarkTicketsCategoriaUltimosMeses(state, cat, MESES_VENTANA_HISTORIAL);
+  let hist = parrafoHistorialConfiable(bench, cat, precio);
+  if (
+    !hist &&
+    cat &&
+    bench.visitas > 0 &&
+    bench.visitas < MIN_TICKETS_HISTORIAL_CONFIABLE
+  ) {
+    hist = `Por ahora hay ${bench.visitas} gasto(s) reciente(s) en «${cat}»; con al menos ${MIN_TICKETS_HISTORIAL_CONFIABLE} registros en esa categoría el contraste con tu ritmo real será más fiable.`;
   }
-  if (ratio <= 2.5) {
-    return `${nombre} (${precioFmt} total): cada uso sería ~${csFmt}; comparado con ~${refFmt} (${etiquetaReferencia}), piensa si lo usarás lo suficiente para amortizarlo.`;
-  }
-  return `${nombre}: cada uso estimado ~${csFmt}, bastante más caro que ~${refFmt} (${etiquetaReferencia}). Si solo lo usarás un par de veces al año, el costo por uso es alto: ¿merece la pena?`;
+  const ctx = {
+    nombre,
+    precioFmt: formatearNumero(precio),
+    csFmt: formatearNumero(cs),
+    sesionesFmt: formatearNumero(Math.round(sesTot)),
+  };
+  const pools = {
+    alta: [0, 1, 2, 3, 4, 5, 6],
+    media: [7, 8, 9, 10, 11, 12, 13, 14],
+    baja: [15, 16, 17, 18, 19],
+  };
+  const pool = pools[bucket];
+  const seed = `${editando?.id || nombre}|${bucket}|${bench.confiable ? 1 : 0}`;
+  const pick = pool[fnv1aHash32(seed) % pool.length];
+  const cuerpo = PLANTILLAS_ANALISIS_INTENCION[pick](ctx);
+  const msgValor = hist ? `${hist}\n\n${cuerpo}` : cuerpo;
+  return { msgValor, historialConfiable: bench.confiable, ticketsHistorial: bench.visitas };
 }
 
 /** Gastado en categoría este mes (misma regla que Gastos). */
@@ -270,5 +395,3 @@ export function formatCountdownMs(ms) {
   const s = sTotal % 60;
   return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
 }
-
-export { PRECIO_REF_CINE_DEFAULT };

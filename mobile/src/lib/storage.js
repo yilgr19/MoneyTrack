@@ -172,3 +172,8 @@ export async function loadOnboardingCompletado() {
 export async function setOnboardingCompletado() {
   await AsyncStorage.setItem(KEY_ONBOARDING_COMPLETADO, '1');
 }
+
+/** Tras importar un respaldo donde el tutorial aún no estaba completado. */
+export async function clearOnboardingCompletado() {
+  await AsyncStorage.removeItem(KEY_ONBOARDING_COMPLETADO);
+}

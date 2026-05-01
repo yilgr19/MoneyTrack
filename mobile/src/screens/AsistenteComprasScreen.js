@@ -21,11 +21,10 @@ import { normalizarCategoria, formatearNumero } from '../lib/finance';
 import {
   generarIdIntencionCompra,
   costoPorSesion,
-  mensajeCostoPorUso,
+  construirAnalisisMensajeIntencion,
   datosTermometroCategoria,
   estimarListaSuperDesdeHistorial,
   elegirCategoriaSuperPorDefecto,
-  PRECIO_REF_CINE_DEFAULT,
   generarIdListaSuperLinea,
   ordenarLineasListaSuper,
   URGENCIA_LISTA_SUPER,
@@ -281,17 +280,19 @@ export default function AsistenteComprasScreen({ route }) {
         puede: true,
         bloqueo48: false,
         restanteMs: 0,
+        historialConfiable: false,
+        ticketsHistorial: 0,
       };
     const ah = new Date();
     const mes = ah.getMonth();
     const año = ah.getFullYear();
     const precio = editando.precioEstimado;
     const cs = costoPorSesion(precio, editando.vecesPorSemana, editando.añosUso);
-    const msgValor = mensajeCostoPorUso({
-      nombreProducto: editando.nombre,
-      precio,
-      costoSesion: cs,
-    });
+    const { msgValor, historialConfiable, ticketsHistorial } = construirAnalisisMensajeIntencion(
+      state,
+      editando,
+      cs
+    );
     const termo = datosTermometroCategoria(state, editando.nombreCategoria, mes, año, precio);
     const puede = puedeRegistrarCompraPorRegla48h(editando, ahora);
     const bloqueo48 = editando.aplicabaCooldown && !puede;
@@ -299,7 +300,7 @@ export default function AsistenteComprasScreen({ route }) {
       editando.aplicabaCooldown && editando.cooldownHasta != null
         ? Math.max(0, editando.cooldownHasta - ahora)
         : 0;
-    return { costoSes: cs, msgValor, termo, puede, bloqueo48, restanteMs };
+    return { costoSes: cs, msgValor, termo, puede, bloqueo48, restanteMs, historialConfiable, ticketsHistorial };
   }, [editando, state, ahora]);
 
   const estimacionSuper = useMemo(() => {
@@ -526,9 +527,13 @@ export default function AsistenteComprasScreen({ route }) {
                   <View style={{ flex: 1 }}>
                     <Text style={[typography.body, { lineHeight: 22 }]}>{analisis.msgValor}</Text>
                     <Text style={[typography.small, { color: colors.textMuted, marginTop: spacing.sm, lineHeight: 18 }]}>
-                      Comparación referencia (~{formatearNumero(PRECIO_REF_CINE_DEFAULT)} {moneda}/sesión cine); sesiones imaginadas de ~
-                      {Math.round(editando.minutosPorSesion)} min, {editando.vecesPorSemana}× semana durante{' '}
-                      {editando.añosUso} año(s).
+                      {analisis.historialConfiable
+                        ? `El primer párrafo usa tus ${analisis.ticketsHistorial} gasto(s) registrado(s) en «${editando.nombreCategoria}» (últimos meses). `
+                        : analisis.ticketsHistorial > 0
+                          ? `Aún faltan registros en «${editando.nombreCategoria}» para contrastar con tu historial con confianza. `
+                          : `Sin bastantes gastos previos en «${editando.nombreCategoria}», el análisis se basa en el precio, el costo por uso y las sesiones que estimaste abajo. `}
+                      Uso estimado: ~{Math.round(editando.minutosPorSesion)} min por sesión, {editando.vecesPorSemana}× semana,{' '}
+                      {editando.añosUso} año(s) de vida útil.
                     </Text>
                   </View>
                 </View>

@@ -1,11 +1,13 @@
 {
   "name": "moneytrack-monorepo-root",
   "private": true,
-  "description": "Delega scripts a mobile/. Usa npm start aquí si abriste la terminal en la raíz del repo.",
+  "description": "Delega scripts a mobile/. npm start = LAN + 8082 + adb reverse (depuración inalámbrica por defecto).",
   "scripts": {
     "start": "node mobile/scripts/run-expo.cjs start",
+    "start:localhost": "node mobile/scripts/run-expo.cjs start --localhost",
     "start:clear": "node mobile/scripts/run-expo.cjs start --clear",
-    "start:wifi": "node mobile/scripts/run-expo.cjs start --dev-client --lan --clear --port 8082",
-    "android:adb-reverse": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:8082 tcp:8082"
+    "start:wifi": "node mobile/scripts/run-expo.cjs start",
+    "start:tunnel": "node mobile/scripts/run-expo.cjs start --dev-client --tunnel --clear",
+    "android:adb-reverse": "node mobile/scripts/adb-reverse.cjs"
   }
 }

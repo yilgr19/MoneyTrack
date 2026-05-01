@@ -26,7 +26,7 @@ import {
   calcularSaldosPorCuenta,
   cuentaVisibleEnResumenInicio,
   limiteTotalTarjetasCredito,
-  totalCupoUtilizadoTarjetasCredito,
+  totalDeudaSaldoInicialReconocida,
   obtenerMesAño,
   montoGastoAfectaSaldoEnMes,
   montoGastoCuentaParaPresupuestoEnMes,
@@ -376,7 +376,7 @@ export default function HomeScreen() {
 
     const saldosPorCuenta = calcularSaldosPorCuenta(state);
     const topeTarjeta = limiteTotalTarjetasCredito(state);
-    const deudaTarjeta = totalCupoUtilizadoTarjetasCredito(state);
+    const deudaTarjeta = totalDeudaSaldoInicialReconocida(state, ahora);
     const totalSaldosCuentas = Number(saldosPorCuenta.total) || 0;
     const saldoTcCupoLibre =
       topeTarjeta > 0 ? Math.max(0, Number(saldosPorCuenta.tarjetaCredito) || 0) : 0;
@@ -488,6 +488,8 @@ export default function HomeScreen() {
     state?.ingresos,
     state?.contribucionesMetas,
     state?.bolsillos,
+    state?.pagosProgramados,
+    state?.recordatoriosPagoRegistrado,
   ]);
 
   if (!ready || !state) {

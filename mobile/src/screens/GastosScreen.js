@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,18 +18,17 @@ import {
   normalizarCategoria,
   montoGastoCuentaParaPresupuestoEnMes,
   fechaALocalISO,
-  fechasCortesGastoConFallback,
   pagoDebeMostrarseParaPagar,
   obtenerCuentasOrigenGastoElegible,
   obtenerSaldoDisponibleParaOrigenMovimiento,
   totalSaldoLiquido,
-  agregarOFusionarPagoProgramadoCuotaCorte,
   reemplazarPagosRecordatorioTarjetas,
   filtrarPagosProgramadosCumplidosPorGasto,
   pagoProgramadoCumplidoPorGasto,
   abonoCoindiceCorteMensual,
   claveRecordatorioPagoCumplido,
   fechaGastoRecomendadaTrasOCR,
+  existeAbonoDeudaTarjetaEnMes,
 } from '../lib/finance';
 import { colors, spacing, radii, typography, shadows } from '../theme';
 
@@ -117,6 +116,9 @@ export default function GastosScreen() {
   const [cantidad, setCantidad] = useState('');
   const [fecha, setFecha] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
+  /** Android: un solo picker `datetime` puede lanzar `dismiss` de undefined en la lib nativa. */
+  const [androidFechaOpen, setAndroidFechaOpen] = useState(false);
+  const [androidHoraOpen, setAndroidHoraOpen] = useState(false);
   const [categoria, setCategoria] = useState('');
   const [origen, setOrigen] = useState('');
   const [cuotas, setCuotas] = useState(1);
@@ -215,6 +217,18 @@ export default function GastosScreen() {
     []
   );
 
+  const aplicarFechaGasto = useCallback((d) => {
+    if (!d) return;
+    if (
+      tipoEntrada === 'ocr' &&
+      ocrSnapshotRef.current != null &&
+      d.getTime() !== ocrSnapshotRef.current.fechaMs
+    ) {
+      setTipoEntrada('hibrido');
+    }
+    setFecha(d);
+  }, [tipoEntrada]);
+
   const ahora = new Date();
   const pagosPendientes = (state?.pagosProgramados || []).filter(
     (p) => p.activo !== false && pagoDebeMostrarseParaPagar(p, ahora)
@@ -232,7 +246,6 @@ export default function GastosScreen() {
     setPagoProgramadoEnUso(p.id);
     const esPagoDeuda =
       !!p.esRecordatorioTarjeta ||
-      !!p.esCuotaDiferida ||
       (p.concepto && /l[ií]mite pago|corte tc|pago corte/i.test(String(p.concepto)));
     setAbonoDeudaTarjeta(esPagoDeuda);
     if (esPagoDeuda) {
@@ -416,6 +429,23 @@ export default function GastosScreen() {
     const origenGuardado = esTcCarga ? 'tarjetaCredito' : origen;
     const fechaStr = `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}:00`;
     const tcsGuard = state?.tarjetasCredito || [];
+    if (abonoDeudaTarjeta) {
+      const tidAb =
+        tcsGuard.length === 1
+          ? String(tcsGuard[0].id)
+          : String(tarjetaAbonoElegida || '').trim();
+      if (!tidAb && tcsGuard.length > 1) {
+        Alert.alert('Tarjeta', 'Elige a qué tarjeta aplica este pago.');
+        return;
+      }
+      if (existeAbonoDeudaTarjetaEnMes(state || {}, tidAb || null, fechaStr)) {
+        Alert.alert(
+          'Pago a la tarjeta',
+          'Ya registraste un pago a esa tarjeta en este mes calendario. Para no mezclar cierres, usa un solo movimiento al mes o edita el anterior.',
+        );
+        return;
+      }
+    }
     const tarjetaIdGasto =
       esTcCarga && tcsGuard.length === 1
         ? String(tcsGuard[0].id)
@@ -471,32 +501,6 @@ export default function GastosScreen() {
       let gastos = [...(s.gastos || []), nuevo];
       let pagos = [...(s.pagosProgramados || [])];
       const recordatoriosCum = [...(s.recordatoriosPagoRegistrado || [])];
-
-      if (esTcCarga) {
-        const tcs = s.tarjetasCredito || [];
-        const tTarjeta =
-          (tarjetaIdGasto && tcs.find((x) => x && String(x.id) === String(tarjetaIdGasto))) ||
-          tcs.find((x) => (parseFloat(x.tasaEA) || 0) > 0) ||
-          tcs[0];
-        const tasaEaVal = tTarjeta ? parseFloat(tTarjeta.tasaEA) || 0 : 0;
-        const fechasC = fechasCortesGastoConFallback(fechaStr, cuotasVal, s, tarjetaIdGasto);
-        fechasC.forEach((nextDate, i) => {
-          const fechaCuota = fechaALocalISO(nextDate);
-          if (!fechaCuota) return;
-          pagos = agregarOFusionarPagoProgramadoCuotaCorte(pagos, {
-            fechaCorteDate: nextDate,
-            monto: cuotaMensualVal,
-            nombre: nombre.trim(),
-            iCuota: i + 1,
-            nCuotas: cuotasVal,
-            categoria,
-            cuenta: 'tarjetaCredito',
-            notaUsuario: nota.trim(),
-            tasaEA: tasaEaVal,
-            tarjetaCreditoId: tarjetaIdGasto,
-          });
-        });
-      }
 
       if (pagoProgramadoEnUso) {
         const pRem = pagos.find((p) => p && String(p.id) === String(pagoProgramadoEnUso));
@@ -646,31 +650,67 @@ export default function GastosScreen() {
         <FieldLabel>Fecha y hora</FieldLabel>
         <TouchableOpacity
           style={styles.input}
-          onPress={() => setShowPicker(true)}
+          onPress={() => {
+            if (Platform.OS === 'android') setAndroidFechaOpen(true);
+            else setShowPicker(true);
+          }}
         >
           <Text style={{ color: colors.text, fontSize: 16 }}>{fecha.toLocaleString('es')}</Text>
         </TouchableOpacity>
-        {showPicker && (
+        {Platform.OS === 'ios' && showPicker ? (
           <DateTimePicker
             value={fecha}
             mode="datetime"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            display="spinner"
             onChange={(ev, d) => {
-              if (Platform.OS !== 'ios') setShowPicker(false);
-              if (ev.type === 'dismissed') setShowPicker(false);
-              if (d) {
-                if (
-                  tipoEntrada === 'ocr' &&
-                  ocrSnapshotRef.current != null &&
-                  d.getTime() !== ocrSnapshotRef.current.fechaMs
-                ) {
-                  setTipoEntrada('hibrido');
-                }
-                setFecha(d);
-              }
+              if (ev?.type === 'dismissed') setShowPicker(false);
+              if (d) aplicarFechaGasto(d);
             }}
           />
-        )}
+        ) : null}
+        {Platform.OS === 'android' && androidFechaOpen ? (
+          <DateTimePicker
+            value={fecha}
+            mode="date"
+            display="default"
+            onChange={(ev, d) => {
+              setAndroidFechaOpen(false);
+              if (ev?.type === 'dismissed' || !d) return;
+              aplicarFechaGasto(
+                new Date(
+                  d.getFullYear(),
+                  d.getMonth(),
+                  d.getDate(),
+                  fecha.getHours(),
+                  fecha.getMinutes(),
+                  fecha.getSeconds()
+                )
+              );
+              setAndroidHoraOpen(true);
+            }}
+          />
+        ) : null}
+        {Platform.OS === 'android' && androidHoraOpen ? (
+          <DateTimePicker
+            value={fecha}
+            mode="time"
+            display="default"
+            onChange={(ev, d) => {
+              setAndroidHoraOpen(false);
+              if (ev?.type === 'dismissed' || !d) return;
+              aplicarFechaGasto(
+                new Date(
+                  fecha.getFullYear(),
+                  fecha.getMonth(),
+                  fecha.getDate(),
+                  d.getHours(),
+                  d.getMinutes(),
+                  0
+                )
+              );
+            }}
+          />
+        ) : null}
 
         <FieldLabel>Categoría</FieldLabel>
         {categorias.length === 0 ? (
