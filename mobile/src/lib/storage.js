@@ -30,6 +30,7 @@ const KEYS = [
   'listaSuperCategoriaPreferida',
   'listaSuperArticulosExtra',
   'listaSuperCompraItems',
+  'avisosGastosMovimiento',
 ];
 
 export function emptySaldosCuentas() {
@@ -81,6 +82,7 @@ export async function loadAppState() {
     listaSuperCategoriaPreferida: map.listaSuperCategoriaPreferida || '',
     listaSuperArticulosExtra: parseJson(map.listaSuperArticulosExtra, []),
     listaSuperCompraItems: parseJson(map.listaSuperCompraItems, []),
+    avisosGastosMovimiento: parseJson(map.avisosGastosMovimiento, []),
   };
 }
 
@@ -110,6 +112,7 @@ export async function persistAppState(state) {
     ['listaSuperCategoriaPreferida', state.listaSuperCategoriaPreferida || ''],
     ['listaSuperArticulosExtra', JSON.stringify(state.listaSuperArticulosExtra || [])],
     ['listaSuperCompraItems', JSON.stringify(state.listaSuperCompraItems || [])],
+    ['avisosGastosMovimiento', JSON.stringify(state.avisosGastosMovimiento || [])],
   ];
   await AsyncStorage.multiSet(pairs);
 }
@@ -155,6 +158,7 @@ export async function clearStorageFull() {
     ['intencionesCompra', '[]'],
     ['listaSuperArticulosExtra', '[]'],
     ['listaSuperCompraItems', '[]'],
+    ['avisosGastosMovimiento', '[]'],
     ['asistenteUmbral48h', '50'],
     ['listaSuperCategoriaPreferida', ''],
   ]);

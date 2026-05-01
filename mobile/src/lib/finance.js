@@ -1,3 +1,5 @@
+import { inferirGrupo503020DesdeNombre, esGrupo503020Valido } from './categorias503020';
+
 /** Misma lógica que js/utils.js, usando un objeto `data` en memoria (sustituye localStorage). */
 
 export function formatearNumero(num, decimales = 2) {
@@ -487,13 +489,15 @@ export function detalleLineaDeudaInicialEnCorte(t, ref = new Date()) {
 /**
  * ¿Ya existe un abono a deuda de tarjeta en el mes calendario? Máx. uno por tarjeta y mes para evitar confusiones.
  */
-export function existeAbonoDeudaTarjetaEnMes(data, tarjetaId, fechaRef) {
+export function existeAbonoDeudaTarjetaEnMes(data, tarjetaId, fechaRef, excluirGastoId) {
   const gastos = data?.gastos || [];
   const iso =
     fechaRef instanceof Date ? fechaALocalISO(fechaRef) : String(fechaRef || '');
   const { mes, año } = obtenerMesAño(iso);
   if (mes < 0) return false;
+  const excl = excluirGastoId != null && String(excluirGastoId).trim() ? String(excluirGastoId) : null;
   for (const g of gastos) {
+    if (excl && g?.id && String(g.id) === excl) continue;
     if (!g || g.esAbonoDeudaTarjeta !== true) continue;
     if (normalizarOrigenCuenta(g.origen) === 'tarjetaCredito') continue;
     const { mes: mg, año: yg } = obtenerMesAño(g.fecha);
@@ -1997,12 +2001,35 @@ export function obtenerMesAño(fechaStr) {
 }
 
 export function normalizarCategoria(cat) {
-  if (typeof cat === 'string') return { nombre: cat, color: '#6b7280', limite: null, icono: '📋' };
+  if (typeof cat === 'string') {
+    const nombre = cat;
+    const color = '#6b7280';
+    const grupo503020 = inferirGrupo503020DesdeNombre(nombre);
+    return {
+      nombre,
+      color,
+      color_hex: color,
+      limite: null,
+      icono: '📋',
+      iconoIon: null,
+      grupo503020,
+    };
+  }
+  const color = cat.color_hex || cat.color || '#6b7280';
+  const grupoRaw = cat.grupo503020;
+  const grupo503020 = esGrupo503020Valido(grupoRaw)
+    ? grupoRaw
+    : inferirGrupo503020DesdeNombre(cat.nombre || cat);
+  const iconoIon =
+    typeof cat.iconoIon === 'string' && cat.iconoIon.trim() ? cat.iconoIon.trim() : null;
   return {
     nombre: cat.nombre || cat,
-    color: cat.color || '#6b7280',
-    limite: cat.limite || null,
-    icono: cat.icono || '📋',
+    color,
+    color_hex: color,
+    limite: cat.limite ?? null,
+    icono: cat.icono != null && String(cat.icono).trim() !== '' ? cat.icono : iconoIon ? ' ' : '📋',
+    iconoIon,
+    grupo503020,
   };
 }
 
@@ -2029,6 +2056,10 @@ export function generarIdPagoProgramado() {
 
 export function generarIdBolsillo() {
   return `bol_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export function generarIdGasto() {
+  return `gasto_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
 /** Suma saldos en bolsillos (ahorro aparte del patrimonio en cajas). */

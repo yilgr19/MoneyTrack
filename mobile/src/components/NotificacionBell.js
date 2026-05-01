@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useNotificacionLectura } from '../context/NotificacionLecturaContext';
-import { reunirNotificacionesApp } from '../lib/notificacionesApp';
+import { reunirNotificacionesApp, stateSinAvisosGastoMovimientoEnLista } from '../lib/notificacionesApp';
 import { contarNoLeidas, firmaNotificacion } from '../lib/notificacionesLectura';
 import ExtractoBancarioModal from './ExtractoBancarioModal';
 import { colors, spacing, radii, typography, shadows } from '../theme';
@@ -49,6 +49,7 @@ const TIPO_ACENTO = {
   tc: { icon: 'card-outline', color: colors.chartBlue, label: 'Tarjeta' },
   saldo: { icon: 'wallet-outline', color: colors.mint, label: 'Saldo' },
   listaSuper: { icon: 'basket-outline', color: colors.mint, label: 'Lista súper' },
+  gasto_movimiento: { icon: 'receipt-outline', color: colors.accent, label: 'Gasto' },
 };
 
 function NotificacionFila({ it, index, open, onTarjeta, esTocable }) {
@@ -149,7 +150,7 @@ function NotificacionFila({ it, index, open, onTarjeta, esTocable }) {
 
 export function NotificacionBell() {
   const insets = useSafeAreaInsets();
-  const { state } = useApp();
+  const { state, replaceState } = useApp();
   const { firmasLeidas, marcarVistosAhora } = useNotificacionLectura();
   const [open, setOpen] = useState(false);
   const [extractoTarjetaId, setExtractoTarjetaId] = useState(null);
@@ -177,10 +178,14 @@ export function NotificacionBell() {
   const openRef = useRef(false);
   useEffect(() => {
     if (openRef.current && !open) {
-      if (state) marcarVistosAhora();
+      if (state) {
+        const cur = reunirNotificacionesApp(state, new Date()).items;
+        marcarVistosAhora();
+        replaceState((s) => stateSinAvisosGastoMovimientoEnLista(s, cur));
+      }
     }
     openRef.current = open;
-  }, [open, state, marcarVistosAhora]);
+  }, [open, state, marcarVistosAhora, replaceState]);
 
   const abrirPanel = useCallback(() => {
     setOpen(true);

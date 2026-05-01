@@ -17,6 +17,79 @@ import {
   totalSaldoLiquido,
 } from './finance';
 import { ordenarLineasListaSuper } from './asistenteComprasLogic';
+import { varianteGastoEditadoCampana, varianteGastoEliminadoCampana } from './notificacionesVariantesAmigables';
+
+/** Cuántos avisos de editar/quitar gasto guardamos en estado (campana). */
+export const MAX_AVISOS_GASTOS_CAMPANA = 25;
+
+/**
+ * @param {'editado'|'eliminado'} tipo
+ * @param {{ nombre?: string, montoLine?: string }} datos
+ */
+export function nuevaEntradaAvisoGastoMovimiento(tipo, datos) {
+  if (tipo !== 'editado' && tipo !== 'eliminado') return null;
+  const nombre = String(datos?.nombre || '').trim().slice(0, 72) || 'Gasto';
+  const montoLine = String(datos?.montoLine || '').trim().slice(0, 48);
+  return {
+    id: `gmov-${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    ts: Date.now(),
+    tipo,
+    nombre,
+    montoLine,
+  };
+}
+
+/** Añade un aviso a `avisosGastosMovimiento` y recorta la cola. */
+export function withAvisoGastoMovimiento(prevState, tipo, datos) {
+  const ent = nuevaEntradaAvisoGastoMovimiento(tipo, datos);
+  if (!ent || !prevState) return prevState;
+  const prev = Array.isArray(prevState.avisosGastosMovimiento) ? prevState.avisosGastosMovimiento : [];
+  return {
+    ...prevState,
+    avisosGastosMovimiento: [...prev, ent].slice(-MAX_AVISOS_GASTOS_CAMPANA),
+  };
+}
+
+/**
+ * Tras ver el centro de avisos: quita del estado los ítems `gasto_movimiento` que estaban en la lista
+ * (así no vuelven aunque la firma de lectura cambie).
+ */
+export function stateSinAvisosGastoMovimientoEnLista(prevState, itemsCampana) {
+  if (!prevState || !Array.isArray(itemsCampana)) return prevState;
+  const quitar = new Set(
+    itemsCampana.filter((it) => it && it.tipo === 'gasto_movimiento').map((it) => String(it.id))
+  );
+  if (quitar.size === 0) return prevState;
+  const prev = Array.isArray(prevState.avisosGastosMovimiento) ? prevState.avisosGastosMovimiento : [];
+  const next = prev.filter((e) => e && !quitar.has(String(e.id)));
+  if (next.length === prev.length) return prevState;
+  return { ...prevState, avisosGastosMovimiento: next };
+}
+
+function notificacionesGastosMovimiento(state, ref = new Date()) {
+  const arr = state.avisosGastosMovimiento;
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+  const now = ref.getTime();
+  const sorted = [...arr].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const slice = sorted.slice(0, MAX_AVISOS_GASTOS_CAMPANA);
+  return slice.map((e) => {
+    const ctx = {
+      nombre: e.nombre || 'Gasto',
+      montoLine: e.montoLine || '',
+    };
+    const v = e.tipo === 'eliminado' ? varianteGastoEliminadoCampana(ctx) : varianteGastoEditadoCampana(ctx);
+    const ageMin = Math.max(0, (now - (e.ts || 0)) / 60000);
+    const puntuacionOrden = 713_000 - Math.min(5000, Math.floor(ageMin * 35));
+    return {
+      id: String(e.id),
+      tipo: 'gasto_movimiento',
+      severidad: e.tipo === 'eliminado' ? 'warning' : 'info',
+      puntuacionOrden,
+      titulo: v.title,
+      detalle: v.body,
+    };
+  });
+}
 
 /** Aviso en campana en los últimos días: id por día = recordatorio “diario” al abrir. */
 const DIAS_RECORDATORIO_CAMPANA = 3;
@@ -1030,7 +1103,8 @@ export function reunirNotificacionesApp(state, ref = new Date()) {
   const p = notificacionesPresupuestoMensual(state, ref);
   const pr = notificacionesPresupuestoRevisar(state, ref);
   const ls = notificacionesListaSuperCompras(state, ref);
-  const items = [...a, ...b, ...s, ...c, ...p, ...pr, ...ls]
+  const gm = notificacionesGastosMovimiento(state, ref);
+  const items = [...a, ...b, ...s, ...c, ...p, ...pr, ...ls, ...gm]
     .map((it) => ({
       ...it,
       puntuacionOrden: it.puntuacionOrden != null ? it.puntuacionOrden : puntuacionOrdenDefecto(it.severidad),

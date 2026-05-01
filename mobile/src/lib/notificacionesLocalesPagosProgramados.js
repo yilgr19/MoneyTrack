@@ -13,6 +13,15 @@ import {
   construirExtractoBancarioTarjeta,
   montoPagoSugeridoDesdeExtracto,
 } from './finance';
+import {
+  varianteNotifPagoProgramado,
+  varianteNotifPagoPruebaLejano,
+  varianteNotifPruebaSistema,
+  varianteNotifTcCorteHoy,
+  varianteNotifTcCorteManana,
+  varianteNotifTcCorte2d,
+  varianteNotifTcPago,
+} from './notificacionesVariantesAmigables';
 
 /** `-v2`: en Android los canales no se pueden “subir” de importancia; nuevo id fuerza cabecera/sonido correctos. */
 const CANAL_ANDROID = 'pagos-programados-v2';
@@ -234,19 +243,11 @@ export async function sincronizarNotificacionesLocalesPagosProgramados(state) {
 
       const concepto = String(p.concepto || 'Pago').trim() || 'Pago programado';
       const montoStr = formatearNumero(p.monto);
-      const plazoLargo =
-        d === 0 ? 'vence hoy' : d === 1 ? '1 día restante' : `${d} días restantes`;
-      const titulo =
-        d === 0
-          ? 'Hoy vence un pago programado'
-          : d === 1
-            ? 'Falta 1 día de plazo para el pago'
-            : `Faltan ${d} días de plazo para el pago`;
-      const cuerpo =
-        `«${concepto}» — te quedan ${plazoLargo} para realizarlo.` +
-        (moneda
-          ? ` Monto: ${montoStr} ${moneda}. Cumple a tiempo; luego anótalo en Gastos.`
-          : ` Monto: ${montoStr}. Cumple a tiempo; luego anótalo en Gastos.`);
+      const { title: titulo, body: cuerpo } = varianteNotifPagoProgramado(d, {
+        concepto,
+        montoStr,
+        moneda,
+      });
       const idBase = String(p.id != null ? p.id : 'sin-id');
       const idClave = `pp-loc-${idBase}-${refDia.getFullYear()}-${refDia.getMonth() + 1}-${refDia.getDate()}`;
 
@@ -300,18 +301,14 @@ export async function sincronizarNotificacionesLocalesPagosProgramados(state) {
       const mo = refHoyMediodia.getMonth() + 1;
       const da = refHoyMediodia.getDate();
       const idClave = `pp-loc-prueba-lejano-${idBase}-${y}-${mo}-${da}`;
+      const pruebaTxt = varianteNotifPagoPruebaLejano({ concepto, montoStr, moneda, dHoy });
 
       try {
         await Notifications.scheduleNotificationAsync({
           identifier: idClave,
           content: {
-            title: '[Prueba] Pago programado · canal del sistema',
-            body:
-              `«${concepto}» — el próximo vencimiento es en ${dHoy} día(s). ` +
-              `Con avisos reales solo te escribimos desde 3 días antes (~9:00). ` +
-              (moneda
-                ? `Monto: ${montoStr} ${moneda}. Cierra la app y espera unos minutos.`
-                : `Monto: ${montoStr}. Cierra la app y espera unos minutos.`),
+            title: pruebaTxt.title,
+            body: pruebaTxt.body,
             data: { tipo: TIPO_DATA, pagoId: p.id, dias: dHoy, pruebaLejano: true },
             sound: true,
             ...(Platform.OS === 'android' && {
@@ -377,6 +374,7 @@ export async function sincronizarNotificacionesLocalesTarjetasCredito(state) {
       const mo = refDia.getMonth() + 1;
       const da = refDia.getDate();
       const nom = String(t.nombreEntidad || 'Tarjeta').trim();
+      const ctxTc = { nom, pagoSug };
 
       const programar = async (identifier, titulo, cuerpo, tipo, extra = {}) => {
         const ideal = diaHoraAviso(refDia, ahora);
@@ -407,27 +405,18 @@ export async function sincronizarNotificacionesLocalesTarjetasCredito(state) {
       if (t.alertaCorte) {
         const dc = t.diasCorte;
         if (dc === 0 || t.corteHoy) {
-          const titulo = `Hoy es corte · ${nom}`;
-          const cuerpo = pagoSug
-            ? `Revisa tu extracto y el banco. Monto guía ~${pagoSug}. Luego registra en Gastos si aplica.`
-            : `Revisa cupo y movimientos en Saldo. Confirma con el banco.`;
-          await programar(`tc-corte-hoy-${t.id}-${y}-${mo}-${da}`, titulo, cuerpo, TIPO_TC_CORTE, {
+          const v = varianteNotifTcCorteHoy(ctxTc);
+          await programar(`tc-corte-hoy-${t.id}-${y}-${mo}-${da}`, v.title, v.body, TIPO_TC_CORTE, {
             aviso: 'corte_hoy',
           });
         } else if (dc === 1) {
-          const titulo = `Mañana es el corte · ${nom}`;
-          const cuerpo = pagoSug
-            ? `Te queda un día para organizarte. Guía de pago ~${pagoSug}.`
-            : `Te queda un día para alinear números con el banco.`;
-          await programar(`tc-corte-d1-${t.id}-${y}-${mo}-${da}`, titulo, cuerpo, TIPO_TC_CORTE, {
+          const v = varianteNotifTcCorteManana(ctxTc);
+          await programar(`tc-corte-d1-${t.id}-${y}-${mo}-${da}`, v.title, v.body, TIPO_TC_CORTE, {
             aviso: 'corte_manana',
           });
         } else if (dc === 2) {
-          const titulo = `En 2 días · corte ${nom}`;
-          const cuerpo = pagoSug
-            ? `Prepárate con calma. Referencia ~${pagoSug}.`
-            : `Buen momento para revisar Saldo y la ficha de la tarjeta.`;
-          await programar(`tc-corte-d2-${t.id}-${y}-${mo}-${da}`, titulo, cuerpo, TIPO_TC_CORTE, {
+          const v = varianteNotifTcCorte2d(ctxTc);
+          await programar(`tc-corte-d2-${t.id}-${y}-${mo}-${da}`, v.title, v.body, TIPO_TC_CORTE, {
             aviso: 'corte_2d',
           });
         }
@@ -435,16 +424,8 @@ export async function sincronizarNotificacionesLocalesTarjetasCredito(state) {
 
       if (t.alertaPagoUrgente && t.diasPago >= 0 && t.diasPago <= 3) {
         const dp = t.diasPago;
-        const titulo =
-          dp === 0
-            ? `Hoy vence el pago · ${nom}`
-            : dp === 1
-              ? `Mañana vence el pago · ${nom}`
-              : `Faltan ${dp} días · pago ${nom}`;
-        const cuerpo = pagoSug
-          ? `No olvides alinear con el banco. Monto guía ~${pagoSug}.`
-          : `Revisa la fecha límite en Saldo y confirma en tu banco.`;
-        await programar(`tc-pago-d${dp}-${t.id}-${y}-${mo}-${da}`, titulo, cuerpo, TIPO_TC_PAGO, {
+        const v = varianteNotifTcPago(dp, ctxTc);
+        await programar(`tc-pago-d${dp}-${t.id}-${y}-${mo}-${da}`, v.title, v.body, TIPO_TC_PAGO, {
           diasPago: dp,
         });
       }
@@ -488,11 +469,12 @@ export async function programarNotificacionLocalDePrueba() {
             type: Notifications.SchedulableTriggerInputTypes.DATE,
             date: new Date(Date.now() + 20_000),
           };
+    const prueba = varianteNotifPruebaSistema();
     await Notifications.scheduleNotificationAsync({
       identifier: 'moneytrack-prueba-local',
       content: {
-        title: 'MoneyTrack · prueba',
-        body: 'Si ves esto con la app cerrada o en segundo plano, las notificaciones locales funcionan.',
+        title: prueba.title,
+        body: prueba.body,
         data: { tipo: TIPO_PRUEBA },
         sound: true,
         ...(Platform.OS === 'android' && {

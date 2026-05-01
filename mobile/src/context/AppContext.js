@@ -11,7 +11,7 @@ import {
   clearOnboardingCompletado,
 } from '../lib/storage';
 import { exportarRespaldoCompartir, importarRespaldoElegirArchivo } from '../lib/backupMoneyTrack';
-import { reemplazarPagosRecordatorioTarjetas } from '../lib/finance';
+import { reemplazarPagosRecordatorioTarjetas, generarIdGasto } from '../lib/finance';
 import { normalizarIntencionCompraPersistida, normalizarLineaListaSuper } from '../lib/asistenteComprasLogic';
 import { notificacionesSistemaDisponibles } from '../lib/notificacionesLocalesEntorno';
 
@@ -74,6 +74,15 @@ export function normalizeState(raw) {
       : [],
     listaSuperCompraItems: Array.isArray(raw.listaSuperCompraItems)
       ? raw.listaSuperCompraItems.map(normalizarLineaListaSuper).filter(Boolean)
+      : [],
+    avisosGastosMovimiento: Array.isArray(raw.avisosGastosMovimiento)
+      ? raw.avisosGastosMovimiento.filter(
+          (x) =>
+            x &&
+            typeof x === 'object' &&
+            String(x.id || '').trim() &&
+            (x.tipo === 'editado' || x.tipo === 'eliminado')
+        )
       : [],
   };
 }
@@ -196,6 +205,21 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  /** Gastos antiguos sin `id`: asignar uno y persistir en el siguiente guardado. */
+  useEffect(() => {
+    if (!ready || !state) return;
+    const arr = state.gastos;
+    if (!Array.isArray(arr) || !arr.some((g) => g && !String(g.id || '').trim())) return;
+    replaceState((s) => ({
+      ...s,
+      gastos: (s.gastos || []).map((g) => {
+        if (!g) return g;
+        if (String(g.id || '').trim()) return g;
+        return { ...g, id: generarIdGasto() };
+      }),
+    }));
+  }, [ready, state, replaceState]);
+
   /**
    * Solo para efectos: cambia si cambia la lista de pagos programados (misma ref si solo moviste gastos/ingresos).
    * Evita re-sincronizar notificaciones en cada actualización de estado y posibles cierres/atascos en Expo Go.
@@ -220,10 +244,18 @@ export function AppProvider({ children }) {
           .map((t) => `${String(t.fechaHoraCorte || '')}|${String(t.fechaHoraLimitePago || '')}`)
           .join('||')
       : '';
-  /** Pagos programados + TC + gastos (pago al día) para reprogramar avisos en barra con app cerrada. */
+  /** Ítems de lista de compras en urgente: al cambiar, reprogramar avisos locales. */
+  const listaSuperUrgHash = useMemo(() => {
+    const arr = (state?.listaSuperCompraItems || []).filter((x) => x && x.urgencia === 'urgente');
+    return arr
+      .map((x) => `${x.id}:${String(x.nombre || '').trim()}`)
+      .sort()
+      .join('|');
+  }, [state?.listaSuperCompraItems]);
+  /** Pagos programados + TC + gastos (pago al día) + lista súper urgente para reprogramar avisos. */
   const claveParaNotificacionesLocales = useMemo(
-    () => `${claveParaNotificacionesPagos}|tc:${tcFechasHash}|n:${nTc}|g:${lenG}`,
-    [claveParaNotificacionesPagos, tcFechasHash, nTc, lenG]
+    () => `${claveParaNotificacionesPagos}|tc:${tcFechasHash}|n:${nTc}|g:${lenG}|lsu:${listaSuperUrgHash}`,
+    [claveParaNotificacionesPagos, tcFechasHash, nTc, lenG, listaSuperUrgHash]
   );
   useEffect(() => {
     if (!ready || !state) return;
@@ -245,6 +277,13 @@ export function AppProvider({ children }) {
       m.sincronizarNotificacionesLocalesPagosProgramados(state).catch((e) => log(e, 'sync notif pagos'));
       m.sincronizarNotificacionesLocalesTarjetasCredito(state).catch((e) => log(e, 'sync notif TC'));
     });
+    import('../lib/notificacionesLocalesListaSuper').then((m) => {
+      m.sincronizarNotificacionesListaSuperUrgente(state).catch((e) => {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) {
+          console.warn('[MoneyTrack] sync notif lista súper urgente', e?.message || e);
+        }
+      });
+    });
   }, [ready, mostrarOnboarding, claveParaNotificacionesLocales]);
 
   useEffect(() => {
@@ -260,6 +299,15 @@ export function AppProvider({ children }) {
           });
           m.sincronizarNotificacionesLocalesTarjetasCredito(cur).catch((e) => {
             if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[MoneyTrack] sync notif TC (active)', e);
+          });
+        });
+        import('../lib/notificacionesLocalesListaSuper').then((m) => {
+          const cur = stateRef.current;
+          if (!cur) return;
+          m.sincronizarNotificacionesListaSuperUrgente(cur).catch((e) => {
+            if (typeof __DEV__ !== 'undefined' && __DEV__) {
+              console.warn('[MoneyTrack] sync notif lista súper (active)', e);
+            }
           });
         });
       }

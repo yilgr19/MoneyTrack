@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Animated,
   Easing,
   Platform,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,14 @@ import { NotificacionBell } from '../components/NotificacionBell';
 import UICard from '../components/UICard';
 import DonutChart from '../components/charts/DonutChart';
 import CategoriaGastoBarFun from '../components/CategoriaGastoBarFun';
+import Salud503020Barras from '../components/Salud503020Barras';
+import {
+  gastosPorGrupo503020EnMes,
+  fraccionGastoSobreIngreso,
+  GRUPO_NECESIDADES,
+  GRUPO_DESEOS,
+  GRUPO_AHORRO_DEUDA,
+} from '../lib/categorias503020';
 import { useApp, tieneDatosPrevios } from '../context/AppContext';
 import {
   formatearNumero,
@@ -36,7 +45,10 @@ import {
   totalSaldoBolsillos,
   parseFechaHoraLocal,
   normalizarOrigenCuenta,
+  reemplazarPagosRecordatorioTarjetas,
 } from '../lib/finance';
+import { rootNavigationRef } from '../navigation/rootNavigationRef';
+import { withAvisoGastoMovimiento } from '../lib/notificacionesApp';
 import {
   colors,
   spacing,
@@ -51,7 +63,7 @@ import { ordenarLineasListaSuper } from '../lib/asistenteComprasLogic';
 
 /** Subtítulo rotativo bajo «Análisis»: tono cercano y guía suave (10 variantes). */
 const FRASES_ANALISIS_AHORRO_SUB = [
-  'Mes en curso: gastos por categoría, ingreso vs gasto y lo que apartas en bolsillos y metas. La guía del 30% es un empujón amable, no una nota mala.',
+  'Mes en curso: regla 50/30/20 (necesidades, deseos, ahorro/deuda), ingreso vs gasto y bolsillos con metas. La guía es referencia, no regla dura.',
   'Aquí el resumen te habla claro: qué gastaste, qué entró y cuánto queda para ti. Vamos paso a paso contigo.',
   'Tu app te acompaña en el mes: categorías, flujo de plata y ahorro real en bolsillos y metas. El 30% es referencia para sentirte tranquilo.',
   'Todo en un vistazo: el mapa del gasto, el equilibrio ingreso–salida y tu esfuerzo de ahorro. Nos importa que te sientas en control.',
@@ -319,7 +331,7 @@ const cuentaPatStyles = StyleSheet.create({
 });
 
 export default function HomeScreen() {
-  const { state, ready } = useApp();
+  const { state, ready, replaceState } = useApp();
   const navigation = useNavigation();
   const { width: winW } = useWindowDimensions();
   const moneda = state?.moneda || '';
@@ -492,6 +504,46 @@ export default function HomeScreen() {
     state?.recordatoriosPagoRegistrado,
   ]);
 
+  const navegarEditarGasto = useCallback((gastoId) => {
+    const id = String(gastoId || '').trim();
+    if (!id) return;
+    if (rootNavigationRef.isReady()) {
+      rootNavigationRef.navigate('Gastos', { editarGastoId: id });
+    }
+  }, []);
+
+  const confirmarEliminarGasto = useCallback(
+    (gastoId, titulo) => {
+      const id = String(gastoId || '').trim();
+      if (!id) return;
+      const t = String(titulo || 'Gasto').trim().slice(0, 72);
+      Alert.alert('¿Quitar este gasto?', `"${t || 'Este registro'}" saldrá del historial.`, [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Quitar',
+          style: 'destructive',
+          onPress: () =>
+            replaceState((s) => {
+              const g0 = (s.gastos || []).find((x) => x && String(x.id) === id);
+              const nombre = g0 ? String(g0.nombre || '').trim() || t : t;
+              const mon = (s.moneda && String(s.moneda).trim()) || '';
+              const montoLine = g0
+                ? `${formatearNumero(Math.abs(parseFloat(g0.cantidad) || 0))} ${mon}`.trim()
+                : '';
+              const gastos = (s.gastos || []).filter((x) => !x || String(x.id) !== id);
+              let st = { ...s, gastos };
+              st = withAvisoGastoMovimiento(st, 'eliminado', { nombre, montoLine });
+              return {
+                ...st,
+                pagosProgramados: reemplazarPagosRecordatorioTarjetas(st.pagosProgramados, st, new Date()),
+              };
+            }),
+        },
+      ]);
+    },
+    [replaceState]
+  );
+
   if (!ready || !state) {
     return null;
   }
@@ -512,26 +564,42 @@ export default function HomeScreen() {
     return { filas, leyenda };
   }, [derived.cuentasInicioPatrimonio, derived.saldosPorCuenta, derived.saldoActual]);
 
-  const segmentosDonutCategorias = useMemo(() => {
-    const entries = Object.entries(derived.gastosMesPorCategoria || {})
-      .filter(([, v]) => (parseFloat(v) || 0) > 0)
-      .sort((a, b) => (parseFloat(b[1]) || 0) - (parseFloat(a[1]) || 0));
-    if (entries.length === 0) return [];
-    const top = entries.slice(0, 5);
-    const restSum = entries.slice(5).reduce((s, [, v]) => s + (parseFloat(v) || 0), 0);
-    const out = top.map(([nombre, monto]) => {
-      const c = (derived.categoriasData || []).find((x) => x.nombre === nombre);
-      return {
-        value: parseFloat(monto) || 0,
-        color: c?.color || colors.textMuted,
-        label: `${c?.icono ? `${c.icono} ` : ''}${nombre}`.trim(),
-      };
-    });
-    if (restSum > 0.01) {
-      out.push({ value: restSum, color: '#94a3b8', label: 'Otros' });
+  /** Dona macro: tres pilares 50/30/20 (suma de categorías por grupo). */
+  const montosPilarMes = useMemo(
+    () => gastosPorGrupo503020EnMes(derived.gastosMesPorCategoria, derived.categoriasData),
+    [derived.gastosMesPorCategoria, derived.categoriasData]
+  );
+
+  const segmentosDonut503020 = useMemo(() => {
+    const n = montosPilarMes[GRUPO_NECESIDADES] || 0;
+    const d = montosPilarMes[GRUPO_DESEOS] || 0;
+    const a = montosPilarMes[GRUPO_AHORRO_DEUDA] || 0;
+    const segs = [];
+    if (n > 0.01) segs.push({ value: n, color: '#3b82f6', label: 'Necesidades' });
+    if (d > 0.01) segs.push({ value: d, color: '#a855f7', label: 'Deseos' });
+    if (a > 0.01) segs.push({ value: a, color: '#22c55e', label: 'Ahorro / deuda' });
+    return segs;
+  }, [montosPilarMes]);
+
+  const textoFeedback503020 = useMemo(() => {
+    const ing = derived.ingresosMesActual || 0;
+    if (ing <= 0) {
+      return 'Registra tus ingresos del mes (Más → Ingresos) para medir la salud 50/30/20 frente a lo que entra.';
     }
-    return out;
-  }, [derived.gastosMesPorCategoria, derived.categoriasData]);
+    const fN = fraccionGastoSobreIngreso(montosPilarMes[GRUPO_NECESIDADES], ing);
+    const fD = fraccionGastoSobreIngreso(montosPilarMes[GRUPO_DESEOS], ing);
+    const fA = fraccionGastoSobreIngreso(montosPilarMes[GRUPO_AHORRO_DEUDA], ing);
+    if (fD > 0.3 + 0.005) {
+      return 'Alerta: estás gastando de más en Deseos respecto al 30% del ingreso.';
+    }
+    if (fN > 0.5 + 0.005) {
+      return 'Alerta: Necesidades superan el 50% del ingreso. Vale la pena revisar gastos fijos.';
+    }
+    if (fA > 0.2 + 0.005) {
+      return 'Atención: el bloque Ahorro / deuda supera el 20% del ingreso (pagos o aportes concentrados).';
+    }
+    return '¡Vas por buen camino! Tus gastos por pilar se mantienen alineados con la guía 50/30/20.';
+  }, [derived.ingresosMesActual, montosPilarMes]);
 
   /** Solo categorías con gasto > 0 en el mes (evita barras al 0 %). */
   const categoriasGastoMesFiltradas = useMemo(() => {
@@ -556,14 +624,17 @@ export default function HomeScreen() {
     ];
   }, [derived.ingresosMesActual, derived.gastosMesActual]);
 
-  const centroDonutCategorias = useMemo(() => {
-    if (!segmentosDonutCategorias.length) return { line1: undefined, line2: undefined };
-    const g = derived.gastosMesActual || 0;
+  const centroDonut503020 = useMemo(() => {
+    if (!segmentosDonut503020.length) return { line1: undefined, line2: undefined };
+    const t =
+      (montosPilarMes[GRUPO_NECESIDADES] || 0) +
+      (montosPilarMes[GRUPO_DESEOS] || 0) +
+      (montosPilarMes[GRUPO_AHORRO_DEUDA] || 0);
     return {
-      line1: `${formatearNumero(g)} ${moneda}`.trim(),
-      line2: 'Total gastos (mes)',
+      line1: `${formatearNumero(t)} ${moneda}`.trim(),
+      line2: 'Gastos por pilar (mes)',
     };
-  }, [segmentosDonutCategorias, derived.gastosMesActual, moneda]);
+  }, [segmentosDonut503020, montosPilarMes, moneda]);
 
   const centroDonutFlujo = useMemo(() => {
     const ing = derived.ingresosMesActual || 0;
@@ -996,12 +1067,12 @@ export default function HomeScreen() {
         <View style={[styles.chartsRow, chartsStack && styles.chartsRowStack]}>
           <View style={[styles.chartPanel, chartsStack && styles.chartPanelFull]}>
             <DonutChart
-              segments={segmentosDonutCategorias}
-              title="Gastos por categoría"
+              segments={segmentosDonut503020}
+              title="Gastos 50 / 30 / 20"
               emptyHint="Sin gastos el mes"
               size={chartSize}
-              centerLine1={centroDonutCategorias.line1}
-              centerLine2={centroDonutCategorias.line2}
+              centerLine1={centroDonut503020.line1}
+              centerLine2={centroDonut503020.line2}
             />
           </View>
           <View style={[styles.chartPanel, chartsStack && styles.chartPanelFull]}>
@@ -1014,6 +1085,39 @@ export default function HomeScreen() {
               centerLine2={centroDonutFlujo.line2}
             />
           </View>
+        </View>
+
+        <View style={[styles.chartPanel, styles.chartPanelFull, { marginTop: spacing.md }]}>
+          <Text style={[typography.label, { marginBottom: spacing.xs }]}>Salud financiera 50 / 30 / 20</Text>
+          <Text style={[typography.small, { color: colors.textMuted, marginBottom: spacing.md, lineHeight: 20 }]}>
+            Cada barra es lo gastado en el mes en ese pilar, frente a tu ingreso total del mes. La línea blanca marca la
+            meta (50 %, 30 % o 20 %).
+          </Text>
+          <Salud503020Barras
+            montosPorGrupo={montosPilarMes}
+            ingresoMes={derived.ingresosMesActual}
+            moneda={moneda}
+            formatearNumero={formatearNumero}
+          />
+          <Text
+            style={[
+              typography.body,
+              {
+                marginTop: spacing.md,
+                lineHeight: 22,
+                fontWeight: '600',
+                color: textoFeedback503020.startsWith('¡Vas por buen camino')
+                  ? colors.mint
+                  : textoFeedback503020.startsWith('Alerta')
+                    ? colors.danger
+                    : textoFeedback503020.startsWith('Atención')
+                      ? colors.warning
+                      : colors.textSecondary,
+              },
+            ]}
+          >
+            {textoFeedback503020}
+          </Text>
         </View>
 
         <LinearGradient
@@ -1083,7 +1187,7 @@ export default function HomeScreen() {
       <UICard>
         <Text style={typography.label}>Gastos por categoría</Text>
         <Text style={[typography.small, { color: colors.textMuted, marginBottom: spacing.md, lineHeight: 20 }]}>
-          Tus gastos del mes por categoría.
+          Detalle del mes; cada categoría tiene un pilar 50/30/20 (ajústalo en Más → Categorías).
         </Text>
         {derived.categoriasData.length === 0 ? (
           <Text style={typography.small}>Crea categorías primero.</Text>
@@ -1180,6 +1284,9 @@ export default function HomeScreen() {
                   const rowKey = g.id != null ? String(g.id) : `g-${i}-${String(g.fecha || '')}`;
                   const alt = i % 2 === 1;
                   const movIco = iconoUltimoMovimiento(g);
+                  const gastoId =
+                    g?.id != null && String(g.id).trim() ? String(g.id).trim() : null;
+                  const puedeGestionarGasto = gastoId && !g.esTransferenciaBolsillo;
                   return (
                     <View
                       key={rowKey}
@@ -1216,6 +1323,24 @@ export default function HomeScreen() {
                           </View>
                         </View>
                       </View>
+                      {puedeGestionarGasto ? (
+                        <View style={styles.moveNoteActs}>
+                          <TouchableOpacity
+                            onPress={() => navegarEditarGasto(gastoId)}
+                            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                            accessibilityLabel="Editar gasto"
+                          >
+                            <Ionicons name="create-outline" size={16} color={colors.textMuted} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => confirmarEliminarGasto(gastoId, g.nombre)}
+                            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                            accessibilityLabel="Quitar gasto"
+                          >
+                            <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
                     </View>
                   );
                 })}
@@ -1737,6 +1862,15 @@ const styles = StyleSheet.create({
     minWidth: 0,
     padding: spacing.md,
     paddingLeft: spacing.xs,
+    paddingRight: spacing.xs,
+  },
+  moveNoteActs: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 2,
+    paddingRight: spacing.sm,
+    flexShrink: 0,
+    opacity: 0.88,
   },
   moveNoteTop: {
     flexDirection: 'row',

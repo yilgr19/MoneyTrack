@@ -1,9 +1,16 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, SectionList, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
 import { useApp } from '../context/AppContext';
-import { formatearNumero, obtenerCuentasDestinoIngreso, normalizarOrigenCuenta } from '../lib/finance';
+import {
+  formatearNumero,
+  obtenerCuentasDestinoIngreso,
+  normalizarOrigenCuenta,
+  reemplazarPagosRecordatorioTarjetas,
+} from '../lib/finance';
+import { withAvisoGastoMovimiento } from '../lib/notificacionesApp';
+import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import { colors, spacing, radii, typography } from '../theme';
 
 function tsDeFecha(f) {
@@ -53,8 +60,48 @@ function claveMesDesdeTs(ts) {
 }
 
 export default function ReportesScreen() {
-  const { state } = useApp();
+  const { state, replaceState } = useApp();
   const moneda = (state.moneda && String(state.moneda).trim()) || '';
+
+  const navegarEditarGasto = useCallback((gastoId) => {
+    const id = String(gastoId || '').trim();
+    if (!id) return;
+    if (rootNavigationRef.isReady()) {
+      rootNavigationRef.navigate('Gastos', { editarGastoId: id });
+    }
+  }, []);
+
+  const confirmarEliminarGasto = useCallback(
+    (gastoId, titulo) => {
+      const id = String(gastoId || '').trim();
+      if (!id) return;
+      const t = String(titulo || 'Gasto').trim().slice(0, 72);
+      Alert.alert('¿Quitar este gasto?', `"${t || 'Este registro'}" saldrá del historial.`, [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Quitar',
+          style: 'destructive',
+          onPress: () =>
+            replaceState((s) => {
+              const g = (s.gastos || []).find((x) => x && String(x.id) === id);
+              const nombre = g ? String(g.nombre || '').trim() || t : t;
+              const mon = (s.moneda && String(s.moneda).trim()) || '';
+              const montoLine = g
+                ? `${formatearNumero(Math.abs(parseFloat(g.cantidad) || 0))} ${mon}`.trim()
+                : '';
+              const gastos = (s.gastos || []).filter((x) => !x || String(x.id) !== id);
+              let st = { ...s, gastos };
+              st = withAvisoGastoMovimiento(st, 'eliminado', { nombre, montoLine });
+              return {
+                ...st,
+                pagosProgramados: reemplazarPagosRecordatorioTarjetas(st.pagosProgramados, st, new Date()),
+              };
+            }),
+        },
+      ]);
+    },
+    [replaceState]
+  );
 
   const { labelCuenta } = useMemo(() => {
     const cuentas = obtenerCuentasDestinoIngreso(state || {});
@@ -95,9 +142,12 @@ export default function ReportesScreen() {
       const esTc = normalizarOrigenCuenta(g.origen) === 'tarjetaCredito';
       const nCuotas = esTc && (g.cuotas || 1) > 1 ? g.cuotas : null;
       const partes = [g.categoria, orig, nCuotas ? `${nCuotas} cuotas` : null].filter(Boolean);
+      const gid = g?.id != null && String(g.id).trim() ? String(g.id) : null;
       out.push({
-        id: `gas-${idx}`,
+        id: gid ? `gas-${gid}` : `gas-idx-${idx}`,
         kind: 'gasto',
+        gastoId: gid,
+        esTransferenciaBolsillo: !!g.esTransferenciaBolsillo,
         ts: t,
         titulo: (g.nombre && String(g.nombre).trim()) || 'Gasto',
         sub: [formatearFechaMov(g.fecha), partes.length ? partes.join(' · ') : null].filter(Boolean).join(' · '),
@@ -186,34 +236,58 @@ export default function ReportesScreen() {
               <Text style={styles.sectionHeaderText}>{section.title}</Text>
             </View>
           )}
-          renderItem={({ item }) => (
-            <View style={styles.row}>
-              <View style={styles.iconCircle}>
-                <Ionicons name={iconoFila(item.kind)} size={22} color={colorMonto(item.kind)} />
-              </View>
-              <View style={styles.rowText}>
-                <View style={styles.rowTop}>
-                  <Text style={styles.badge} numberOfLines={1}>
-                    {item.kind === 'ingreso' ? 'Ingreso' : item.kind === 'gasto' ? 'Gasto' : 'Meta'}
-                  </Text>
-                  {item.detalle ? (
-                    <Text style={styles.badgeTarj} numberOfLines={1}>
-                      {item.detalle}
-                    </Text>
-                  ) : null}
+          renderItem={({ item }) => {
+            const puedeGestionarGasto =
+              item.kind === 'gasto' && item.gastoId && !item.esTransferenciaBolsillo;
+            return (
+              <View style={styles.row}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name={iconoFila(item.kind)} size={22} color={colorMonto(item.kind)} />
                 </View>
-                <Text style={styles.tit} numberOfLines={2}>
-                  {item.titulo}
-                </Text>
-                <Text style={styles.sub} numberOfLines={2}>
-                  {item.sub}
-                </Text>
+                <View style={styles.rowText}>
+                  <View style={styles.rowTop}>
+                    <Text style={styles.badge} numberOfLines={1}>
+                      {item.kind === 'ingreso' ? 'Ingreso' : item.kind === 'gasto' ? 'Gasto' : 'Meta'}
+                    </Text>
+                    {item.detalle ? (
+                      <Text style={styles.badgeTarj} numberOfLines={1}>
+                        {item.detalle}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.tit} numberOfLines={2}>
+                    {item.titulo}
+                  </Text>
+                  <Text style={styles.sub} numberOfLines={2}>
+                    {item.sub}
+                  </Text>
+                </View>
+                <View style={styles.rowTail}>
+                  {puedeGestionarGasto ? (
+                    <View style={styles.rowMiniActs}>
+                      <TouchableOpacity
+                        onPress={() => navegarEditarGasto(item.gastoId)}
+                        hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                        accessibilityLabel="Editar gasto"
+                      >
+                        <Ionicons name="create-outline" size={17} color={colors.textMuted} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => confirmarEliminarGasto(item.gastoId, item.titulo)}
+                        hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                        accessibilityLabel="Quitar gasto"
+                      >
+                        <Ionicons name="close-circle-outline" size={17} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                  <Text style={[typography.monoAmount, styles.monto, { color: colorMonto(item.kind) }]}>
+                    {prefijoMonto(item.kind)} {formatearNumero(item.monto)} {moneda}
+                  </Text>
+                </View>
               </View>
-              <Text style={[typography.monoAmount, styles.monto, { color: colorMonto(item.kind) }]}>
-                {prefijoMonto(item.kind)} {formatearNumero(item.monto)} {moneda}
-              </Text>
-            </View>
-          )}
+            );
+          }}
         />
       )}
     </ScreenWrap>
@@ -285,5 +359,18 @@ const styles = StyleSheet.create({
   },
   tit: { color: colors.text, fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
   sub: { color: colors.textMuted, fontSize: 13, marginTop: 4, lineHeight: 18 },
-  monto: { marginLeft: spacing.sm, flexShrink: 0, textAlign: 'right' },
+  rowTail: {
+    marginLeft: spacing.sm,
+    flexShrink: 0,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  rowMiniActs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    opacity: 0.92,
+  },
+  monto: { textAlign: 'right' },
 });

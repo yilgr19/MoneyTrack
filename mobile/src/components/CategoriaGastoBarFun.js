@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, spacing, typography } from '../theme';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
@@ -121,9 +122,17 @@ export default function CategoriaGastoBarFun({
             { transform: [{ scale: popIcon }] },
           ]}
         >
-          <Text style={styles.iconEmoji} allowFontScaling>
-            {cat.icono || '•'}
-          </Text>
+          {cat.iconoIon ? (
+            <Ionicons
+              name={cat.iconoIon}
+              size={22}
+              color={superadoCategoria ? colors.danger : cat.color}
+            />
+          ) : (
+            <Text style={styles.iconEmoji} allowFontScaling>
+              {cat.icono && String(cat.icono).trim() ? cat.icono : '•'}
+            </Text>
+          )}
         </Animated.View>
 
         <View style={styles.titular}>

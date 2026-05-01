@@ -154,10 +154,9 @@ export default function AdminScreen() {
       <UICard style={{ marginBottom: spacing.md }}>
         <Text style={typography.label}>Respaldo de datos (APK / instalación nueva)</Text>
         <Text style={[typography.small, { marginTop: spacing.sm, lineHeight: 20, color: colors.textSecondary }]}>
-          Exporta todo lo guardado en el teléfono (meses o años de movimientos, categorías, tarjetas, pagos
-          programados, metas, lista súper, etc.) en un archivo{' '}
-          <Text style={{ fontWeight: '700' }}>.moneytrack.json</Text>. Al reinstalar o cambiar de móvil, usa
-          Importar y elige ese archivo. El formato solo lo entiende MoneyTrack.
+          <Text style={{ fontWeight: '700' }}>Exportar</Text> crea un archivo de respaldo y te deja guardarlo donde
+          quieras (Descargas, Drive, correo…). <Text style={{ fontWeight: '700' }}>Importar</Text> solo pide elegir ese
+          archivo en el otro teléfono: no hace falta saber qué es un JSON.
         </Text>
         <TouchableOpacity
           style={[styles.btn, styles.btnBackup, exportCargando && { opacity: 0.75 }]}

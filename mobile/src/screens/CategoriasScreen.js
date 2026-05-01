@@ -1,26 +1,19 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenWrap from '../components/ScreenWrap';
 import UICard from '../components/UICard';
 import { PrimaryButton, GhostButton } from '../components/Buttons';
 import { useApp } from '../context/AppContext';
 import { formatearNumero, normalizarCategoria } from '../lib/finance';
+import {
+  CATEGORIAS_POR_DEFECTO_503020,
+  CATALOGO_ICONOS_ION_CATEGORIA,
+  GRUPO503020_TODOS,
+  ETIQUETA_GRUPO_503020,
+  GRUPO_DESEOS,
+} from '../lib/categorias503020';
 import { colors, spacing, radii, typography } from '../theme';
-
-const CATEGORIAS_POR_DEFECTO = [
-  { nombre: 'Supermercado', color: '#22c55e', icono: '🛒' },
-  { nombre: 'Transporte', color: '#3b82f6', icono: '🚗' },
-  { nombre: 'Hogar', color: '#f59e0b', icono: '🏠' },
-  { nombre: 'Entretenimiento', color: '#4B246C', icono: '🎬' },
-  { nombre: 'Restaurantes', color: '#ec4899', icono: '🍽️' },
-  { nombre: 'Ropa', color: '#06b6d4', icono: '👕' },
-  { nombre: 'Salud', color: '#ef4444', icono: '💊' },
-  { nombre: 'Educación', color: '#6366f1', icono: '📚' },
-  { nombre: 'Servicios', color: '#f97316', icono: '💡' },
-  { nombre: 'Regalos', color: '#14b8a6', icono: '🎁' },
-  { nombre: 'Viajes', color: '#0ea5e9', icono: '✈️' },
-  { nombre: 'Tecnología', color: '#64748b', icono: '📱' },
-];
 
 /** Colores predefinidos: el usuario elige a la vista, sin introducir códigos hex. */
 const PALETA_COLORES = [
@@ -96,12 +89,22 @@ const ICONOS_CATEGORIA = [
   '🅿️',
 ];
 
+function construirListaIonUnica() {
+  const fromDef = CATEGORIAS_POR_DEFECTO_503020.map((c) => c.iconoIon).filter(Boolean);
+  return [...new Set([...fromDef, ...CATALOGO_ICONOS_ION_CATEGORIA])];
+}
+
+const LISTA_ION_TODOS = construirListaIonUnica();
+
 export default function CategoriasScreen() {
   const { state, replaceState } = useApp();
   const { width: winW } = useWindowDimensions();
   const [nombre, setNombre] = useState('');
   const [color, setColor] = useState(PALETA_COLORES[0]);
   const [icono, setIcono] = useState(ICONOS_CATEGORIA[0]);
+  /** Icono Ionicons (opcional); si hay uno, tiene prioridad visual sobre el emoji. */
+  const [iconoIon, setIconoIon] = useState(null);
+  const [grupo503020, setGrupo503020] = useState(GRUPO_DESEOS);
   const [limite, setLimite] = useState('');
   /** Nombre de la fila al abrir "Editar" (estable, para guardar o renombrar y migrar movimientos). */
   const [categoriaEnEdicion, setCategoriaEnEdicion] = useState(null);
@@ -111,8 +114,14 @@ export default function CategoriasScreen() {
   const columnas = 6;
   const tamColor = Math.max(32, Math.floor((anchoPaletas - 48 - columnas * margenPunto * 2) / columnas) - 2);
   const columnasIcono = 5;
+  const columnasIon = 5;
 
   const categorias = (state.categorias || []).map(normalizarCategoria);
+
+  const tamCeldaIon = useMemo(
+    () => Math.min(52, Math.max(44, (anchoPaletas - 48) / columnasIon - 4)),
+    [anchoPaletas]
+  );
 
   function formularioLimpioNuevo() {
     setCategoriaEnEdicion(null);
@@ -120,14 +129,18 @@ export default function CategoriasScreen() {
     setLimite('');
     setColor(PALETA_COLORES[0]);
     setIcono(ICONOS_CATEGORIA[0]);
+    setIconoIon(null);
+    setGrupo503020(GRUPO_DESEOS);
   }
 
   function abrirEdicion(c) {
     const n = normalizarCategoria(c);
     setCategoriaEnEdicion(n.nombre);
     setNombre(n.nombre);
-    setColor(n.color);
-    setIcono(n.icono);
+    setColor(n.color_hex || n.color);
+    setIconoIon(n.iconoIon || null);
+    setIcono(n.iconoIon && (!n.icono || !String(n.icono).trim()) ? ICONOS_CATEGORIA[0] : n.icono || ICONOS_CATEGORIA[0]);
+    setGrupo503020(n.grupo503020 || GRUPO_DESEOS);
     setLimite(n.limite != null && n.limite !== '' ? String(n.limite) : '');
   }
 
@@ -155,7 +168,15 @@ export default function CategoriasScreen() {
         const nextCats = raw.map((row) => {
           const c = normalizarCategoria(row);
           if (c.nombre === nombreAnterior) {
-            return { nombre: n, color, limite: l, icono };
+            return {
+              nombre: n,
+              color,
+              color_hex: color,
+              limite: l,
+              icono: iconoIon ? ' ' : icono,
+              iconoIon: iconoIon || undefined,
+              grupo503020,
+            };
           }
           return row;
         });
@@ -179,7 +200,18 @@ export default function CategoriasScreen() {
     }
     replaceState((s) => ({
       ...s,
-      categorias: [...(s.categorias || []), { nombre: n, color, limite: l, icono }],
+      categorias: [
+        ...(s.categorias || []),
+        {
+          nombre: n,
+          color,
+          color_hex: color,
+          limite: l,
+          icono: iconoIon ? ' ' : icono,
+          iconoIon: iconoIon || undefined,
+          grupo503020,
+        },
+      ],
     }));
     setNombre('');
     setLimite('');
@@ -206,10 +238,10 @@ export default function CategoriasScreen() {
 
   function addDefaults() {
     const nombres = categorias.map((c) => c.nombre.toLowerCase());
-    const nuevas = [...(state.categorias || [])].map(normalizarCategoria);
-    CATEGORIAS_POR_DEFECTO.forEach((def) => {
+    const nuevas = [...(state.categorias || [])];
+    CATEGORIAS_POR_DEFECTO_503020.forEach((def) => {
       if (!nombres.includes(def.nombre.toLowerCase())) {
-        nuevas.push({ ...def, limite: null });
+        nuevas.push({ ...def, limite: def.limite ?? null });
         nombres.push(def.nombre.toLowerCase());
       }
     });
@@ -259,8 +291,30 @@ export default function CategoriasScreen() {
             );
           })}
         </View>
-        <Text style={styles.lab}>Icono</Text>
-        <Text style={styles.hint}>Elige un icono para identificar la categoría en la app.</Text>
+        <Text style={styles.lab}>Pilar 50 / 30 / 20</Text>
+        <Text style={styles.hint}>
+          Agrupa la categoría para el tablero de Inicio (Necesidades ~50%, Deseos ~30%, Ahorro/deuda ~20%).
+        </Text>
+        <View style={styles.grupoRow}>
+          {GRUPO503020_TODOS.map((g) => {
+            const sel = grupo503020 === g;
+            return (
+              <TouchableOpacity
+                key={g}
+                onPress={() => setGrupo503020(g)}
+                activeOpacity={0.88}
+                style={[styles.grupoChip, sel && styles.grupoChipSel]}
+              >
+                <Text style={[styles.grupoChipTxt, sel && styles.grupoChipTxtSel]} numberOfLines={2}>
+                  {ETIQUETA_GRUPO_503020[g] || g}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={styles.lab}>Icono (emoji)</Text>
+        <Text style={styles.hint}>Opcional si usas un icono de sistema abajo.</Text>
         <View style={styles.paletaIconos}>
           {ICONOS_CATEGORIA.map((ic, i) => {
             const sel = ic === icono;
@@ -285,9 +339,47 @@ export default function CategoriasScreen() {
             );
           })}
         </View>
+
+        <Text style={styles.lab}>Icono (Ionicons)</Text>
+        <Text style={styles.hint}>Toca para elegir; si eliges uno, sustituye al emoji en gráficos.</Text>
+        <View style={styles.paletaIconos}>
+          <TouchableOpacity
+            onPress={() => setIconoIon(null)}
+            activeOpacity={0.88}
+            style={[
+              styles.celdaIcono,
+              { width: tamCeldaIon, minHeight: tamCeldaIon },
+              !iconoIon && styles.celdaIconoSel,
+            ]}
+          >
+            <Text style={styles.sinIonTxt}>Ninguno</Text>
+          </TouchableOpacity>
+          {LISTA_ION_TODOS.map((ion) => {
+            const sel = iconoIon === ion;
+            return (
+              <TouchableOpacity
+                key={ion}
+                onPress={() => setIconoIon(ion)}
+                activeOpacity={0.88}
+                style={[
+                  styles.celdaIcono,
+                  { width: tamCeldaIon, minHeight: tamCeldaIon },
+                  sel && styles.celdaIconoSel,
+                ]}
+              >
+                <Ionicons name={ion} size={22} color={sel ? colors.accentGold : colors.text} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <View style={styles.vistaPrevia} accessibilityRole="text">
           <View style={[styles.vistaPreviaIconWrap, { backgroundColor: color }]}>
-            <Text style={styles.vistaPreviaIcon}>{icono}</Text>
+            {iconoIon ? (
+              <Ionicons name={iconoIon} size={26} color="#fff" />
+            ) : (
+              <Text style={styles.vistaPreviaIcon}>{icono}</Text>
+            )}
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={typography.label}>Vista previa</Text>
@@ -313,7 +405,11 @@ export default function CategoriasScreen() {
           <GhostButton title="Cancelar edición" onPress={formularioLimpioNuevo} style={{ marginTop: spacing.sm }} />
         ) : null}
         {!categoriaEnEdicion ? (
-          <GhostButton title="Añadir categorías sugeridas" onPress={addDefaults} style={{ marginTop: spacing.sm }} />
+          <GhostButton
+            title="Añadir categorías 50/30/20 sugeridas"
+            onPress={addDefaults}
+            style={{ marginTop: spacing.sm }}
+          />
         ) : null}
       </UICard>
 
@@ -327,11 +423,19 @@ export default function CategoriasScreen() {
             return (
               <View key={c.nombre + i} style={[styles.row, esEditando && styles.rowEdicion]}>
                 <View style={[styles.swatch, { backgroundColor: c.color }]}>
-                  <Text style={styles.swatchIcono}>{c.icono}</Text>
+                  {c.iconoIon ? (
+                    <Ionicons name={c.iconoIon} size={20} color="#fff" />
+                  ) : (
+                    <Text style={styles.swatchIcono}>{c.icono}</Text>
+                  )}
                 </View>
-                <Text style={styles.catText} numberOfLines={2}>
+                <Text style={styles.catText} numberOfLines={3}>
                   {c.nombre}
                   {c.limite ? ` · lím. ${formatearNumero(parseFloat(c.limite))}` : ''}
+                  {'\n'}
+                  <Text style={styles.catGrupo}>
+                    {ETIQUETA_GRUPO_503020[c.grupo503020] || c.grupo503020}
+                  </Text>
                 </Text>
                 <View style={styles.rowAcc}>
                   <TouchableOpacity onPress={() => abrirEdicion(c)} hitSlop={10}>
@@ -452,5 +556,46 @@ const styles = StyleSheet.create({
   },
   vistaPreviaIcon: {
     fontSize: 26,
+  },
+  grupoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  grupoChip: {
+    flex: 1,
+    minWidth: '28%',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.stroke,
+    backgroundColor: 'rgba(0,0,0,0.12)',
+  },
+  grupoChipSel: {
+    borderColor: colors.accentGold,
+    backgroundColor: 'rgba(217, 180, 74, 0.14)',
+  },
+  grupoChipTxt: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontWeight: '600',
+    lineHeight: 14,
+  },
+  grupoChipTxtSel: {
+    color: colors.accentGold,
+  },
+  sinIonTxt: {
+    fontSize: 10,
+    color: colors.textMuted,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  catGrupo: {
+    fontSize: 11,
+    color: colors.textFaint,
+    fontWeight: '600',
   },
 });

@@ -36,10 +36,11 @@ set APP_HOME=%DIRNAME%
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
 @rem MoneyTrack: Ninja/react-native-screens falla con "Filename longer than 260 characters" si la caché
-@rem de Gradle queda bajo OneDrive. Misma ruta que mobile/scripts/run-expo.cjs (sustituible con GRADLE_USER_HOME).
-if not defined GRADLE_USER_HOME (
-  set "GRADLE_USER_HOME=C:\GradleMoneyTrack"
-)
+@rem queda bajo OneDrive o rutas largas. Forzamos caché corta aunque GRADLE_USER_HOME esté definido en el sistema.
+@rem Para usar tu propio Gradle home: set MONEYTRACK_SKIP_SHORT_GRADLE_HOME=1 antes de gradlew.
+if /I "%MONEYTRACK_SKIP_SHORT_GRADLE_HOME%"=="1" goto afterGradleUserHome
+set "GRADLE_USER_HOME=C:\GradleMoneyTrack"
+:afterGradleUserHome
 
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"

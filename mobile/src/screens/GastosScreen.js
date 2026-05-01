@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, Switch } from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +30,10 @@ import {
   claveRecordatorioPagoCumplido,
   fechaGastoRecomendadaTrasOCR,
   existeAbonoDeudaTarjetaEnMes,
+  parseFechaHoraLocal,
+  generarIdGasto,
 } from '../lib/finance';
+import { withAvisoGastoMovimiento } from '../lib/notificacionesApp';
 import { colors, spacing, radii, typography, shadows } from '../theme';
 
 /** 5 títulos y 5 textos: se eligen al azar al mostrar el aviso (mismo tono que la campana). */
@@ -105,7 +109,11 @@ function pad(n) {
 
 export default function GastosScreen() {
   const insets = useSafeAreaInsets();
+  const route = useRoute();
+  const navigation = useNavigation();
   const { state, replaceState } = useApp();
+  /** Si no es null, al guardar se actualiza el gasto con ese id en lugar de crear uno nuevo. */
+  const [editingGastoId, setEditingGastoId] = useState(null);
   const moneda = state?.moneda || '';
   const flashPagoRef = useRef(null);
   const [flashPagoExito, setFlashPagoExito] = useState(false);
@@ -194,6 +202,43 @@ export default function GastosScreen() {
     }
     return 'No alcanza en cajas líquidas. Revisa Saldo, ingresos o usa tarjeta/cuotas.';
   }, [state, cantNum, cuentasDisponibles.length, abonoDeudaTarjeta]);
+
+  useEffect(() => {
+    const raw = route.params?.editarGastoId;
+    if (raw == null || raw === '') return;
+    const id = String(raw);
+    const g = (state?.gastos || []).find((x) => x && String(x.id) === id);
+    if (!g) return;
+    setEditingGastoId(id);
+    setNombre(String(g.nombre || ''));
+    const cNum = parseFloat(g.cantidad);
+    if (Number.isFinite(cNum)) {
+      const r = Math.round(cNum * 100) / 100;
+      setCantidad(Number.isInteger(r) ? String(r) : r.toFixed(2));
+    } else {
+      setCantidad('');
+    }
+    const fd = parseFechaHoraLocal(g.fecha);
+    setFecha(fd && !Number.isNaN(fd.getTime()) ? fd : new Date());
+    setCategoria(String(g.categoria || ''));
+    setOrigen(String(g.origen || ''));
+    setCuotas(Math.max(1, parseInt(String(g.cuotas ?? 1), 10) || 1));
+    setNota(g.nota != null ? String(g.nota) : '');
+    setNotaListadoTicketCompleto(!!g.notaListadoTicketCompleto);
+    setAbonoDeudaTarjeta(!!g.esAbonoDeudaTarjeta);
+    const tid = g.tarjetaCreditoId != null ? String(g.tarjetaCreditoId) : '';
+    if (g.esAbonoDeudaTarjeta) {
+      setTarjetaAbonoElegida(tid);
+      setTarjetaCreditoElegida('');
+    } else {
+      setTarjetaCreditoElegida(normalizarOrigenCuenta(g.origen) === 'tarjetaCredito' ? tid : '');
+      setTarjetaAbonoElegida('');
+    }
+    setPagoProgramadoEnUso(null);
+    setTipoEntrada('manual');
+    ocrSnapshotRef.current = null;
+    navigation.setParams({ editarGastoId: undefined });
+  }, [route.params?.editarGastoId, state?.gastos, navigation]);
 
   useEffect(() => {
     if (origen && !cuentasDisponibles.some((c) => c.value === origen)) {
@@ -399,10 +444,12 @@ export default function GastosScreen() {
       const ah = new Date();
       const m0 = ah.getMonth();
       const y0 = ah.getFullYear();
+      const exId = editingGastoId;
       const gastosCategoria = (state?.gastos || []).filter(
         (g) =>
           g.categoria === categoria &&
-          montoGastoCuentaParaPresupuestoEnMes(g, state, m0, y0) > 0
+          montoGastoCuentaParaPresupuestoEnMes(g, state, m0, y0) > 0 &&
+          String(g.id || '') !== String(exId || '')
       );
       const gastadoMes = gastosCategoria.reduce(
         (s, g) => s + montoGastoCuentaParaPresupuestoEnMes(g, state, m0, y0),
@@ -438,7 +485,9 @@ export default function GastosScreen() {
         Alert.alert('Tarjeta', 'Elige a qué tarjeta aplica este pago.');
         return;
       }
-      if (existeAbonoDeudaTarjetaEnMes(state || {}, tidAb || null, fechaStr)) {
+      if (
+        existeAbonoDeudaTarjetaEnMes(state || {}, tidAb || null, fechaStr, editingGastoId || undefined)
+      ) {
         Alert.alert(
           'Pago a la tarjeta',
           'Ya registraste un pago a esa tarjeta en este mes calendario. Para no mezclar cierres, usa un solo movimiento al mes o edita el anterior.',
@@ -460,6 +509,7 @@ export default function GastosScreen() {
           : undefined;
     const tarjetaFilaGastoOAbono = esTcCarga ? tarjetaIdGasto : abonoDeudaTarjeta ? tarjetaIdAbono : undefined;
 
+    const editId = editingGastoId != null && String(editingGastoId).trim() ? String(editingGastoId).trim() : null;
     const nuevo = {
       nombre: nombre.trim(),
       cantidad: cantNum,
@@ -470,9 +520,20 @@ export default function GastosScreen() {
       ...(notaListadoTicketCompleto && nota.trim() ? { notaListadoTicketCompleto: true } : {}),
       cuotas: esTcCarga ? cuotasVal : 1,
       cuotaMensual: esTcCarga ? cuotaMensualVal : cantNum,
-      ...(abonoDeudaTarjeta ? { esAbonoDeudaTarjeta: true } : {}),
+      ...(abonoDeudaTarjeta
+        ? { esAbonoDeudaTarjeta: true }
+        : editId
+          ? { esAbonoDeudaTarjeta: false }
+          : {}),
       ...(tarjetaFilaGastoOAbono ? { tarjetaCreditoId: String(tarjetaFilaGastoOAbono) } : {}),
+      id: editId || generarIdGasto(),
     };
+    if (editId && !tarjetaFilaGastoOAbono) {
+      nuevo.tarjetaCreditoId = undefined;
+    }
+    if (editId && (!notaListadoTicketCompleto || !nota.trim())) {
+      nuevo.notaListadoTicketCompleto = false;
+    }
 
     const pagosPrev = state?.pagosProgramados || [];
     const habiaCierreProgramado =
@@ -498,7 +559,20 @@ export default function GastosScreen() {
     }
 
     replaceState((s) => {
-      let gastos = [...(s.gastos || []), nuevo];
+      let gastos;
+      if (editId) {
+        const arr = [...(s.gastos || [])];
+        const ix = arr.findIndex((g) => g && String(g.id) === editId);
+        if (ix >= 0) {
+          const prev = arr[ix];
+          arr[ix] = { ...prev, ...nuevo, id: editId };
+          gastos = arr;
+        } else {
+          gastos = [...arr, nuevo];
+        }
+      } else {
+        gastos = [...(s.gastos || []), nuevo];
+      }
       let pagos = [...(s.pagosProgramados || [])];
       const recordatoriosCum = [...(s.recordatoriosPagoRegistrado || [])];
 
@@ -519,10 +593,18 @@ export default function GastosScreen() {
         pagosProgramados: pagos,
         recordatoriosPagoRegistrado: recordatoriosCum,
       };
-      return {
+      let stOut = {
         ...st,
         pagosProgramados: reemplazarPagosRecordatorioTarjetas(st.pagosProgramados, st, new Date()),
       };
+      if (editId) {
+        const mLine = `${formatearNumero(cantNum)} ${moneda}`.trim();
+        stOut = withAvisoGastoMovimiento(stOut, 'editado', {
+          nombre: nuevo.nombre,
+          montoLine: mLine,
+        });
+      }
+      return stOut;
     });
 
     if (corteMsg) {
@@ -538,7 +620,7 @@ export default function GastosScreen() {
         flashPagoRef.current = null;
       }, FLASH_PAGO_OK_MS);
     } else {
-      Alert.alert('Listo', 'Gasto registrado.');
+      Alert.alert('Listo', editId ? 'Gasto actualizado.' : 'Gasto registrado.');
     }
     setNombre('');
     setCantidad('');
@@ -550,6 +632,7 @@ export default function GastosScreen() {
     setPagoProgramadoEnUso(null);
     setAbonoDeudaTarjeta(false);
     setFecha(new Date());
+    setEditingGastoId(null);
   }
 
   return (
