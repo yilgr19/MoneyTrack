@@ -1139,12 +1139,18 @@ export function deudaGastosTarjetaAcumuladaHastaCorte(data, ref = new Date()) {
 /**
  * Importe de un gasto que se imputa a un mes calendario: tarjeta en N cuotas reparte una cuota en cada
  * mes de corte; **contado (1 cuota)** imputa al mes de la fecha de compra (coherente con Inicio y topes).
+ * **Pago/abono a la tarjeta** (`esAbonoDeudaTarjeta`): cuenta en el mes de la **fecha del movimiento**
+ * (salida de efectivo/banco), alineado con Movimientos y «Gastos (mes)».
  * Sin patrón de corte en cuotas, reparte en meses consecutivos desde la fecha de compra.
  */
 export function montoGastoAfectaSaldoEnMes(g, data, mes, año) {
   if (!g) return 0;
-  if (g.esAbonoDeudaTarjeta) return 0;
   if (g.esTransferenciaBolsillo) return 0;
+  if (g.esAbonoDeudaTarjeta === true) {
+    const m = obtenerMesAño(g.fecha);
+    if (m.mes === mes && m.año === año) return nNum(g.cantidad);
+    return 0;
+  }
   const orig = normalizarOrigenCuenta(g.origen);
   if (orig !== 'tarjetaCredito') {
     const m = obtenerMesAño(g.fecha);
