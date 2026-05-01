@@ -50,6 +50,7 @@ const TIPO_ACENTO = {
   saldo: { icon: 'wallet-outline', color: colors.mint, label: 'Saldo' },
   listaSuper: { icon: 'basket-outline', color: colors.mint, label: 'Lista súper' },
   gasto_movimiento: { icon: 'receipt-outline', color: colors.accent, label: 'Gasto' },
+  meta: { icon: 'flag-outline', color: colors.success, label: 'Meta' },
 };
 
 function NotificacionFila({ it, index, open, onTarjeta, esTocable }) {

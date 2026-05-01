@@ -29,6 +29,7 @@ const TABLAS_PLANAS = new Set([
 
 const ESCALARES_CSV = [
   'moneda',
+  'nombreUsuario',
   'limiteTarjetaCredito',
   'presupuestoMensual',
   'presupuestoDesdeFecha',
@@ -152,6 +153,7 @@ export function serializarDataACsv(data, exportedAt, onboardingCompletado) {
 function dataVaciaImportacion() {
   return {
     moneda: '',
+    nombreUsuario: '',
     saldosCuentas: {},
     bancosDetalle: [],
     limiteTarjetaCredito: 0,
@@ -357,8 +359,18 @@ export function parsearRespaldoCsv(texto) {
           if (!k) continue;
           if (['limiteTarjetaCredito', 'presupuestoMensual', 'asistenteUmbral48h'].includes(k)) {
             data[k] = parseFloat(v) || 0;
-          } else if (k === 'moneda' || k === 'presupuestoDesdeFecha' || k === 'saldoInicialNota' || k === 'listaSuperCategoriaPreferida') {
-            data[k] = v != null ? String(v) : '';
+          } else if (
+            k === 'moneda' ||
+            k === 'nombreUsuario' ||
+            k === 'presupuestoDesdeFecha' ||
+            k === 'saldoInicialNota' ||
+            k === 'listaSuperCategoriaPreferida'
+          ) {
+            if (k === 'nombreUsuario') {
+              data[k] = v != null && String(v).trim() ? String(v).trim().slice(0, 80) : '';
+            } else {
+              data[k] = v != null ? String(v) : '';
+            }
           }
         }
       }

@@ -15,7 +15,14 @@ import { formatearNumero, calcularSaldosPorCuenta, montoGastoAfectaSaldo } from 
 import { colors, spacing, radii, typography } from '../theme';
 
 export default function AdminScreen() {
-  const { state, resetPartial, resetFull, exportarDatosRespaldo, importarDatosRespaldo } = useApp();
+  const {
+    state,
+    resetPartial,
+    resetFull,
+    exportarDatosRespaldo,
+    importarDatosRespaldo,
+    reabrirTutorialOnboarding,
+  } = useApp();
   const moneda = state.moneda || '';
   const saldos = calcularSaldosPorCuenta(state);
   const totalGastos = (state.gastos || []).reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
@@ -131,6 +138,31 @@ export default function AdminScreen() {
         </TouchableOpacity>
       </UICard>
 
+      <UICard style={{ marginBottom: spacing.md }}>
+        <Text style={typography.label}>Tutorial y nombre en avisos</Text>
+        <Text style={[typography.small, { marginTop: spacing.sm, lineHeight: 20, color: colors.textSecondary }]}>
+          Si ya tenías datos y nunca pusiste tu nombre, o quieres cambiarlo, puedes volver a ver el recorrido. Tus gastos,
+          cuentas y metas no se borran. Al llegar al último paso actualizas el nombre o apodo que usamos en la campana y
+          en las notificaciones del teléfono.
+        </Text>
+        <TouchableOpacity
+          style={[styles.btn, styles.btnTutorial, { marginTop: spacing.md, marginBottom: 0 }]}
+          activeOpacity={0.88}
+          onPress={() => {
+            Alert.alert(
+              'Ver tutorial otra vez',
+              'Se mostrará el recorrido inicial de nuevo. Tus datos se mantienen. ¿Continuar?',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Ver tutorial', onPress: () => reabrirTutorialOnboarding() },
+              ]
+            );
+          }}
+        >
+          <Text style={styles.btnTextTutorial}>Ver tutorial otra vez</Text>
+        </TouchableOpacity>
+      </UICard>
+
       <TouchableOpacity
         style={[styles.btn, styles.btnWarn]}
         activeOpacity={0.88}
@@ -206,6 +238,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(134, 239, 172, 0.25)',
     marginBottom: 0,
   },
+  btnTutorial: {
+    backgroundColor: 'rgba(75, 36, 108, 0.45)',
+    borderColor: 'rgba(199, 195, 227, 0.35)',
+  },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  btnTextTutorial: { color: colors.accentBright, fontWeight: '700', fontSize: 15 },
   btnTextImport: { color: colors.mint, fontWeight: '700', fontSize: 15 },
 });

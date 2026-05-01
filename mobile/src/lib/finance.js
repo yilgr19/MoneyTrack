@@ -1219,6 +1219,53 @@ export function montoGastoCuentaParaPresupuestoEnMes(g, data, mes, año) {
   return base;
 }
 
+/**
+ * Resumen del tope mensual vs gastos (misma lógica que el medidor en Inicio).
+ * Para notificaciones locales: solo `activo` si hay presupuesto > 0.
+ */
+export function resumenPresupuestoMensualParaNotificacion(state, ahora = new Date()) {
+  if (!state) return { activo: false };
+  const presupuestoMensual = parseFloat(state.presupuestoMensual) || 0;
+  if (presupuestoMensual <= 0) return { activo: false };
+
+  const mesActual = ahora.getMonth();
+  const añoActual = ahora.getFullYear();
+  const gastos = state.gastos || [];
+  const ingresos = state.ingresos || [];
+
+  const gastosMesActual = gastos.reduce(
+    (s, g) => s + montoGastoCuentaParaPresupuestoEnMes(g, state, mesActual, añoActual),
+    0
+  );
+  const ingresosMesActual = ingresos
+    .filter((i) => {
+      if (i.esRetiroBolsillo) return false;
+      const { mes, año } = obtenerMesAño(i.fecha);
+      return mes === mesActual && año === añoActual;
+    })
+    .reduce((s, i) => s + (parseFloat(i.cantidad) || 0), 0);
+
+  const disponible = presupuestoMensual - gastosMesActual;
+  const pctUsado = (gastosMesActual / presupuestoMensual) * 100;
+
+  let estadoKind = 'ok';
+  if (disponible > 0 && pctUsado < 80) estadoKind = 'ok';
+  else if (disponible > 0 && pctUsado >= 80) estadoKind = 'cuidado';
+  else if (disponible === 0) estadoKind = 'alerta';
+  else estadoKind = 'superado';
+
+  return {
+    activo: true,
+    moneda: String(state.moneda || '').trim(),
+    presupuestoMensual,
+    gastosMesActual,
+    ingresosMesActual,
+    disponible,
+    pctUsado,
+    estadoKind,
+  };
+}
+
 /** Años y meses donde un gasto tiene al menos un tramo (para reportes e histórico). */
 export function aniosMesesDondeAfectaGasto(g, data) {
   if (!g) return [];
@@ -1957,29 +2004,6 @@ export function proyeccionEficienciaInicio(data, ref = new Date()) {
 }
 
 /**
- * Tras escanear un recibo: Inicio, donuts y topes usan el **mes en curso**. Si el OCR devuelve una fecha
- * de otro mes (ruido, ticket viejo, confusión dd/mm), el gasto quedaba guardado fuera del mes visible.
- * Se mantiene día y hora del ticket solo cuando ya cae en el mismo mes calendario que `ref`; si no, se
- * usa la fecha de `ref` (puedes corregirla en el formulario antes de guardar).
- */
-export function fechaGastoRecomendadaTrasOCR(fechaTicket, ref = new Date()) {
-  if (!(fechaTicket instanceof Date) || Number.isNaN(fechaTicket.getTime())) {
-    return new Date(ref);
-  }
-  const mismoMes =
-    fechaTicket.getMonth() === ref.getMonth() && fechaTicket.getFullYear() === ref.getFullYear();
-  if (mismoMes) return fechaTicket;
-  return new Date(
-    ref.getFullYear(),
-    ref.getMonth(),
-    ref.getDate(),
-    ref.getHours(),
-    ref.getMinutes(),
-    ref.getSeconds()
-  );
-}
-
-/**
  * Mes/año calendario del movimiento. Para `YYYY-MM-DD` (como en Ingresos/Gastos) se lee el mes desde el
  * texto para no depender de `Date` y zonas horarias (p. ej. 27 → 26 al parsear en UTC).
  */
@@ -2108,6 +2132,17 @@ export function filtrarPagosProgramadosCumplidosPorGasto(nuevoGasto, pagosProgra
 export function pagoVenceHoy(pago, hoy) {
   if (!pago.activo) return false;
   if (!pago.fechaInicio) return false;
+
+  if (pago.recordarCadaMes === false || pago.frecuencia === 'unico') {
+    const fechaPago = parseFechaHoraLocal(pago.fechaInicio);
+    if (!fechaPago) return false;
+    return (
+      hoy.getFullYear() === fechaPago.getFullYear() &&
+      hoy.getMonth() === fechaPago.getMonth() &&
+      hoy.getDate() === fechaPago.getDate()
+    );
+  }
+
   const [yIni, mIni, dIni] = (pago.fechaInicio + '').slice(0, 10).split('-').map(Number);
   const añoIni = yIni || 0;
   const mesIni = (mIni || 1) - 1;
@@ -2156,21 +2191,24 @@ export function pagoVenceHoy(pago, hoy) {
     }
     return true;
   }
-  if (pago.frecuencia === 'unico') {
-    const fechaPago = parseFechaHoraLocal(pago.fechaInicio);
-    if (!fechaPago) return false;
-    return (
-      hoy.getFullYear() === fechaPago.getFullYear() &&
-      hoy.getMonth() === fechaPago.getMonth() &&
-      hoy.getDate() === fechaPago.getDate()
-    );
-  }
   return false;
 }
 
 export function pagoDebeMostrarseParaPagar(pago, ahora = new Date()) {
   if (!pago || pago.activo === false) return false;
   if (pago.frecuencia === 'unico') {
+    if (!pago.fechaInicio) return false;
+    const raw = String(pago.fechaInicio);
+    const fechaPago = parseFechaHoraLocal(raw);
+    if (!fechaPago) return false;
+    if (raw.length <= 10) {
+      const h0 = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
+      const f0 = new Date(fechaPago.getFullYear(), fechaPago.getMonth(), fechaPago.getDate()).getTime();
+      return f0 <= h0;
+    }
+    return ahora.getTime() >= fechaPago.getTime();
+  }
+  if (pago.recordarCadaMes === false) {
     if (!pago.fechaInicio) return false;
     const raw = String(pago.fechaInicio);
     const fechaPago = parseFechaHoraLocal(raw);

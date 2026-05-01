@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,14 +15,17 @@ export default function OnboardingScreen() {
   const { completarOnboarding } = useApp();
 
   const [paso, setPaso] = useState(0);
+  const [nombreUsuarioDraft, setNombreUsuarioDraft] = useState('');
 
   const sig = useCallback(() => {
     if (paso < TOTAL_PASOS - 1) {
       setPaso((p) => p + 1);
     } else {
-      completarOnboarding();
+      const n = nombreUsuarioDraft.trim();
+      if (!n) return;
+      completarOnboarding(n);
     }
-  }, [paso, completarOnboarding]);
+  }, [paso, completarOnboarding, nombreUsuarioDraft]);
 
   const atr = useCallback(() => {
     if (paso > 0) setPaso((p) => p - 1);
@@ -35,7 +38,7 @@ export default function OnboardingScreen() {
     'Cómo se usan',
     'Las 4 pestañas',
     'Inicio y análisis',
-    'Gastos y recibos',
+    'Gastos',
     'Más: informes y asistente',
     'Botón + y campanas',
     'Listo',
@@ -82,13 +85,16 @@ export default function OnboardingScreen() {
         {paso === 5 && <PasoGastosYBolsillos />}
         {paso === 6 && <PasoMetasIngresosYMas />}
         {paso === 7 && <PasoFabYCampanas />}
-        {paso === 8 && <PasoListo />}
+        {paso === 8 && (
+          <PasoListo value={nombreUsuarioDraft} onChangeText={setNombreUsuarioDraft} />
+        )}
 
         <View style={styles.actions}>
           {paso > 0 && <GhostButton title="Atrás" onPress={atr} style={styles.btnGhost} />}
           <PrimaryButton
             title={isLast ? 'Ir a Saldos iniciales' : 'Continuar'}
             onPress={sig}
+            disabled={isLast && !nombreUsuarioDraft.trim()}
             style={{ marginTop: paso > 0 ? spacing.sm : 0 }}
           />
         </View>
@@ -111,8 +117,7 @@ function PasoBienvenida({ ancho }) {
           (con una guía amable ~30 %), <Text style={{ fontWeight: '600' }}>presupuesto mensual</Text> con barra, bloque{' '}
           <Text style={{ fontWeight: '600' }}>por cuenta</Text> (y tarjeta con cupo aparte si lo configuraste), recordatorios
           de crédito y, si tienes pendientes, un acceso a la <Text style={{ fontWeight: '600' }}>lista súper</Text> del
-          asistente. En <Text style={{ fontWeight: '600' }}>Gastos</Text> anotas salidas a mano o con{' '}
-          <Text style={{ fontWeight: '600' }}>escáner de recibo</Text> (OCR que tú revisas antes de guardar), categorías,{' '}
+          asistente.           En <Text style={{ fontWeight: '600' }}>Gastos</Text> anotas salidas a mano, categorías,{' '}
           <Text style={{ fontWeight: '600' }}>pagos programados</Text> y <Text style={{ fontWeight: '600' }}>bolsillos
           </Text>. En <Text style={{ fontWeight: '600' }}>Más</Text>: ingresos, metas,{' '}
           <Text style={{ fontWeight: '600' }}>reportes por mes</Text> (informe con gráficos y detalle), extractos de
@@ -194,7 +199,7 @@ function PasoTabs() {
       />
       <RowIcon
         icon="card-outline"
-        text="Gastos: registro manual o escaneando recibo (cámara y OCR sugerido; siempre confirmas antes de guardar), categoría, cuenta, bolsillo, fecha, nota; pagos programados con recordatorios."
+        text="Gastos: registro manual con categoría, cuenta, fecha y nota; pagos programados con recordatorios."
       />
       <RowIcon
         icon="wallet-outline"
@@ -250,12 +255,8 @@ function PasoGastosYBolsillos() {
       <Ionicons name="pricetags-outline" size={48} color={colors.accentBright} style={{ marginBottom: spacing.md }} />
       <Text style={typography.title}>Gastos y bolsillos</Text>
       <Text style={[typography.subtitle, { marginTop: spacing.sm, marginBottom: spacing.md, lineHeight: 20 }]}>
-        Manual o con recibo: la app sugiere datos, pero tú confirmas categoría, cuenta y monto.
+        Registro manual: nombre, monto, categoría y cuenta; la nota es opcional.
       </Text>
-      <RowIcon
-        icon="camera-outline"
-        text="Escáner de recibo: desde Gastos, captura el ticket; se intenta leer total, fecha, comercio e ítems (según el texto). Revisa siempre antes de guardar; en algunos entornos el OCR nativo requiere la app instalada (no solo el navegador)."
-      />
       <RowIcon
         icon="add-circle-outline"
         text="Nuevo gasto: cantidad, categoría, cuenta, fecha; nota opcional y bolsillo—colores y nombres desde Saldo o Mis bolsillos."
@@ -329,7 +330,7 @@ function PasoFabYCampanas() {
       />
       <RowIcon
         icon="notifications-outline"
-        text="Campana de notificaciones: pagos y cortes de tarjeta, recordatorios de pagos programados, avisos de presupuesto o categoría, y recordatorios del asistente (p. ej. lista súper) según tu actividad."
+        text="Campana y avisos del teléfono: pagos y cortes de tarjeta, pagos programados, presupuesto o categoría, metas (recordatorio, casi cumplidas o logradas), lista súper y más — con tu nombre si lo indicaste al terminar el tutorial."
       />
       <RowIcon
         icon="speedometer-outline"
@@ -343,18 +344,34 @@ function PasoFabYCampanas() {
   );
 }
 
-function PasoListo() {
+function PasoListo({ value, onChangeText }) {
   return (
     <View style={styles.card}>
       <Ionicons name="checkmark-circle-outline" size={56} color={colors.mint} style={{ marginBottom: spacing.md }} />
-      <Text style={typography.title}>Siguiente: pestaña Saldo</Text>
+      <Text style={typography.title}>Casi listo: cómo te llamamos</Text>
       <Text style={[typography.body, { marginTop: spacing.md, lineHeight: 24 }]}>
-        Al tocar <Text style={{ fontWeight: '600' }}>«Ir a Saldos iniciales»</Text> se cierra el tutorial y se abre{' '}
-        <Text style={{ fontWeight: '600' }}>Saldo</Text> para moneda, cuentas, bolsillos, crédito y presupuesto. Este
-        recorrido no se repetirá salvo que lo indiques en Administrar. Después revisa <Text style={{ fontWeight: '600' }}
-        >Inicio</Text> (ahorro, donas y por cuenta), usa el <Text style={{ fontWeight: '600' }}>+</Text> o{' '}
-        <Text style={{ fontWeight: '600' }}>Gastos</Text> para anotar salidas (incluido recibo), y entra a{' '}
-        <Text style={{ fontWeight: '600' }}>Más → Reportes</Text> cuando quieras el informe cerrado de un mes.
+        Escribe tu nombre o un apodo. Lo usaremos en los mensajes de la <Text style={{ fontWeight: '600' }}>campana
+        </Text> dentro de la app y en las <Text style={{ fontWeight: '600' }}>notificaciones del teléfono</Text>{' '}
+        (pagos, presupuesto, metas, lista súper, etc.) para que se sientan más personales.
+      </Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="Tu nombre o apodo"
+        placeholderTextColor={colors.textFaint}
+        autoCapitalize="words"
+        autoCorrect={false}
+        maxLength={80}
+        style={styles.inputNombre}
+        returnKeyType="done"
+      />
+      <Text style={[typography.body, { marginTop: spacing.lg, lineHeight: 24 }]}>
+        Luego, al tocar <Text style={{ fontWeight: '600' }}>«Ir a Saldos iniciales»</Text>, se cierra el tutorial y se
+        abre <Text style={{ fontWeight: '600' }}>Saldo</Text> para moneda, cuentas, bolsillos, crédito y presupuesto. El
+        recorrido no se repetirá salvo que lo indiques en Administrar. Después revisa{' '}
+        <Text style={{ fontWeight: '600' }}>Inicio</Text>, usa el <Text style={{ fontWeight: '600' }}>+</Text> o{' '}
+        <Text style={{ fontWeight: '600' }}>Gastos</Text>, y entra a <Text style={{ fontWeight: '600' }}>Más → Reportes
+        </Text> cuando quieras el informe de un mes.
       </Text>
     </View>
   );
@@ -392,4 +409,15 @@ const styles = StyleSheet.create({
   bulletIcon: { marginRight: spacing.md, marginTop: 2, flexShrink: 0 },
   actions: { marginTop: spacing.lg },
   btnGhost: { marginBottom: 0 },
+  inputNombre: {
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.stroke,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    fontSize: 16,
+    color: colors.text,
+    backgroundColor: colors.bg,
+  },
 });

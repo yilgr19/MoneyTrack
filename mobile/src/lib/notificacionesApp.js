@@ -9,6 +9,7 @@ import {
   montoGastoCuentaParaPresupuestoEnMes,
   montoPagoSugeridoDesdeExtracto,
   normalizarCategoria,
+  normalizarMeta,
   obtenerSaldosIniciales,
   parseFechaHoraLocal,
   pagoDebeMostrarseParaPagar,
@@ -18,6 +19,7 @@ import {
 } from './finance';
 import { ordenarLineasListaSuper } from './asistenteComprasLogic';
 import { varianteGastoEditadoCampana, varianteGastoEliminadoCampana } from './notificacionesVariantesAmigables';
+import { tituloNotifConNombre } from './notificacionesPersonalizacion';
 
 /** Cuántos avisos de editar/quitar gasto guardamos en estado (campana). */
 export const MAX_AVISOS_GASTOS_CAMPANA = 25;
@@ -156,6 +158,16 @@ function diasHastaPagoSemanal(pago, ref) {
 export function diasHastaPagoProgramado(pago, ref = new Date()) {
   if (!pago || pago.activo === false) return null;
 
+  /** Solo la fecha elegida: avisos/campana no se repiten mes a mes (ni quincena/semana). */
+  if (pago.recordarCadaMes === false) {
+    const f = parseFechaHoraLocal(pago.fechaInicio);
+    if (!f) return null;
+    return diasCalendarioHasta(
+      new Date(f.getFullYear(), f.getMonth(), f.getDate(), 12, 0, 0),
+      new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), 12, 0, 0)
+    );
+  }
+
   if (pago.frecuencia === 'unico') {
     const f = parseFechaHoraLocal(pago.fechaInicio);
     if (!f) return null;
@@ -226,7 +238,7 @@ function notificacionesPagos(state, ref) {
     }
 
     if (d == null) continue;
-    if (d < 0 && p.frecuencia === 'unico') {
+    if (d < 0 && (p.frecuencia === 'unico' || p.recordarCadaMes === false)) {
       const id = `pp-${p.id}-unico-pasado`;
       out.push({
         id,
@@ -612,6 +624,108 @@ function notificacionesListaSuperCompras(state, ref) {
       detalle: rotarFrase(semDet, detalles),
     },
   ];
+}
+
+/**
+ * Metas con objetivo > 0: recordatorio si falta avance, aviso si ≥80 %, celebración si 100 %.
+ */
+function notificacionesMetas(state, ref) {
+  const metasRaw = state?.metas || [];
+  const contrib = Array.isArray(state?.contribucionesMetas) ? state.contribucionesMetas : [];
+  const metas = metasRaw.map(normalizarMeta).filter((m) => m.id && (parseFloat(m.objetivo) || 0) > 0);
+  if (metas.length === 0) return [];
+
+  const ahora = ref instanceof Date ? ref : new Date();
+  const ymd = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+  const moneda = String(state?.moneda || '').trim();
+  const suf = moneda ? ` ${moneda}` : '';
+  const out = [];
+
+  for (const m of metas) {
+    const obj = parseFloat(m.objetivo) || 0;
+    const acum = contrib
+      .filter((c) => c && c.metaId === m.id)
+      .reduce((s, c) => s + (parseFloat(c.cantidad) || 0), 0);
+    const pct = obj > 0 ? Math.min(100, (acum / obj) * 100) : 0;
+    const nom = String(m.nombre || 'Meta').trim() || 'Meta';
+    const acumTxt = formatearNumero(acum, 0);
+    const objTxt = formatearNumero(obj, 0);
+    const pRound = Math.round(pct);
+
+    if (pct >= 100) {
+      const id = `meta-${m.id}-logro`;
+      out.push({
+        id,
+        tipo: 'meta',
+        severidad: 'info',
+        puntuacionOrden: 718_000,
+        titulo: rotarFrase(`${id}-t-${ymd}`, [
+          `¡Cumpliste la meta «${nom}»! 🎉`,
+          `«${nom}» al 100 % · lo lograste ✨`,
+          `Meta «${nom}» completada · bravo 💪`,
+          `Tope alcanzado en «${nom}» · celebra un momento 🌟`,
+          `«${nom}» cerrada con éxito · gran trabajo 🤝`,
+        ]),
+        detalle: rotarFrase(`${id}-d-${ymd}`, [
+          `Llevas ${acumTxt}${suf} de ${objTxt}${suf}. Sigue así en Más → Metas.`,
+          `${acumTxt}${suf} sobre ${objTxt}${suf} · tu esfuerzo se nota 💛`,
+          `Objetivo cumplido: ${acumTxt}${suf}. ¿Otra meta cuando quieras?`,
+          `Números redondos: ${acumTxt}${suf} / ${objTxt}${suf} · disfrútalo 😊`,
+          `Un logro más en el bolsillo · ${acumTxt}${suf} logrados 🙌`,
+        ]),
+      });
+      continue;
+    }
+
+    if (pct >= 80) {
+      const id = `meta-${m.id}-cerca`;
+      out.push({
+        id,
+        tipo: 'meta',
+        severidad: 'warning',
+        puntuacionOrden: 712_000,
+        titulo: rotarFrase(`${id}-t-${ymd}`, [
+          `Casi «${nom}» · vas al ${pRound}% 🎯`,
+          `«${nom}» a un paso · ${pRound}% listo ⚡`,
+          `Falta poquito para «${nom}» · ${pRound}% 🌿`,
+          `Meta «${nom}» casi cerrada · ${pRound}% 💛`,
+          `Último tramo de «${nom}» · ${pRound}% ✨`,
+        ]),
+        detalle: rotarFrase(`${id}-d-${ymd}`, [
+          `Llevas ${acumTxt}${suf} de ${objTxt}${suf}. Un aporte más y la cierras.`,
+          `${acumTxt}${suf} sobre ${objTxt}${suf} · sigue en Más → Metas cuando puedas.`,
+          `Estás muy cerca: ${acumTxt}${suf} de ${objTxt}${suf} · ánimo 💪`,
+          `Un empujón amable y «${nom}» queda lista 😊`,
+          `Tu avance se ve: ${acumTxt}${suf} / ${objTxt}${suf} · casi 🎉`,
+        ]),
+      });
+      continue;
+    }
+
+    const id = `meta-${m.id}-avance`;
+    out.push({
+      id,
+      tipo: 'meta',
+      severidad: 'info',
+      puntuacionOrden: 395_000,
+      titulo: rotarFrase(`${id}-t-${ymd}`, [
+        `Tu meta «${nom}» te recuerda con cariño 🌿`,
+        `¿Un momento para «${nom}»? 💛`,
+        `«${nom}» sigue abierta · avanza cuando puedas ✨`,
+        `Pequeño recordatorio: meta «${nom}» 📌`,
+        `No te olvides de «${nom}» · va en ${pRound}% 🎯`,
+      ]),
+      detalle: rotarFrase(`${id}-d-${ymd}`, [
+        `Vas en ${acumTxt}${suf} de ${objTxt}${suf}. Aporta desde Más → Metas o al registrar movimientos.`,
+        `${acumTxt}${suf} / ${objTxt}${suf} · cada aporte suma 💪`,
+        `Llevas ${pRound}% · un pasito hoy cuenta 😊`,
+        `Revisa «${nom}» en Metas y suma lo que puedas 🤝`,
+        `Las metas son tuyas; la app solo te acompaña 💬`,
+      ]),
+    });
+  }
+
+  return out;
 }
 
 function tuvoMovimientosOConfigLiquido(state) {
@@ -1103,8 +1217,9 @@ export function reunirNotificacionesApp(state, ref = new Date()) {
   const p = notificacionesPresupuestoMensual(state, ref);
   const pr = notificacionesPresupuestoRevisar(state, ref);
   const ls = notificacionesListaSuperCompras(state, ref);
+  const nm = notificacionesMetas(state, ref);
   const gm = notificacionesGastosMovimiento(state, ref);
-  const items = [...a, ...b, ...s, ...c, ...p, ...pr, ...ls, ...gm]
+  const items = [...a, ...b, ...s, ...c, ...p, ...pr, ...ls, ...nm, ...gm]
     .map((it) => ({
       ...it,
       puntuacionOrden: it.puntuacionOrden != null ? it.puntuacionOrden : puntuacionOrdenDefecto(it.severidad),
@@ -1122,7 +1237,10 @@ export function reunirNotificacionesApp(state, ref = new Date()) {
   });
   // No exponer puntuación al UI; firma y lista usan el resto
   return {
-    items: deduped.map(({ puntuacionOrden: _p, ...rest }) => rest),
+    items: deduped.map(({ puntuacionOrden: _p, ...rest }) => ({
+      ...rest,
+      titulo: tituloNotifConNombre(state, rest.titulo),
+    })),
     total: deduped.length,
   };
 }

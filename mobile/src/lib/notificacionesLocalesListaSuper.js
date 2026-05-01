@@ -1,54 +1,24 @@
 /**
  * Recordatorios locales para artículos de la lista de compras marcados como **urgentes**.
- * Misma disponibilidad que pagos/TC: no en Expo Go; sí en dev build / APK.
+ * Mismas franjas que pagos/TC: 9:00, 12:00 y 18:00 (Bogotá), con opcional aviso ~5 min tras sync el mismo día
+ * si aplica (ver `instantesAvisoDiaBogota`). No en Expo Go; sí en dev build / APK.
  */
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
 import { notificacionesSistemaDisponibles } from './notificacionesLocalesEntorno';
-import { AVISOS_LOCALES_USAR_HORA_CERCANA } from './notificacionesLocalesPagosProgramados';
+import { instantesAvisoDiaBogota, ymdBogotaMasDias } from './notificacionesLocalesPagosProgramados';
 import { varianteListaSuperUrgente } from './notificacionesVariantesAmigables';
+import { tituloNotifConNombre } from './notificacionesPersonalizacion';
+import { solicitarPermisosSiNoConcedidos } from './notificacionesPermisos';
 
 const CANAL_LISTA_SUPER = 'lista-super-urgente-v1';
 const TIPO_LISTA_SUPER_URGENTE = 'listaSuperUrgente';
 const HORIZONTE_DIAS = 14;
-const HORA_AVISO = 10;
-const MINUTO_AVISO = 30;
-const MINUTOS_TRAS_SINCRON_PARA_HOY = 2;
 
 const MAX_SEC_TIME_INTERVAL_ANDROID = 86400 * 60;
 
 let canalListaListo = false;
-
-function mismoDiaCalendario(dA, dB) {
-  return (
-    dA.getFullYear() === dB.getFullYear() &&
-    dA.getMonth() === dB.getMonth() &&
-    dA.getDate() === dB.getDate()
-  );
-}
-
-function diaHoraAvisoListaSuper(refDia, ahora) {
-  if (AVISOS_LOCALES_USAR_HORA_CERCANA && mismoDiaCalendario(refDia, ahora)) {
-    return new Date(ahora.getTime() + MINUTOS_TRAS_SINCRON_PARA_HOY * 60_000);
-  }
-  return new Date(
-    refDia.getFullYear(),
-    refDia.getMonth(),
-    refDia.getDate(),
-    HORA_AVISO,
-    MINUTO_AVISO,
-    0
-  );
-}
-
-function ajustarDisparadorSiHoraPasada(refDia, ahora, triggerAt) {
-  const t = triggerAt.getTime();
-  if (t > ahora.getTime()) return triggerAt;
-  const finDiaRef = new Date(refDia.getFullYear(), refDia.getMonth(), refDia.getDate(), 23, 59, 59, 999);
-  if (ahora.getTime() > finDiaRef.getTime()) return null;
-  return new Date(ahora.getTime() + 60_000);
-}
 
 function construirDisparador(triggerAt) {
   const ms = triggerAt.getTime() - Date.now();
@@ -90,14 +60,7 @@ async function asegurarCanalListaSuper() {
     });
     canalListaListo = true;
   }
-  let { status } = await Notifications.getPermissionsAsync();
-  if (status !== 'granted') {
-    const r = await Notifications.requestPermissionsAsync({
-      ios: { allowAlert: true, allowBadge: true, allowSound: true },
-    });
-    status = r.status;
-  }
-  return status === 'granted';
+  return solicitarPermisosSiNoConcedidos();
 }
 
 async function cancelarProgramadasListaSuper() {
@@ -110,7 +73,7 @@ async function cancelarProgramadasListaSuper() {
 }
 
 /**
- * Programa un aviso al día (variación aleatoria entre 20 textos) mientras haya ítems urgentes en la lista.
+ * Programa avisos en franjas Bogotá (9 / 12 / 18 y opcional +5 min el mismo día) mientras haya ítems urgentes.
  */
 export async function sincronizarNotificacionesListaSuperUrgente(state) {
   if (Platform.OS === 'web' || !notificacionesSistemaDisponibles()) return;
@@ -124,42 +87,42 @@ export async function sincronizarNotificacionesListaSuperUrgente(state) {
   );
   if (items.length === 0) return;
 
+  const nombres = items.map((x) => String(x.nombre || '').trim()).filter(Boolean);
   const resumen = resumenTextoItemsUrgentes(items);
   const ahora = new Date();
 
   for (let offset = 0; offset <= HORIZONTE_DIAS; offset += 1) {
-    const refDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + offset, 12, 0, 0);
-    const y = refDia.getFullYear();
-    const mo = refDia.getMonth() + 1;
-    const da = refDia.getDate();
-    const idClave = `ls-urg-${y}-${mo}-${da}`;
+    const { y, mo, d } = ymdBogotaMasDias(ahora, offset);
+    const instantes = instantesAvisoDiaBogota(y, mo, d, ahora);
 
-    const { title: titulo, body: cuerpo } = varianteListaSuperUrgente(resumen);
+    for (let slotIx = 0; slotIx < instantes.length; slotIx += 1) {
+      const triggerAt = instantes[slotIx];
+      const disparador = construirDisparador(triggerAt);
+      if (disparador == null) continue;
 
-    const ideal = diaHoraAvisoListaSuper(refDia, ahora);
-    const triggerAt = ajustarDisparadorSiHoraPasada(refDia, ahora, ideal);
-    if (triggerAt == null) continue;
-    const disparador = construirDisparador(triggerAt);
-    if (disparador == null) continue;
+      const idClave = `ls-urg-${y}-${mo}-${d}-s${slotIx}`;
+      const { title: tituloRaw, body: cuerpo } = varianteListaSuperUrgente({ nombres, resumen });
+      const titulo = tituloNotifConNombre(state, tituloRaw);
 
-    try {
-      await Notifications.scheduleNotificationAsync({
-        identifier: idClave,
-        content: {
-          title: titulo,
-          body: cuerpo,
-          data: { tipo: TIPO_LISTA_SUPER_URGENTE, offsetDia: offset },
-          sound: true,
-          ...(Platform.OS === 'android' && {
-            channelId: CANAL_LISTA_SUPER,
-            priority: 'high',
-          }),
-        },
-        trigger: disparador,
-      });
-    } catch (e) {
-      if (typeof __DEV__ !== 'undefined' && __DEV__) {
-        console.warn('[MoneyTrack] schedule lista super:', e?.message || e);
+      try {
+        await Notifications.scheduleNotificationAsync({
+          identifier: idClave,
+          content: {
+            title: titulo,
+            body: cuerpo,
+            data: { tipo: TIPO_LISTA_SUPER_URGENTE, offsetDia: offset, slot: slotIx },
+            sound: true,
+            ...(Platform.OS === 'android' && {
+              channelId: CANAL_LISTA_SUPER,
+              priority: 'high',
+            }),
+          },
+          trigger: disparador,
+        });
+      } catch (e) {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) {
+          console.warn('[MoneyTrack] schedule lista super:', e?.message || e);
+        }
       }
     }
   }

@@ -51,6 +51,8 @@ export default function PagosScreen() {
   const [fechaInicio, setFechaInicio] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [activo, setActivo] = useState(true);
+  /** `true`: campana y notificaciones cada ciclo (mismo día del mes, etc.). `false`: solo la fecha programada. */
+  const [recordarCadaMes, setRecordarCadaMes] = useState(true);
   const [nota, setNota] = useState('');
   const [flashMsg, setFlashMsg] = useState(null);
 
@@ -101,6 +103,7 @@ export default function PagosScreen() {
       cuenta,
       categoria,
       activo,
+      recordarCadaMes,
       nota: nota.trim() || '',
     };
     replaceState((s) => {
@@ -267,6 +270,21 @@ export default function PagosScreen() {
             thumbColor={activo ? colors.text : colors.textMuted}
           />
         </View>
+        <View style={styles.rowSwitch}>
+          <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.sm }}>
+            <Text style={typography.body}>Recordar pago</Text>
+            <Text style={styles.ayudaSwitch}>
+              Si está activo, te recordamos en cada vencimiento (mismo día del mes, quincena o semana según
+              elijas). Si lo desactivas, el aviso es solo para la fecha del primer pago.
+            </Text>
+          </View>
+          <Switch
+            value={recordarCadaMes}
+            onValueChange={setRecordarCadaMes}
+            trackColor={{ false: colors.barTrack, true: colors.accentDeep }}
+            thumbColor={recordarCadaMes ? colors.text : colors.textMuted}
+          />
+        </View>
         <Lab>Nota (opcional)</Lab>
         <TextInput style={styles.input} value={nota} onChangeText={setNota} placeholderTextColor={colors.textFaint} />
         <PrimaryButton title="Guardar pago programado" onPress={guardar} style={{ marginTop: spacing.md }} />
@@ -283,6 +301,7 @@ export default function PagosScreen() {
               <Text style={typography.small}>
                 {formatearNumero(p.monto)} {moneda} · {p.frecuencia} ·{' '}
                 {p.activo !== false ? 'activo' : 'inactivo'}
+                {p.recordarCadaMes === false ? ' · solo esta fecha' : ' · cada vencimiento'}
                 {p.fechaInicio
                   ? ` · ${parseFechaHoraLocal(p.fechaInicio)?.toLocaleDateString('es', { dateStyle: 'short' }) ?? p.fechaInicio}`
                   : ''}
@@ -388,6 +407,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingVertical: spacing.sm,
     gap: spacing.md,
+  },
+  ayudaSwitch: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginTop: 6,
+    lineHeight: 18,
   },
   item: {
     marginTop: spacing.md,

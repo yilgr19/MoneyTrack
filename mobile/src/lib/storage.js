@@ -3,9 +3,12 @@ import { NOTIFICACIONES_LECTURA_KEY } from './notificacionesLectura';
 import { CUENTAS } from './finance';
 
 const KEY_ONBOARDING_COMPLETADO = 'onboardingCompletado';
+/** Si el usuario pidió ver de nuevo el tutorial: no autocompletar onboarding por tener datos previos. */
+const KEY_ONBOARDING_REABRIR = 'onboardingReabrirActivo';
 
 const KEYS = [
   'moneda',
+  'nombreUsuario',
   'saldosCuentas',
   'bancosDetalle',
   'plataformasDetalle',
@@ -58,6 +61,7 @@ export async function loadAppState() {
   };
   return {
     moneda: map.moneda || '',
+    nombreUsuario: map.nombreUsuario || '',
     saldosCuentas: saldosCuentas || undefined,
     saldoEfectivo: map.saldoEfectivo,
     saldoBanco: map.saldoBanco,
@@ -90,6 +94,7 @@ export async function persistAppState(state) {
   const saldos = state.saldosCuentas || emptySaldosCuentas();
   const pairs = [
     ['moneda', state.moneda || ''],
+    ['nombreUsuario', String(state.nombreUsuario || '').trim().slice(0, 80)],
     ['saldosCuentas', JSON.stringify(saldos)],
     ['limiteTarjetaCredito', String(parseFloat(state.limiteTarjetaCredito) || 0)],
     ['presupuestoMensual', String(parseFloat(state.presupuestoMensual) || 0)],
@@ -145,6 +150,7 @@ export async function clearStorageFull() {
     'pagosProgramados',
     'recordatoriosPagoRegistrado',
     KEY_ONBOARDING_COMPLETADO,
+    KEY_ONBOARDING_REABRIR,
     NOTIFICACIONES_LECTURA_KEY,
   ]);
   await AsyncStorage.multiSet([
@@ -161,6 +167,7 @@ export async function clearStorageFull() {
     ['avisosGastosMovimiento', '[]'],
     ['asistenteUmbral48h', '50'],
     ['listaSuperCategoriaPreferida', ''],
+    ['nombreUsuario', ''],
   ]);
 }
 
@@ -180,4 +187,21 @@ export async function setOnboardingCompletado() {
 /** Tras importar un respaldo donde el tutorial aún no estaba completado. */
 export async function clearOnboardingCompletado() {
   await AsyncStorage.removeItem(KEY_ONBOARDING_COMPLETADO);
+}
+
+export async function loadOnboardingReabrirActivo() {
+  try {
+    const v = await AsyncStorage.getItem(KEY_ONBOARDING_REABRIR);
+    return v === '1';
+  } catch {
+    return false;
+  }
+}
+
+export async function setOnboardingReabrirActivo() {
+  await AsyncStorage.setItem(KEY_ONBOARDING_REABRIR, '1');
+}
+
+export async function clearOnboardingReabrirActivo() {
+  await AsyncStorage.removeItem(KEY_ONBOARDING_REABRIR);
 }

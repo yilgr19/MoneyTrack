@@ -14,7 +14,7 @@
 const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { purgeStaleExpoSharingDirs } = require('./purge-stale-expo-autolinking.cjs');
+const { purgeStaleExpoAutolinkingDirs } = require('./purge-stale-expo-autolinking.cjs');
 
 const expoHome = path.resolve(__dirname, '..', '.expo-home');
 try {
@@ -107,8 +107,8 @@ function shouldTryAdbReverse(argv) {
 
 const finalArgs = injectWirelessDefaults(passArgs);
 
-/** Evita crash ENOENT de Metro por carpetas `.expo-sharing-*` colgantes bajo node_modules. */
-purgeStaleExpoSharingDirs({ quiet: true });
+/** Evita crash ENOENT de Metro por carpetas `.expo-*` de autolinking colgantes bajo node_modules. */
+purgeStaleExpoAutolinkingDirs({ quiet: true });
 
 if (shouldTryAdbReverse(passArgs)) {
   spawnSync(process.execPath, [path.join(__dirname, 'adb-reverse.cjs'), '--soft'], {

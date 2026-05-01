@@ -358,6 +358,348 @@ export function varianteNotifTcPago(dp, ctx) {
   return applyTcPair(pick(pool), ctx);
 }
 
+/** Presupuesto mensual: aviso tranquilo cuando vas bajo el 80 % del tope. */
+const PRESUPUESTO_INFORME = [
+  {
+    titulo: '📊 Presupuesto del mes',
+    cuerpo: (c) =>
+      `Te quedan ${c.disponibleLine} disponibles · gastaste ${c.gastadoLine} de ${c.topeLine} (${c.pct}% usado) · vas bien ✨`,
+  },
+  {
+    titulo: '💚 Vas en buena racha',
+    cuerpo: (c) =>
+      `Llevas el ${c.pct}% del tope · aún tienes ${c.disponibleLine} libres este mes · sigue así 😊`,
+  },
+  {
+    titulo: '🧮 Mini resumen MoneyTrack',
+    cuerpo: (c) =>
+      `Tope ${c.topeLine} · gastado ${c.gastadoLine} · queda ${c.disponibleLine} · todo ordenado 🎯`,
+  },
+  {
+    titulo: '☕ Café y números claros',
+    cuerpo: (c) =>
+      `Este mes vas al ${c.pct}% · te sobran ${c.disponibleLine} para lo que falta ☕`,
+  },
+  {
+    titulo: '🌤️ Mes despejado',
+    cuerpo: (c) =>
+      `Disponible: ${c.disponibleLine} · de ${c.topeLine} · usado ${c.pct}% · sin nubes raras 🌤️`,
+  },
+  {
+    titulo: '🎒 Presupuesto a la vista',
+    cuerpo: (c) =>
+      `Llevas gastado ${c.gastadoLine} y te quedan ${c.disponibleLine} · el tope es ${c.topeLine} 🎒`,
+  },
+  {
+    titulo: '🍀 Buen margen',
+    cuerpo: (c) =>
+      `Todavía tienes ${c.disponibleLine} antes de tocar el techo (${c.pct}% usado) 🍀`,
+  },
+  {
+    titulo: '🎯 Vas alineado',
+    cuerpo: (c) =>
+      `${c.gastadoLine} en gastos · ${c.disponibleLine} libres · tope ${c.topeLine} · control suave 🎯`,
+  },
+  {
+    titulo: '🧃 Números frescos',
+    cuerpo: (c) =>
+      `Mes: ${c.pct}% del presupuesto usado · disponible ${c.disponibleLine} 🧃`,
+  },
+  {
+    titulo: '🐢 Ritmo sano',
+    cuerpo: (c) =>
+      `Sin apuro: quedan ${c.disponibleLine} de tu ${c.topeLine} · vas al ${c.pct}% 🐢`,
+  },
+  {
+    titulo: '🎧 Playlist y presupuesto',
+    cuerpo: (c) =>
+      `Oye esto: ${c.disponibleLine} te acompañan hasta fin de mes (${c.pct}% gastado) 🎧`,
+  },
+  {
+    titulo: '🌈 Arcoíris contable',
+    cuerpo: (c) =>
+      `Gastado ${c.gastadoLine} · libre ${c.disponibleLine} · tope ${c.topeLine} · todo fluye 🌈`,
+  },
+  {
+    titulo: '✅ Tick verde',
+    cuerpo: (c) =>
+      `Presupuesto OK: ${c.disponibleLine} disponibles · ${c.pct}% usado ✅`,
+  },
+  {
+    titulo: '🦩 Modo tranquilo',
+    cuerpo: (c) =>
+      `Vas al ${c.pct}% · aún hay ${c.disponibleLine} para el mes · sin drama 🦩`,
+  },
+  {
+    titulo: '🍕 Rebanada de calma',
+    cuerpo: (c) =>
+      `Te quedan ${c.disponibleLine} de ${c.topeLine} · gastaste ${c.gastadoLine} · bien llevado 🍕`,
+  },
+  {
+    titulo: '🌙 Resumen nocturno friendly',
+    cuerpo: (c) =>
+      `Disponible mensual: ${c.disponibleLine} · ${c.pct}% en gastos · descansa la cabeza 🌙`,
+  },
+  {
+    titulo: '🧩 Piezas que cuadran',
+    cuerpo: (c) =>
+      `Tope ${c.topeLine} · gastos ${c.gastadoLine} · saldo presupuesto ${c.disponibleLine} 🧩`,
+  },
+  {
+    titulo: '💫 Brillo de orden',
+    cuerpo: (c) =>
+      `Llevas ${c.pct}% · ${c.disponibleLine} te esperan para cerrar el mes bonito 💫`,
+  },
+  {
+    titulo: '🚀 Mes controlado',
+    cuerpo: (c) =>
+      `${c.disponibleLine} libres · ${c.gastadoLine} ya movidos · meta ${c.topeLine} 🚀`,
+  },
+  {
+    titulo: '🧸 Abrazo a tu bolsillo',
+    cuerpo: (c) =>
+      `Vas gastado ${c.gastadoLine} y aún tienes ${c.disponibleLine} · el tope respira 🧸`,
+  },
+];
+
+function cuerpoAlertaPresupuesto(c, cerca, justo, pasado) {
+  if (c.disponible < 0) return pasado;
+  if (c.disponible === 0) return justo;
+  return cerca;
+}
+
+/** ≥80 % del tope, límite exacto o ya por encima: tono de aviso con emojis. */
+const PRESUPUESTO_ALERTA = [
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '😬 Ufff, te pasaste del presupuesto' : c.disponible === 0 ? '⚠️ Tope del mes tocado' : '😅 Ojo, vas muy cerca del tope',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Llevas ${c.pct}% usado · solo quedan ${c.disponibleLine} · ya huele a límite 👀`,
+        `Llegaste justo a ${c.topeLine} gastado · sin margen extra este mes · revisa si hace falta ✋`,
+        `Te pasaste por ${c.excesoLine} sobre ${c.topeLine} · mira Gastos y aterriza el mes 💸`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '💸 Ups, fuiste más allá del tope' : c.disponible === 0 ? '📍 Límite mensual alcanzado' : '⚠️ Presupuesto en zona caliente',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Casi sin aire: ${c.disponibleLine} libres y ${c.gastadoLine} ya salieron · tope ${c.topeLine} 🔥`,
+        `Cero margen: ${c.gastadoLine} = ${c.topeLine} · el mes cerró el cerco · calma y revisa 📌`,
+        `Vas ${c.excesoLine} por encima · gastado ${c.gastadoLine} vs ${c.topeLine} · toca ajustar sin culpa 💛`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🙈 Te fuiste del presupuesto mensual' : c.disponible === 0 ? '🛑 Tope mensual en cero' : '😬 Casi sin colchón',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `El ${c.pct}% ya está en gastos · te quedan ${c.disponibleLine} · un gastito y rozas el filo`,
+        `Justo en el borde: no sobra nada de ${c.topeLine} · ojo con lo que siga 🛑`,
+        `Ufff: ${c.excesoLine} sobre tu límite · ${c.gastadoLine} en total · respira y corrige 🙈`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🔔 Alerta: sobrepasaste el mes' : c.disponible === 0 ? '🔔 Alerta: tope lleno' : '🔔 Alerta: muy cerca del tope',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Disponible: ${c.disponibleLine} · ${c.pct}% usado · ${c.topeLine} es el techo · piénsalo dos veces 🔔`,
+        `Sin disponible: ${c.topeLine} completos en gastos · pausa si puedes 🔔`,
+        `Superado: +${c.excesoLine} sobre lo planeado · revisa categorías y números 🔔`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '💜 Te pasaste, pero se arregla' : c.disponible === 0 ? '💜 Límite justo justo' : '💜 Casi en el límite del mes',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Quedan ${c.disponibleLine} · vas al ${c.pct}% · ${c.gastadoLine} ya fueron 💜`,
+        `Tope ${c.topeLine} sin espacio extra · ${c.gastadoLine} cubrieron todo 💜`,
+        `Exceso de ${c.excesoLine} · no es el fin del mundo: abre Gastos y ordena 💜`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🌶️ Picante: sobre el presupuesto' : c.disponible === 0 ? '🌶️ Picante: cero disponible' : '🌶️ Picante: casi al tope',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `${c.pct}% del mes en gastos · libre solo ${c.disponibleLine} · despacio con la cartera 🌶️`,
+        `Límite tocado: ${c.topeLine} · sin ${c.disponibleLine} que rascar 🌶️`,
+        `Te pasaste ${c.excesoLine} · ${c.gastadoLine} vs ${c.topeLine} · enfría y ajusta 🌶️`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🎪 Cortina: te pasaste del tope' : c.disponible === 0 ? '🎪 Cortina: tope lleno' : '🎪 Cortina: últimos metros del presupuesto',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Últimos ${c.disponibleLine} antes del cierre · ${c.gastadoLine} ya en escena 🎪`,
+        `Show del mes sin cupo: ${c.topeLine} completos 🎪`,
+        `Sorpresa en el mes: ${c.excesoLine} fuera de lo planeado · abre Gastos y edita 🎪`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🧯 Freno suave: fuera de presupuesto' : c.disponible === 0 ? '🧯 Freno: sin margen' : '🧯 Freno: muy pegado al tope',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Vas ${c.pct}% · quedan ${c.disponibleLine} · un empujón más y pasas 🧯`,
+        `Freno en seco en ${c.topeLine} · 0 disponible 🧯`,
+        `Ya vas ${c.excesoLine} arriba del plan · frena gastos nuevos un momento 🧯`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '📉 Números rojos en el mes' : c.disponible === 0 ? '📉 Números en el límite' : '📉 Números apretados',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Apretado: ${c.disponibleLine} libres · ${c.pct}% usado de ${c.topeLine} 📉`,
+        `En el filo: gastado = tope (${c.topeLine}) 📉`,
+        `Rojo suave: ${c.excesoLine} de más · total ${c.gastadoLine} 📉`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '😅 Ufff, el mes se pasó de lista' : c.disponible === 0 ? '😅 Ufff, sin cupo este mes' : '😅 Ufff, casi sin cupo',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Te quedan ${c.disponibleLine} · el ${c.pct}% ya salió · despacio 😅`,
+        `Lista cerrada en ${c.topeLine} · sin hueco 😅`,
+        `La lista se pasó: +${c.excesoLine} · revisa y acomoda 😅`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '⚡ Rayo: sobre presupuesto' : c.disponible === 0 ? '⚡ Rayo: tope en cero' : '⚡ Rayo: casi choca con el tope',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `${c.gastadoLine} gastados · ${c.disponibleLine} quedan · ${c.topeLine} es el muro ⚡`,
+        `Muro tocado: ${c.topeLine} · ${c.gastadoLine} ⚡`,
+        `Chispa fuera: ${c.excesoLine} extra · ${c.gastadoLine} total ⚡`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🍋 Amargo: te pasaste del mes' : c.disponible === 0 ? '🍋 Amargo: sin margen' : '🍋 Amargo: casi sin margen',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Queda ${c.disponibleLine} · ${c.pct}% en gastos · endulza con cuidado 🍋`,
+        `Sin dulce: tope ${c.topeLine} lleno 🍋`,
+        `Pasado amargo: ${c.excesoLine} sobre lo planeado 🍋`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🎯 Diana: fuera del círculo' : c.disponible === 0 ? '🎯 Diana: en el borde' : '🎯 Diana: muy pegado al borde',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Apuntas al ${c.pct}% · solo ${c.disponibleLine} de aire 🎯`,
+        `Borde exacto: ${c.topeLine} 🎯`,
+        `Fuera del círculo por ${c.excesoLine} 🎯`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🌊 Te pasaste la orilla del mes' : c.disponible === 0 ? '🌊 Orilla del mes: sin arena extra' : '🌊 Ola cerca del tope',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Marea alta en gastos: ${c.pct}% · quedan ${c.disponibleLine} 🌊`,
+        `Arena hasta ${c.topeLine} · sin más playa 🌊`,
+        `Te mojaste ${c.excesoLine} de más · vuelve a la orilla en Gastos 🌊`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🧸 Abrazo: hay que ajustar el mes' : c.disponible === 0 ? '🧸 Abrazo: tope sin abrigo extra' : '🧸 Abrazo: abrigo casi justo',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Quedan ${c.disponibleLine} · ${c.gastadoLine} ya salieron · con cariño, ojo 🧸`,
+        `Sin abrigo extra: ${c.topeLine} completos 🧸`,
+        `Te pasaste ${c.excesoLine} · sin drama, solo orden 🧸`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🍕 Rebanada de más en el presupuesto' : c.disponible === 0 ? '🍕 Pizza contada al milímetro' : '🍕 Queda poquita masa',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Masa: ${c.disponibleLine} · comiste ${c.pct}% del mes 🍕`,
+        `Última rebanada: ${c.topeLine} 🍕`,
+        `Te comiste ${c.excesoLine} de más del plan 🍕`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🚦 Luz roja en presupuesto' : c.disponible === 0 ? '🚦 Luz roja: sin paso' : '🚦 Luz amarilla: casi en rojo',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Amarilla: ${c.disponibleLine} libres · ${c.pct}% usado 🚦`,
+        `Roja: 0 libres en ${c.topeLine} 🚦`,
+        `Roja fuerte: +${c.excesoLine} 🚦`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🎒 Mochila pesada: sobre el tope' : c.disponible === 0 ? '🎒 Mochila llena al tope' : '🎒 Mochila casi llena',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Cabe ${c.disponibleLine} más · llevas ${c.gastadoLine} 🎒`,
+        `Llena: ${c.topeLine} 🎒`,
+        `Te pasaste ${c.excesoLine} de capacidad 🎒`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '🌙 Luna llena… de gastos de más' : c.disponible === 0 ? '🌙 Luna llena en el tope' : '🌙 Casi luna llena en el mes',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Brillas al ${c.pct}% · quedan ${c.disponibleLine} 🌙`,
+        `Llena en ${c.topeLine} 🌙`,
+        `Te saliste ${c.excesoLine} del círculo 🌙`
+      ),
+  },
+  {
+    titulo: (c) =>
+      c.disponible < 0 ? '✨ Ojo: mes por encima del plan' : c.disponible === 0 ? '✨ Ojo: plan sin hueco' : '✨ Ojo: plan muy justo',
+    cuerpo: (c) =>
+      cuerpoAlertaPresupuesto(
+        c,
+        `Plan ${c.topeLine} · libre ${c.disponibleLine} · ${c.pct}% usado ✨`,
+        `Plan sin hueco: ${c.gastadoLine} ✨`,
+        `Plan rebasado en ${c.excesoLine} ✨`
+      ),
+  },
+];
+
+export function varianteNotifPresupuestoInforme(ctx) {
+  return applyPair(pick(PRESUPUESTO_INFORME), ctx);
+}
+
+export function varianteNotifPresupuestoAlerta(ctx) {
+  return applyPair(pick(PRESUPUESTO_ALERTA), ctx);
+}
+
 /** Campana in-app: gasto editado (20 variantes, tono cercano como pagos/lista). */
 const GASTO_EDITADO_CAMPANA = [
   { titulo: '✏️ Listo, quedó actualizado', cuerpo: (c) => `«${c.nombre}» ya va con tus cambios · ${c.montoLine} ✨` },
@@ -414,34 +756,144 @@ export function varianteGastoEliminadoCampana(ctx) {
   return applyPair(pick(GASTO_ELIMINADO_CAMPANA), ctx);
 }
 
-/** Lista súper urgente: 20 pares con emoji (export para usar desde notificacionesLocalesListaSuper) */
+const MAX_LINEAS_LISTA_NOTIF = 12;
+
+function truncNombreListaNotif(n, max = 36) {
+  const t = String(n ?? '').trim();
+  if (!t) return '';
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(1, max - 1))}…`;
+}
+
+/**
+ * Lista multilínea para el cuerpo de la notificación (sistema).
+ * Sin marcos tipo ASCII/Unicode: en fuentes proporcionales del SO se ven torcidos; viñetas simples sí leen bien.
+ */
+export function bloqueListaComprasCuadro(nombres) {
+  const items = (nombres || []).map((n) => truncNombreListaNotif(n)).filter(Boolean);
+  if (items.length === 0) {
+    return '📋 Lista · urgente\n\n— Sin ítems por ahora';
+  }
+  const lineas = ['📋 Lista · urgente', ''];
+  const mostrar = items.slice(0, MAX_LINEAS_LISTA_NOTIF);
+  for (const nombre of mostrar) {
+    lineas.push(`☐ ${nombre}`);
+  }
+  if (items.length > MAX_LINEAS_LISTA_NOTIF) {
+    lineas.push(`☐ …y ${items.length - MAX_LINEAS_LISTA_NOTIF} más`);
+  }
+  return lineas.join('\n');
+}
+
+function cuerpoNotifListaConCuadro(ctx, parrafo) {
+  return `${ctx.listaCuadro}\n\n${parrafo}`;
+}
+
+/** Lista súper urgente: 20 pares; cuerpo siempre incluye recuadro + lista de ítems. */
 export const AVISOS_LISTA_SUPER_URGENTE_CON_EMOJI = [
-  { titulo: '🏠 ¿Miramos la despensa?', cuerpo: (r) => `Falta lo urgente: ${r} 🛒 Un detalle que alegra el hogar ✨` },
-  { titulo: '📝 Recadito hogareño', cuerpo: (r) => `${r} sigue en rojo en la lista 😊 Cuando puedas, pa fuera del pendiente.` },
-  { titulo: '🛒 ¿Quién va al súper?', cuerpo: (r) => `Toque urgentito: ${r} 🧊 La nevera manda besos.` },
-  { titulo: '👋 Hola desde tu lista', cuerpo: (r) => `No olvides: ${r} ⭐ Prioridad casita.` },
-  { titulo: '⏰ Antes de que vuele', cuerpo: (r) => `${r} está en urgente 🎯 Buen día para tacharlo.` },
-  { titulo: '🔮 Tu yo de mañana aplaude', cuerpo: (r) => `Si hoy cae ${r} 🙌 el futuro tú sonríe.` },
-  { titulo: '🏡 Modo casa ON', cuerpo: (r) => `Pasa por ${r} cuando salgas 🚶 Pequeño esfuerzo, gran paz.` },
-  { titulo: '😌 Sin drama', cuerpo: (r) => `Pendiente urgente: ${r} 📌 Sin jefe respirando en la nuca.` },
-  { titulo: '🛍️ La lista sonríe', cuerpo: (r) => `${r} te espera en el mercado 🥬 Con buena onda.` },
-  { titulo: '☕ Café y recado', cuerpo: (r) => `Entre taza y taza: ${r} ☕ sigue urgente.` },
-  { titulo: '🤗 Empujoncito', cuerpo: (r) => `${r} — para que no falte en casa 🤗` },
-  { titulo: '🏡 Hogar 100', cuerpo: (r) => `Con ${r} completo el hogar rima mejor 🎵` },
-  { titulo: '🎯 Misión súper', cuerpo: (r) => `Objetivo: ${r} 🎯 Nivel: urgente con calma.` },
-  { titulo: '🧊 La nevera, en off', cuerpo: (r) => `Susurra que falta ${r} 🧊 (o era hambre, igual ayuda).` },
-  { titulo: '✨ Casi magia', cuerpo: (r) => `Tachar ${r} es magia menor ✨ ¿Hoy?` },
-  { titulo: '🚶 Sin prisa absurda', cuerpo: (r) => `Urgente: ${r} 🚶 Cuando salgas, ya está en la mochila mental.` },
-  { titulo: '📋 Mini memo', cuerpo: (r) => `${r} · urgente · lista MoneyTrack 📋` },
-  { titulo: '💪 Tú puedes', cuerpo: (r) => `Ir por ${r} es victoria pequeña 💪` },
-  { titulo: '👨‍👩‍👧 Equipo casa', cuerpo: (r) => `A veces falta ${r} 💛 Aviso con cariño.` },
-  { titulo: '🎉 Cuando lo compres…', cuerpo: (r) => `…${r} sale de urgente y mereces mini fiesta 🎉` },
+  {
+    titulo: '🏠 ¿Miramos la despensa?',
+    cuerpo: (c) =>
+      cuerpoNotifListaConCuadro(c, `Falta lo urgente: ${c.resumen} 🛒 Un detalle que alegra el hogar ✨`),
+  },
+  {
+    titulo: '📝 Recadito hogareño',
+    cuerpo: (c) =>
+      cuerpoNotifListaConCuadro(c, `${c.resumen} sigue en rojo en la lista 😊 Cuando puedas, pa fuera del pendiente.`),
+  },
+  {
+    titulo: '🛒 ¿Quién va al súper?',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `Toque urgentito: ${c.resumen} 🧊 La nevera manda besos.`),
+  },
+  {
+    titulo: '👋 Hola desde tu lista',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `No olvides: ${c.resumen} ⭐ Prioridad casita.`),
+  },
+  {
+    titulo: '⏰ Antes de que vuele',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `${c.resumen} está en urgente 🎯 Buen día para tacharlo.`),
+  },
+  {
+    titulo: '🔮 Tu yo de mañana aplaude',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `Si hoy cae ${c.resumen} 🙌 el futuro tú sonríe.`),
+  },
+  {
+    titulo: '🏡 Modo casa ON',
+    cuerpo: (c) =>
+      cuerpoNotifListaConCuadro(c, `Pasa por ${c.resumen} cuando salgas 🚶 Pequeño esfuerzo, gran paz.`),
+  },
+  {
+    titulo: '😌 Sin drama',
+    cuerpo: (c) =>
+      cuerpoNotifListaConCuadro(c, `Pendiente urgente: ${c.resumen} 📌 Sin jefe respirando en la nuca.`),
+  },
+  {
+    titulo: '🛍️ La lista sonríe',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `${c.resumen} te espera en el mercado 🥬 Con buena onda.`),
+  },
+  {
+    titulo: '☕ Café y recado',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `Entre taza y taza: ${c.resumen} ☕ sigue urgente.`),
+  },
+  {
+    titulo: '🤗 Empujoncito',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `${c.resumen} — para que no falte en casa 🤗`),
+  },
+  {
+    titulo: '🏡 Hogar 100',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `Con ${c.resumen} completo el hogar rima mejor 🎵`),
+  },
+  {
+    titulo: '🎯 Misión súper',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `Objetivo: ${c.resumen} 🎯 Nivel: urgente con calma.`),
+  },
+  {
+    titulo: '🧊 La nevera, en off',
+    cuerpo: (c) =>
+      cuerpoNotifListaConCuadro(c, `Susurra que falta ${c.resumen} 🧊 (o era hambre, igual ayuda).`),
+  },
+  {
+    titulo: '✨ Casi magia',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `Tachar ${c.resumen} es magia menor ✨ ¿Hoy?`),
+  },
+  {
+    titulo: '🚶 Sin prisa absurda',
+    cuerpo: (c) =>
+      cuerpoNotifListaConCuadro(
+        c,
+        `Urgente: ${c.resumen} 🚶 Cuando salgas, ya está en la mochila mental.`
+      ),
+  },
+  {
+    titulo: '📋 Mini memo',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `${c.resumen} · urgente · lista MoneyTrack 📋`),
+  },
+  {
+    titulo: '💪 Tú puedes',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `Ir por ${c.resumen} es victoria pequeña 💪`),
+  },
+  {
+    titulo: '👨‍👩‍👧 Equipo casa',
+    cuerpo: (c) => cuerpoNotifListaConCuadro(c, `A veces falta ${c.resumen} 💛 Aviso con cariño.`),
+  },
+  {
+    titulo: '🎉 Cuando lo compres…',
+    cuerpo: (c) =>
+      cuerpoNotifListaConCuadro(c, `…${c.resumen} sale de urgente y mereces mini fiesta 🎉`),
+  },
 ];
 
-export function varianteListaSuperUrgente(resumen) {
+/**
+ * @param {{ nombres: string[], resumen: string }} param0 nombres = ítems urgentes; resumen = texto corto tipo "X, Y y 2 más"
+ */
+export function varianteListaSuperUrgente({ nombres, resumen }) {
+  const listaCuadro = bloqueListaComprasCuadro(nombres);
+  const ctx = { listaCuadro, resumen: String(resumen || '').trim() || 'tu lista' };
   const pair = pick(AVISOS_LISTA_SUPER_URGENTE_CON_EMOJI);
+  const titulo = typeof pair.titulo === 'function' ? pair.titulo(ctx) : pair.titulo;
+  const cuerpo = typeof pair.cuerpo === 'function' ? pair.cuerpo(ctx) : pair.cuerpo;
   return {
-    title: pair.titulo,
-    body: pair.cuerpo(resumen),
+    title: titulo,
+    body: cuerpo,
   };
 }

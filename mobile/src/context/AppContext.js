@@ -9,6 +9,9 @@ import {
   loadOnboardingCompletado,
   setOnboardingCompletado,
   clearOnboardingCompletado,
+  loadOnboardingReabrirActivo,
+  setOnboardingReabrirActivo,
+  clearOnboardingReabrirActivo,
 } from '../lib/storage';
 import { exportarRespaldoCompartir, importarRespaldoElegirArchivo } from '../lib/backupMoneyTrack';
 import { reemplazarPagosRecordatorioTarjetas, generarIdGasto } from '../lib/finance';
@@ -29,6 +32,7 @@ export function normalizeState(raw) {
   }
   return {
     moneda: raw.moneda || '',
+    nombreUsuario: String(raw.nombreUsuario || '').trim().slice(0, 80),
     saldosCuentas: saldos,
     bancosDetalle,
     limiteTarjetaCredito: parseFloat(raw.limiteTarjetaCredito) || 0,
@@ -125,6 +129,8 @@ export function AppProvider({ children }) {
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
   /** Tras el primer tutorial: abrir pestaña Saldo para que el usuario digite saldos iniciales allí. */
   const [postOnboardingIrASaldo, setPostOnboardingIrASaldo] = useState(false);
+  /** Tras «ver tutorial otra vez»: al terminar no forzar pestaña Saldo (solo la primera vez). */
+  const irASaldoTrasOnboardingRef = useRef(true);
 
   useEffect(() => {
     stateRef.current = state;
@@ -156,18 +162,20 @@ export function AppProvider({ children }) {
       try {
         let raw;
         let flagOnboarding;
+        let reabrirTutorialActivo = false;
         try {
-          [raw, flagOnboarding] = await withTimeout(
-            Promise.all([loadAppState(), loadOnboardingCompletado()]),
+          [raw, flagOnboarding, reabrirTutorialActivo] = await withTimeout(
+            Promise.all([loadAppState(), loadOnboardingCompletado(), loadOnboardingReabrirActivo()]),
             7000
           );
         } catch {
           raw = {};
           flagOnboarding = false;
+          reabrirTutorialActivo = false;
         }
         const normalized = normalizeState(raw);
         let onboardingHecho = flagOnboarding;
-        if (!onboardingHecho && tieneDatosPrevios(normalized)) {
+        if (!onboardingHecho && tieneDatosPrevios(normalized) && !reabrirTutorialActivo) {
           try {
             await withTimeout(setOnboardingCompletado(), 4000);
           } catch {
@@ -176,6 +184,9 @@ export function AppProvider({ children }) {
           onboardingHecho = true;
         }
         if (!cancelled) {
+          if (reabrirTutorialActivo && !onboardingHecho) {
+            irASaldoTrasOnboardingRef.current = false;
+          }
           clearTimeout(timeoutId);
           finish(normalized, onboardingHecho);
         }
@@ -252,10 +263,46 @@ export function AppProvider({ children }) {
       .sort()
       .join('|');
   }, [state?.listaSuperCompraItems]);
-  /** Pagos programados + TC + gastos (pago al día) + lista súper urgente para reprogramar avisos. */
+  /** Digest de gastos para reprogramar avisos de presupuesto al editar montos/fechas. */
+  const gastosDigestPresupuesto = useMemo(() => {
+    const arr = state?.gastos || [];
+    return arr
+      .filter(Boolean)
+      .map((g) => `${String(g.id ?? '')}:${String(g.cantidad ?? '')}:${String(g.fecha || '').slice(0, 10)}`)
+      .sort()
+      .join('\t');
+  }, [state?.gastos]);
+  const metasDigestLocales = useMemo(() => {
+    const arr = state?.metas || [];
+    return arr
+      .filter(Boolean)
+      .map((m) => `${String(m.id ?? '')}:${String(parseFloat(m.objetivo) || 0)}`)
+      .join('|');
+  }, [state?.metas]);
+  const contribMetasDigestLocales = useMemo(() => {
+    try {
+      return JSON.stringify(state?.contribucionesMetas || []);
+    } catch {
+      return '';
+    }
+  }, [state?.contribucionesMetas]);
+  /** Pagos programados + TC + gastos (pago al día) + lista súper urgente + presupuesto + metas + nombre para reprogramar avisos. */
   const claveParaNotificacionesLocales = useMemo(
-    () => `${claveParaNotificacionesPagos}|tc:${tcFechasHash}|n:${nTc}|g:${lenG}|lsu:${listaSuperUrgHash}`,
-    [claveParaNotificacionesPagos, tcFechasHash, nTc, lenG, listaSuperUrgHash]
+    () =>
+      `${claveParaNotificacionesPagos}|tc:${tcFechasHash}|n:${nTc}|g:${lenG}|lsu:${listaSuperUrgHash}|pres:${String(state?.presupuestoMensual ?? '')}|pdf:${String(state?.presupuestoDesdeFecha ?? '')}|gdp:${gastosDigestPresupuesto}|md:${metasDigestLocales}|cm:${contribMetasDigestLocales}|nu:${String(state?.nombreUsuario ?? '')}`,
+    [
+      claveParaNotificacionesPagos,
+      tcFechasHash,
+      nTc,
+      lenG,
+      listaSuperUrgHash,
+      state?.presupuestoMensual,
+      state?.presupuestoDesdeFecha,
+      gastosDigestPresupuesto,
+      metasDigestLocales,
+      contribMetasDigestLocales,
+      state?.nombreUsuario,
+    ]
   );
   useEffect(() => {
     if (!ready || !state) return;
@@ -276,6 +323,8 @@ export function AppProvider({ children }) {
       };
       m.sincronizarNotificacionesLocalesPagosProgramados(state).catch((e) => log(e, 'sync notif pagos'));
       m.sincronizarNotificacionesLocalesTarjetasCredito(state).catch((e) => log(e, 'sync notif TC'));
+      m.sincronizarNotificacionesLocalesPresupuesto(state).catch((e) => log(e, 'sync notif presupuesto'));
+      m.sincronizarNotificacionesLocalesMetas(state).catch((e) => log(e, 'sync notif metas'));
     });
     import('../lib/notificacionesLocalesListaSuper').then((m) => {
       m.sincronizarNotificacionesListaSuperUrgente(state).catch((e) => {
@@ -300,6 +349,16 @@ export function AppProvider({ children }) {
           m.sincronizarNotificacionesLocalesTarjetasCredito(cur).catch((e) => {
             if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[MoneyTrack] sync notif TC (active)', e);
           });
+          m.sincronizarNotificacionesLocalesPresupuesto(cur).catch((e) => {
+            if (typeof __DEV__ !== 'undefined' && __DEV__) {
+              console.warn('[MoneyTrack] sync notif presupuesto (active)', e);
+            }
+          });
+          m.sincronizarNotificacionesLocalesMetas(cur).catch((e) => {
+            if (typeof __DEV__ !== 'undefined' && __DEV__) {
+              console.warn('[MoneyTrack] sync notif metas (active)', e);
+            }
+          });
         });
         import('../lib/notificacionesLocalesListaSuper').then((m) => {
           const cur = stateRef.current;
@@ -319,11 +378,32 @@ export function AppProvider({ children }) {
     setPostOnboardingIrASaldo(false);
   }, []);
 
-  const completarOnboarding = useCallback(async () => {
-    await setOnboardingCompletado();
-    setPostOnboardingIrASaldo(true);
-    setMostrarOnboarding(false);
+  const reabrirTutorialOnboarding = useCallback(async () => {
+    irASaldoTrasOnboardingRef.current = false;
+    try {
+      await setOnboardingReabrirActivo();
+    } catch {
+      /* continuar */
+    }
+    await clearOnboardingCompletado();
+    setPostOnboardingIrASaldo(false);
+    setMostrarOnboarding(true);
   }, []);
+
+  const completarOnboarding = useCallback(async (nombreUsuario) => {
+    const n = String(nombreUsuario || '').trim().slice(0, 80);
+    const irASaldo = irASaldoTrasOnboardingRef.current;
+    irASaldoTrasOnboardingRef.current = true;
+    replaceState((s) => ({ ...s, nombreUsuario: n }));
+    try {
+      await clearOnboardingReabrirActivo();
+    } catch {
+      /* continuar */
+    }
+    await setOnboardingCompletado();
+    setPostOnboardingIrASaldo(irASaldo);
+    setMostrarOnboarding(false);
+  }, [replaceState]);
 
   const resetPartial = useCallback(async () => {
     await clearStoragePartial();
@@ -357,6 +437,11 @@ export function AppProvider({ children }) {
     await persistAppState(normalized);
     if (r.onboardingCompletado) {
       await setOnboardingCompletado();
+      try {
+        await clearOnboardingReabrirActivo();
+      } catch {
+        /* ignorar */
+      }
       setMostrarOnboarding(false);
     } else {
       await clearOnboardingCompletado();
@@ -379,6 +464,7 @@ export function AppProvider({ children }) {
       postOnboardingIrASaldo,
       clearPostOnboardingIrASaldo,
       completarOnboarding,
+      reabrirTutorialOnboarding,
       replaceState,
       resetPartial,
       resetFull,
@@ -392,6 +478,7 @@ export function AppProvider({ children }) {
       postOnboardingIrASaldo,
       clearPostOnboardingIrASaldo,
       completarOnboarding,
+      reabrirTutorialOnboarding,
       replaceState,
       resetPartial,
       resetFull,

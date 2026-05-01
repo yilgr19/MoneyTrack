@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, Switch } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,6 @@ import ScreenWrap from '../components/ScreenWrap';
 import { HeaderConCampana } from '../components/HeaderConCampana';
 import UICard from '../components/UICard';
 import { PrimaryButton } from '../components/Buttons';
-import ReceiptScannerModal from '../components/ReceiptScannerModal';
 import { useApp } from '../context/AppContext';
 import {
   formatearNumero,
@@ -28,7 +27,6 @@ import {
   pagoProgramadoCumplidoPorGasto,
   abonoCoindiceCorteMensual,
   claveRecordatorioPagoCumplido,
-  fechaGastoRecomendadaTrasOCR,
   existeAbonoDeudaTarjetaEnMes,
   parseFechaHoraLocal,
   generarIdGasto,
@@ -133,10 +131,6 @@ export default function GastosScreen() {
   const [nota, setNota] = useState('');
   /** Si el usuario indica que la nota enumera todos los productos/cantidades del recibo (metadata en el gasto). */
   const [notaListadoTicketCompleto, setNotaListadoTicketCompleto] = useState(false);
-  /** manual | ocr | hibrido — cómo se rellenó el formulario (OCR no guarda solo; el usuario confirma). */
-  const [tipoEntrada, setTipoEntrada] = useState('manual');
-  const ocrSnapshotRef = useRef(null);
-  const [scannerVisible, setScannerVisible] = useState(false);
   const [pagoProgramadoEnUso, setPagoProgramadoEnUso] = useState(null);
   /** Abono/liquidación de tarjeta: solo cajas con dinero, no cargo nuevo a la TC. */
   const [abonoDeudaTarjeta, setAbonoDeudaTarjeta] = useState(false);
@@ -235,8 +229,6 @@ export default function GastosScreen() {
       setTarjetaAbonoElegida('');
     }
     setPagoProgramadoEnUso(null);
-    setTipoEntrada('manual');
-    ocrSnapshotRef.current = null;
     navigation.setParams({ editarGastoId: undefined });
   }, [route.params?.editarGastoId, state?.gastos, navigation]);
 
@@ -262,17 +254,10 @@ export default function GastosScreen() {
     []
   );
 
-  const aplicarFechaGasto = useCallback((d) => {
+  function aplicarFechaGasto(d) {
     if (!d) return;
-    if (
-      tipoEntrada === 'ocr' &&
-      ocrSnapshotRef.current != null &&
-      d.getTime() !== ocrSnapshotRef.current.fechaMs
-    ) {
-      setTipoEntrada('hibrido');
-    }
     setFecha(d);
-  }, [tipoEntrada]);
+  }
 
   const ahora = new Date();
   const pagosPendientes = (state?.pagosProgramados || []).filter(
@@ -280,8 +265,6 @@ export default function GastosScreen() {
   );
 
   function aplicarPagoProgramado(p) {
-    setTipoEntrada('manual');
-    ocrSnapshotRef.current = null;
     setNotaListadoTicketCompleto(false);
     setNombre(p.concepto || '');
     setCantidad(String(p.monto ?? ''));
@@ -301,98 +284,9 @@ export default function GastosScreen() {
     }
   }
 
-  function onNombreChange(t) {
-    if (tipoEntrada === 'ocr' && ocrSnapshotRef.current != null && t !== ocrSnapshotRef.current.nombre) {
-      setTipoEntrada('hibrido');
-    }
-    setNombre(t);
-  }
-
-  function onCantidadChange(t) {
-    if (tipoEntrada === 'ocr' && ocrSnapshotRef.current != null && t !== ocrSnapshotRef.current.cantidad) {
-      setTipoEntrada('hibrido');
-    }
-    setCantidad(t);
-  }
-
   function onNotaChange(t) {
-    if (tipoEntrada === 'ocr' && ocrSnapshotRef.current != null && t !== ocrSnapshotRef.current.nota) {
-      setTipoEntrada('hibrido');
-    }
     if (!String(t).trim()) setNotaListadoTicketCompleto(false);
     setNota(t);
-  }
-
-  function aplicarDatosDesdeRecibo({ monto, establecimiento, fecha: fechaParsed, textoCompleto, productos }) {
-    const est = String(establecimiento || '').trim();
-    const fechaValida =
-      fechaParsed instanceof Date && !Number.isNaN(fechaParsed.getTime()) ? fechaParsed : null;
-    const listaProd = Array.isArray(productos) ? productos.filter((s) => String(s || '').trim()) : [];
-    const hayAlgoParseado =
-      (monto != null && monto > 0) || est.length > 0 || fechaValida != null || listaProd.length > 0;
-    if (!hayAlgoParseado) {
-      const ocrVacio = !String(textoCompleto || '').trim();
-      Alert.alert(
-        'No se pudo leer',
-        ocrVacio
-          ? 'No se extrajo texto: el OCR en JavaScript no es fiable en móvil. Instala una build de desarrollo o release que incluya el módulo nativo expo-text-extractor (ML Kit/Vision); con Expo Go el respaldo OCR suele fallar. También puedes registrar el gasto a mano.'
-          : 'Sí hay texto pero no se detectaron total claro, fecha ni comercio en el formato. Completa los campos manualmente.'
-      );
-      return;
-    }
-    /**
-     * Fecha para el gasto: si el OCR da otro mes, usamos hoy para que Inicio/análisis del mes en curso
-     * incluyan el registro (la fecha sigue siendo editable antes de guardar).
-     */
-    const fechaNueva = fechaGastoRecomendadaTrasOCR(fechaValida, new Date());
-    let cantStr = '';
-    if (monto != null && monto > 0) {
-      const v = Math.round(Number(monto) * 100) / 100;
-      cantStr = Number.isInteger(v) ? String(v) : v.toFixed(2);
-    }
-    /** Nombre = lugar / comercio detectado en el ticket */
-    const nombreVal = est || 'Recibo';
-    /** Nota = detalle: ítems enumerados cuando el OCR los reconoce */
-    let notaVal = '';
-    if (listaProd.length > 0) {
-      notaVal = listaProd.map((line, i) => `${i + 1}. ${line}`).join('\n');
-    } else {
-      notaVal = est ? `Recibo: ${est}` : 'Recibo escaneado';
-    }
-    setCantidad(cantStr);
-    setNombre(nombreVal);
-    setNota(notaVal);
-    setNotaListadoTicketCompleto(false);
-    setFecha(fechaNueva);
-    ocrSnapshotRef.current = {
-      cantidad: cantStr,
-      nombre: nombreVal,
-      nota: notaVal,
-      fechaMs: fechaNueva.getTime(),
-    };
-    setTipoEntrada('ocr');
-    if (monto == null || monto <= 0) {
-      const partes = [];
-      if (est.length) partes.push(`lugar: ${est}`);
-      if (fechaValida) {
-        partes.push(
-          `fecha: ${fechaValida.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}`
-        );
-      }
-      if (listaProd.length) partes.push(`${listaProd.length} productos en la nota`);
-      Alert.alert(
-        'Lectura incompleta',
-        `No se detectó el total del recibo.${partes.length ? `\n\nSí pudimos leer: ${partes.join(' · ')}.` : ''}\n\nIndica el monto a mano o vuelve a capturar el ticket.`
-      );
-    }
-  }
-
-  function abrirEscanerRecibo() {
-    if (Platform.OS === 'web') {
-      Alert.alert('Escáner de recibo', 'Disponible en la app iOS / Android: instala MoneyTrack para usar la cámara OCR.');
-      return;
-    }
-    setScannerVisible(true);
   }
 
   function onSubmit() {
@@ -626,8 +520,6 @@ export default function GastosScreen() {
     setCantidad('');
     setNota('');
     setNotaListadoTicketCompleto(false);
-    setTipoEntrada('manual');
-    ocrSnapshotRef.current = null;
     setCuotas(1);
     setPagoProgramadoEnUso(null);
     setAbonoDeudaTarjeta(false);
@@ -695,40 +587,24 @@ export default function GastosScreen() {
 
       <UICard style={{ marginBottom: 0 }}>
         <Text style={typography.label}>Detalle</Text>
-        <Text style={styles.entradaHint} accessibilityLiveRegion="polite">
-          {tipoEntrada === 'manual' && 'Entrada: manual.'}
-          {tipoEntrada === 'ocr' && 'Desde recibo: revisa categoría y cuenta.'}
-          {tipoEntrada === 'hibrido' && 'Mixto: recibo + tus cambios.'}
-        </Text>
-
         <FieldLabel>Nombre</FieldLabel>
         <TextInput
           style={styles.input}
           value={nombre}
-          onChangeText={onNombreChange}
+          onChangeText={setNombre}
           placeholder="Ej: Supermercado"
           placeholderTextColor={colors.textFaint}
         />
 
         <FieldLabel>Cantidad</FieldLabel>
-        <View style={styles.cantidadRow}>
-          <TextInput
-            style={[styles.input, styles.cantidadInput]}
-            value={cantidad}
-            onChangeText={onCantidadChange}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-            placeholderTextColor={colors.textFaint}
-          />
-          <TouchableOpacity
-            style={styles.camFab}
-            onPress={abrirEscanerRecibo}
-            accessibilityLabel="Escanear recibo con la cámara"
-            accessibilityRole="button"
-          >
-            <Ionicons name="camera" size={22} color="#0c0812" />
-          </TouchableOpacity>
-        </View>
+        <TextInput
+          style={styles.input}
+          value={cantidad}
+          onChangeText={setCantidad}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+          placeholderTextColor={colors.textFaint}
+        />
 
         <FieldLabel>Fecha y hora</FieldLabel>
         <TouchableOpacity
@@ -977,11 +853,6 @@ export default function GastosScreen() {
         </View>
       </View>
     ) : null}
-    <ReceiptScannerModal
-      visible={scannerVisible}
-      onClose={() => setScannerVisible(false)}
-      onDatosParsed={aplicarDatosDesdeRecibo}
-    />
     </View>
   );
 }
@@ -1067,40 +938,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     color: colors.textMuted,
     letterSpacing: 0.8,
-  },
-  entradaHint: {
-    ...typography.small,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-    lineHeight: 18,
-  },
-  cantidadRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: spacing.sm,
-  },
-  cantidadInput: {
-    flex: 1,
-    minWidth: 0,
-  },
-  camFab: {
-    width: 52,
-    borderRadius: radii.md,
-    backgroundColor: colors.mint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(12, 8, 18, 0.15)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#34d399',
-        shadowOpacity: 0.35,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-      },
-      android: { elevation: 4 },
-    }),
   },
   pagosCardOuter: {
     marginBottom: spacing.md,

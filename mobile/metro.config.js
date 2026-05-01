@@ -20,14 +20,20 @@ const lightningcssOtrosSo =
     ? [/node_modules[/\\]lightningcss-(?!win32)[^/\\]*[/\\]?.*/]
     : [];
 
-/** Autolinking residual si existió `expo-sharing`; Metro no debe rastrearlo (ENOENT en watcher Windows). */
-const expoSharingAutolinkingStale = [/node_modules[/\\]\.expo-sharing-[^/\\]+[/\\]?.*/];
+/**
+ * Restos de autolinking de Expo bajo node_modules (p. ej. tras quitar un paquete o con OneDrive).
+ * Si Metro intenta vigilarlas y ya no existen → ENOENT en Windows.
+ */
+const expoAutolinkingStaleDirs = [
+  /node_modules[/\\]\.expo-sharing-[^/\\]+[/\\]?.*/,
+  /node_modules[/\\]\.expo-camera-[^/\\]+[/\\]?.*/,
+];
 
 config.resolver.blockList = [
   ...(config.resolver.blockList ?? []),
   ...poison,
   ...lightningcssOtrosSo,
-  ...expoSharingAutolinkingStale,
+  ...expoAutolinkingStaleDirs,
 ];
 
 module.exports = config;

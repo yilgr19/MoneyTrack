@@ -5,8 +5,9 @@ import {
   Text,
   AppState,
   Platform,
-  Image,
   useWindowDimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -19,6 +20,7 @@ import { NotificacionLecturaProvider } from './src/context/NotificacionLecturaCo
 import AppNavigator from './src/navigation/AppNavigator';
 import { notificacionesSistemaDisponibles } from './src/lib/notificacionesLocalesEntorno';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import { MoneyTrackMark } from './src/components/MoneyTrackMark';
 import { colors, spacing, typography } from './src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -51,12 +53,121 @@ function useImmersiveSystemChrome() {
 const loadingGradientColors = [colors.gradTop, colors.gradMid, colors.gradBottom, colors.bg];
 const loadingGradientLocations = [0, 0.28, 0.62, 1];
 
+/** Moneda dorada girando + pulso suave (tema dinero). */
+function SpinningCoin() {
+  const spin = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loopSpin = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 2600,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    const loopPulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.07,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loopSpin.start();
+    loopPulse.start();
+    return () => {
+      loopSpin.stop();
+      loopPulse.stop();
+    };
+  }, [spin, pulse]);
+  const rotate = spin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  return (
+    <Animated.View style={[styles.coinWrap, { transform: [{ rotate }, { scale: pulse }] }]}>
+      <LinearGradient
+        colors={[colors.accentGold, '#b8922f', colors.accentGold]}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.85, y: 1 }}
+        style={styles.coinCircle}
+      >
+        <Text style={styles.coinSymbol}>$</Text>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
+/** Barras tipo mini gráfico con altura animada. */
+function MiniChartBars() {
+  const h0 = useRef(new Animated.Value(14)).current;
+  const h1 = useRef(new Animated.Value(22)).current;
+  const h2 = useRef(new Animated.Value(18)).current;
+  const h3 = useRef(new Animated.Value(26)).current;
+  const heights = [h0, h1, h2, h3];
+  useEffect(() => {
+    const makeLoop = (h, delay, hi) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(h, {
+            toValue: hi,
+            duration: 480,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: false,
+          }),
+          Animated.timing(h, {
+            toValue: 10,
+            duration: 480,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: false,
+          }),
+        ])
+      );
+    const loops = [
+      makeLoop(h0, 0, 34),
+      makeLoop(h1, 120, 40),
+      makeLoop(h2, 60, 36),
+      makeLoop(h3, 180, 38),
+    ];
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [h0, h1, h2, h3]);
+  const barColors = [colors.mint, colors.chartBlue, colors.mint, colors.chartBlue];
+  return (
+    <View style={styles.chartRow}>
+      {heights.map((h, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.chartBar,
+            {
+              height: h,
+              backgroundColor: barColors[i],
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 function LoadingSplash() {
   const { width, height } = useWindowDimensions();
   const shortSide = Math.min(width, height);
-  /** Cuadro blanco proporcional al dispositivo: ni demasiado pequeño ni desbordado */
-  const box = Math.max(168, Math.min(shortSide * 0.56, width * 0.88, 320));
-  const innerPad = Math.max(10, Math.round(box * 0.07));
+  /** Logo con margen visual (PNG con transparencia se ve mejor sobre el gradiente). */
+  const box = Math.max(156, Math.min(shortSide * 0.52, width * 0.82, 300));
+  const innerPad = Math.max(16, Math.round(box * 0.1));
+  const markSize = Math.max(88, Math.round(box - innerPad * 2));
 
   return (
     <View style={styles.loading}>
@@ -68,15 +179,19 @@ function LoadingSplash() {
         end={{ x: 0.85, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <View style={[styles.logoCard, { width: box, height: box, padding: innerPad }]}>
+      <View
+        style={[styles.logoCard, { width: box, height: box, padding: innerPad }]}
+        accessible
+        accessibilityLabel="MoneyTrack"
+        accessibilityRole="image"
+      >
         <View style={styles.logoImageWrap}>
-          <Image
-            accessibilityLabel="MoneyTrack"
-            source={require('./assets/moneytrack-logo.jpg')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
+          <MoneyTrackMark size={markSize} />
         </View>
+      </View>
+      <View style={styles.loadAnimRow}>
+        <MiniChartBars />
+        <SpinningCoin />
       </View>
       <Text style={styles.loadingBrand}>MoneyTrack</Text>
       <Text style={styles.loadingSub}>Cargando…</Text>
@@ -87,12 +202,25 @@ function LoadingSplash() {
 function Root() {
   const { ready, mostrarOnboarding, state } = useApp();
   const pushInicializado = useRef(false);
+  const permisosNotifPreguntados = useRef(false);
 
   useEffect(() => {
     if (ready) {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [ready]);
+
+  /** Tras el tutorial (o si ya estaba hecho): POST_NOTIFICATIONS / iOS alertas + vibración en canales. */
+  useEffect(() => {
+    if (!ready || state == null || mostrarOnboarding) return;
+    if (Platform.OS === 'web') return;
+    if (!notificacionesSistemaDisponibles()) return;
+    if (permisosNotifPreguntados.current) return;
+    permisosNotifPreguntados.current = true;
+    import('./src/lib/notificacionesPermisos').then((p) =>
+      p.solicitarPermisosNotificacionesAlIniciar().catch(() => {})
+    );
+  }, [ready, state, mostrarOnboarding]);
 
   useEffect(() => {
     if (!ready || state == null || mostrarOnboarding) return;
@@ -125,6 +253,7 @@ function Root() {
 export default function App() {
   useImmersiveSystemChrome();
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     if (!notificacionesSistemaDisponibles()) return;
     import('./src/lib/notificacionesLocalesPagosProgramados').then((m) =>
       m.registrarHandlerNotificacionesLocales()
@@ -150,8 +279,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   logoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(247, 245, 251, 0.06)',
     borderRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.stroke,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -172,10 +303,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#FFFFFF',
+  loadAnimRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginTop: spacing.lg + 4,
+    gap: 28,
+  },
+  chartRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 44,
+    gap: 8,
+  },
+  chartBar: {
+    width: 10,
+    borderRadius: 5,
+    minHeight: 8,
+  },
+  coinWrap: {
+    marginBottom: 2,
+  },
+  coinCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  coinSymbol: {
+    fontSize: 30,
+    fontWeight: '900',
+    color: colors.accentDeep,
+    marginTop: -2,
   },
   loadingBrand: {
     ...typography.title,

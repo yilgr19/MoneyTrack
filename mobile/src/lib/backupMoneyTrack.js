@@ -19,6 +19,7 @@ export const BACKUP_VERSION = 1;
 /** Mismo orden que devuelve `normalizeState` en AppContext (export estable y legible). */
 export const BACKUP_DATA_KEYS_ORDERED = [
   'moneda',
+  'nombreUsuario',
   'saldosCuentas',
   'bancosDetalle',
   'limiteTarjetaCredito',
@@ -47,6 +48,7 @@ export const BACKUP_DATA_KEYS_ORDERED = [
 /** Notas breves por campo en `data` (interoperabilidad / migración). */
 export const BACKUP_DATA_FIELD_NOTES = {
   moneda: 'Etiqueta o código de moneda principal (texto).',
+  nombreUsuario: 'Nombre para personalizar avisos en campana y notificaciones locales (texto corto).',
   saldosCuentas: 'Objeto con totales por tipo: efectivo, banco, plataforma, etc.',
   bancosDetalle: 'Array de cuentas bancarias { id, nombre, saldo, … }.',
   limiteTarjetaCredito: 'Límite global legado (número); puede convivir con tarjetasCredito.',

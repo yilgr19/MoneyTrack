@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import { notificacionesSistemaDisponibles } from './notificacionesLocalesEntorno';
+import { solicitarPermisosSiNoConcedidos } from './notificacionesPermisos';
 
 const STORAGE_KEY = '@moneytrack/expoPushToken';
 const STORAGE_DEVICE_INSTALL_ID = '@moneytrack/deviceInstallId';
@@ -77,12 +78,10 @@ async function asegurarCanalDefaultAndroid() {
 }
 
 async function permisosPushOk() {
-  const { status: prev } = await Notifications.getPermissionsAsync();
-  if (prev === 'granted') return true;
-  const { status } = await Notifications.requestPermissionsAsync({
-    ios: { allowAlert: true, allowBadge: true, allowSound: true },
-  });
-  return status === 'granted';
+  if (Platform.OS === 'android') {
+    await asegurarCanalDefaultAndroid();
+  }
+  return solicitarPermisosSiNoConcedidos();
 }
 
 async function enviarTokenAlBackendOpcional(token) {
@@ -126,8 +125,6 @@ export async function registrarTokenPushExpo() {
 
   const ok = await permisosPushOk();
   if (!ok) return null;
-
-  await asegurarCanalDefaultAndroid();
 
   const projectId = getExpoProjectId();
   try {

@@ -4,44 +4,47 @@
     "slug": "moneytrack",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/moneytrack-logo.jpg",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0c0812",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/moneytrack-logo.jpg",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#0c0812"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.moneytrack.app"
+      "bundleIdentifier": "com.moneytrack.app",
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "MoneyTrack envía recordatorios de pagos, metas, presupuesto y lista de compras para que no se te pasen, incluso con la app cerrada."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/moneytrack-logo.jpg",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1e0b2e"
       },
       "package": "com.moneytrack.app",
       "permissions": [
-        "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.WAKE_LOCK"
+        "android.permission.WAKE_LOCK",
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/moneytrack-logo.jpg"
+      "favicon": "./assets/icon.png"
     },
     "scheme": "moneytrack",
     "plugins": [
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FFFFFF",
-          "image": "./assets/moneytrack-logo.jpg",
+          "backgroundColor": "#0c0812",
+          "image": "./assets/splash-icon.png",
           "resizeMode": "contain"
         }
       ],
@@ -57,17 +60,10 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/notification-icon.png",
           "color": "#4B246C",
           "defaultChannel": "default",
           "enableBackgroundRemoteNotifications": true
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "MoneyTrack usa la cámara para leer el texto del recibo y sugerir monto y fecha.",
-          "microphonePermission": false,
-          "recordAudioAndroid": false
         }
       ]
     ],

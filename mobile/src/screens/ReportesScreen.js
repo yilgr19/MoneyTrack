@@ -59,6 +59,38 @@ function claveMesDesdeTs(ts) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** Todas las claves YYYY-MM entre min y max (inclusive), orden descendente (más reciente primero). */
+function mesesCalendarioEntreDesc(minKey, maxKey) {
+  const [ya, ma] = minKey.split('-').map((x) => parseInt(x, 10, 10));
+  const [yb, mb] = maxKey.split('-').map((x) => parseInt(x, 10, 10));
+  if (!Number.isFinite(ya) || !Number.isFinite(ma) || !Number.isFinite(yb) || !Number.isFinite(mb)) return [];
+  const out = [];
+  let y = ya;
+  let m = ma;
+  for (;;) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+    if (y === yb && m === mb) break;
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out.sort((a, b) => b.localeCompare(a));
+}
+
+function filaPlaceholderMesVacio(keyMes) {
+  return {
+    id: `mes-sin-movs-${keyMes}`,
+    kind: 'vacioMes',
+    ts: 0,
+    titulo: 'Sin movimientos este mes',
+    sub: '',
+    monto: 0,
+    detalle: null,
+  };
+}
+
 export default function ReportesScreen() {
   const { state, replaceState } = useApp();
   const moneda = (state.moneda && String(state.moneda).trim()) || '';
@@ -185,13 +217,24 @@ export default function ReportesScreen() {
       porMes.get(k).push(row);
     }
 
-    const clavesOrdenadas = Array.from(porMes.keys()).sort((a, b) => b.localeCompare(a));
+    const clavesConDatos = Array.from(porMes.keys());
+    const clavesOrdenadas =
+      clavesConDatos.length > 0
+        ? (() => {
+            const asc = [...clavesConDatos].sort((a, b) => a.localeCompare(b));
+            const minK = asc[0];
+            const maxK = asc[asc.length - 1];
+            return mesesCalendarioEntreDesc(minK, maxK);
+          })()
+        : [];
     const secciones = clavesOrdenadas.map((k) => {
       const [ys, ms] = k.split('-');
       const y = parseInt(ys, 10);
       const m = parseInt(ms, 10) - 1;
       const titulo = Number.isFinite(y) && m >= 0 && m <= 11 ? `${NOMBRES_MES[m]} ${y}` : k;
-      return { title: titulo, keyMes: k, data: porMes.get(k) };
+      const dataMes = porMes.get(k);
+      const data = dataMes && dataMes.length > 0 ? dataMes : [filaPlaceholderMesVacio(k)];
+      return { title: titulo, keyMes: k, data };
     });
     if (sinFecha.length > 0) {
       secciones.push({ title: 'Sin fecha clara', keyMes: '_sin', data: sinFecha });
@@ -199,17 +242,23 @@ export default function ReportesScreen() {
     return secciones;
   }, [state, labelCuenta]);
 
-  const prefijoMonto = (kind) => (kind === 'ingreso' ? '+' : '−');
+  const prefijoMonto = (kind) => {
+    if (kind === 'ingreso') return '+';
+    if (kind === 'vacioMes') return '';
+    return '−';
+  };
 
   const colorMonto = (kind) => {
     if (kind === 'ingreso') return colors.mint;
     if (kind === 'gasto') return colors.danger;
+    if (kind === 'vacioMes') return colors.textMuted;
     return colors.accentGold;
   };
 
   const iconoFila = (kind) => {
     if (kind === 'ingreso') return 'trending-up';
     if (kind === 'gasto') return 'trending-down';
+    if (kind === 'vacioMes') return 'calendar-outline';
     return 'flag';
   };
 
@@ -218,7 +267,8 @@ export default function ReportesScreen() {
       <Text style={typography.label}>Historial</Text>
       <Text style={typography.hero}>Movimientos</Text>
       <Text style={[typography.subtitle, { marginBottom: spacing.lg }]}>
-        Ingresos, gastos (incl. tarjeta) y aportes a metas, agrupados por mes (más reciente arriba)
+        Ingresos, gastos (incl. tarjeta) y aportes a metas, por mes calendario entre tu primer y último movimiento
+        (más reciente arriba; los meses sin registros muestran un aviso)
       </Text>
       {seccionesMovs.length === 0 ? (
         <View style={styles.vacio}>
@@ -239,15 +289,22 @@ export default function ReportesScreen() {
           renderItem={({ item }) => {
             const puedeGestionarGasto =
               item.kind === 'gasto' && item.gastoId && !item.esTransferenciaBolsillo;
+            const esVacioMes = item.kind === 'vacioMes';
             return (
-              <View style={styles.row}>
+              <View style={[styles.row, esVacioMes && styles.rowVacioMes]}>
                 <View style={styles.iconCircle}>
                   <Ionicons name={iconoFila(item.kind)} size={22} color={colorMonto(item.kind)} />
                 </View>
                 <View style={styles.rowText}>
                   <View style={styles.rowTop}>
                     <Text style={styles.badge} numberOfLines={1}>
-                      {item.kind === 'ingreso' ? 'Ingreso' : item.kind === 'gasto' ? 'Gasto' : 'Meta'}
+                      {item.kind === 'ingreso'
+                        ? 'Ingreso'
+                        : item.kind === 'gasto'
+                          ? 'Gasto'
+                          : item.kind === 'vacioMes'
+                            ? 'Mes'
+                            : 'Meta'}
                     </Text>
                     {item.detalle ? (
                       <Text style={styles.badgeTarj} numberOfLines={1}>
@@ -281,9 +338,11 @@ export default function ReportesScreen() {
                       </TouchableOpacity>
                     </View>
                   ) : null}
-                  <Text style={[typography.monoAmount, styles.monto, { color: colorMonto(item.kind) }]}>
-                    {prefijoMonto(item.kind)} {formatearNumero(item.monto)} {moneda}
-                  </Text>
+                  {esVacioMes ? null : (
+                    <Text style={[typography.monoAmount, styles.monto, { color: colorMonto(item.kind) }]}>
+                      {prefijoMonto(item.kind)} {formatearNumero(item.monto)} {moneda}
+                    </Text>
+                  )}
                 </View>
               </View>
             );
@@ -317,6 +376,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.stroke,
   },
+  rowVacioMes: { opacity: 0.9 },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
