@@ -6,21 +6,12 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Linking,
   Platform,
 } from 'react-native';
 import ScreenWrap from '../components/ScreenWrap';
 import UICard from '../components/UICard';
 import { useApp } from '../context/AppContext';
 import { formatearNumero, calcularSaldosPorCuenta, montoGastoAfectaSaldo } from '../lib/finance';
-import {
-  programarNotificacionLocalDePrueba,
-  contarNotificacionesLocalesProgramadas,
-  diagnosticarNotificacionesLocales,
-  sincronizarNotificacionesLocalesPagosProgramados,
-  sincronizarNotificacionesLocalesTarjetasCredito,
-} from '../lib/notificacionesLocalesPagosProgramados';
-import { notificacionesSistemaDisponibles } from '../lib/notificacionesLocalesEntorno';
 import { colors, spacing, radii, typography } from '../theme';
 
 export default function AdminScreen() {
@@ -28,56 +19,8 @@ export default function AdminScreen() {
   const moneda = state.moneda || '';
   const saldos = calcularSaldosPorCuenta(state);
   const totalGastos = (state.gastos || []).reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
-  const [pruebaNotifCargando, setPruebaNotifCargando] = useState(false);
-  const [diagNotif, setDiagNotif] = useState('');
-  const [diagNotifCargando, setDiagNotifCargando] = useState(false);
   const [exportCargando, setExportCargando] = useState(false);
   const [importCargando, setImportCargando] = useState(false);
-
-  const probarNotificacionLocal = useCallback(async () => {
-    setPruebaNotifCargando(true);
-    try {
-      const r = await programarNotificacionLocalDePrueba();
-      const n = await contarNotificacionesLocalesProgramadas();
-      Alert.alert(r.ok ? 'Prueba programada' : 'No se pudo programar', `${r.mensaje}${n >= 0 ? `\n\nPendientes en el sistema ahora: ${n}.` : ''}`);
-    } finally {
-      setPruebaNotifCargando(false);
-    }
-  }, []);
-
-  const verPendientesNotif = useCallback(async () => {
-    const n = await contarNotificacionesLocalesProgramadas();
-    Alert.alert(
-      'Notificaciones locales pendientes',
-      n < 0
-        ? 'No se pudo leer la lista (revisa que no sea web).'
-        : `Hay ${n} aviso(s) programado(s) (pagos, tarjetas, pruebas…). Se disparan en sus fechas/intervalos.`
-    );
-  }, []);
-
-  const actualizarDiagNotif = useCallback(async () => {
-    setDiagNotifCargando(true);
-    try {
-      if (notificacionesSistemaDisponibles()) {
-        try {
-          await sincronizarNotificacionesLocalesPagosProgramados(state);
-          await sincronizarNotificacionesLocalesTarjetasCredito(state);
-        } catch (e) {
-          if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[MoneyTrack] reprogramar alarmas:', e);
-        }
-      }
-      const d = await diagnosticarNotificacionesLocales(state);
-      setDiagNotif(d.texto);
-    } finally {
-      setDiagNotifCargando(false);
-    }
-  }, [state]);
-
-  const abrirAjustesApp = useCallback(() => {
-    Linking.openSettings().catch(() => {
-      Alert.alert('Ajustes', 'Abre manualmente los ajustes del teléfono y busca MoneyTrack.');
-    });
-  }, []);
 
   const exportarDatos = useCallback(async () => {
     if (Platform.OS === 'web') {
@@ -95,7 +38,10 @@ export default function AdminScreen() {
 
   const importarDatos = useCallback(() => {
     if (Platform.OS === 'web') {
-      Alert.alert('Importar', 'Usa la app instalada para elegir un archivo .moneytrack.json.');
+      Alert.alert(
+        'Importar',
+        'Usa la app instalada para elegir el archivo de respaldo (.csv reciente o .json si lo exportaste antes).'
+      );
       return;
     }
     Alert.alert(
@@ -154,9 +100,10 @@ export default function AdminScreen() {
       <UICard style={{ marginBottom: spacing.md }}>
         <Text style={typography.label}>Respaldo de datos (APK / instalación nueva)</Text>
         <Text style={[typography.small, { marginTop: spacing.sm, lineHeight: 20, color: colors.textSecondary }]}>
-          <Text style={{ fontWeight: '700' }}>Exportar</Text> crea un archivo de respaldo y te deja guardarlo donde
-          quieras (Descargas, Drive, correo…). <Text style={{ fontWeight: '700' }}>Importar</Text> solo pide elegir ese
-          archivo en el otro teléfono: no hace falta saber qué es un JSON.
+          <Text style={{ fontWeight: '700' }}>Exportar</Text> genera un archivo <Text style={{ fontWeight: '700' }}>.csv</Text>{' '}
+          con toda tu información en un formato que la app entiende al importar. Guárdalo donde quieras (Descargas, Drive,
+          correo…). <Text style={{ fontWeight: '700' }}>Importar</Text> restaura gastos, ingresos, cuentas, tarjetas,
+          metas y el resto; también acepta respaldos <Text style={{ fontWeight: '700' }}>.json</Text> antiguos.
         </Text>
         <TouchableOpacity
           style={[styles.btn, styles.btnBackup, exportCargando && { opacity: 0.75 }]}
@@ -182,58 +129,6 @@ export default function AdminScreen() {
             <Text style={styles.btnTextImport}>Importar datos</Text>
           )}
         </TouchableOpacity>
-      </UICard>
-
-      <UICard style={{ marginBottom: spacing.md }}>
-        <Text style={typography.label}>Notificaciones del sistema</Text>
-        <Text style={[typography.small, { marginTop: spacing.sm, lineHeight: 20, color: colors.textSecondary }]}>
-          Prueba rápida (~20 s): necesitas APK o dev build (no Expo Go). Cierra la app o ponla en segundo plano antes
-          de que suene. Si nunca ves avisos, pulsa «Diagnóstico» tras instalar de nuevo esta versión (canales Android
-          nuevos).
-        </Text>
-        <TouchableOpacity
-          style={[styles.btn, styles.btnInfo, pruebaNotifCargando && { opacity: 0.75 }]}
-          activeOpacity={0.88}
-          disabled={pruebaNotifCargando}
-          onPress={probarNotificacionLocal}
-        >
-          {pruebaNotifCargando ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.btnText}>Probar notificación en ~20 segundos</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.btn, styles.btnInfoMuted]} activeOpacity={0.88} onPress={verPendientesNotif}>
-          <Text style={styles.btnTextMuted}>Ver cuántas hay programadas</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.btn, styles.btnInfoMuted, diagNotifCargando && { opacity: 0.75 }]}
-          activeOpacity={0.88}
-          disabled={diagNotifCargando}
-          onPress={actualizarDiagNotif}
-        >
-          {diagNotifCargando ? (
-            <ActivityIndicator color={colors.textSecondary} />
-          ) : (
-            <Text style={styles.btnTextMuted}>Diagnóstico y reprogramar alarmas</Text>
-          )}
-        </TouchableOpacity>
-        {Platform.OS !== 'web' ? (
-          <TouchableOpacity style={[styles.btn, styles.btnInfoMuted]} activeOpacity={0.88} onPress={abrirAjustesApp}>
-            <Text style={styles.btnTextMuted}>Abrir ajustes de la app</Text>
-          </TouchableOpacity>
-        ) : null}
-        {diagNotif ? (
-          <Text
-            style={[
-              typography.small,
-              { marginTop: spacing.sm, lineHeight: 20, color: colors.textMuted, fontFamily: 'monospace' },
-            ]}
-            selectable
-          >
-            {diagNotif}
-          </Text>
-        ) : null}
       </UICard>
 
       <TouchableOpacity
@@ -300,17 +195,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(248, 113, 113, 0.35)',
     marginBottom: 0,
   },
-  btnInfo: {
-    marginTop: spacing.md,
-    backgroundColor: 'rgba(75, 36, 108, 0.85)',
-    borderColor: 'rgba(199, 195, 227, 0.35)',
-  },
-  btnInfoMuted: {
-    marginTop: spacing.sm,
-    backgroundColor: 'rgba(32, 26, 44, 0.6)',
-    borderColor: colors.stroke,
-    marginBottom: 0,
-  },
   btnBackup: {
     marginTop: spacing.md,
     backgroundColor: 'rgba(34, 197, 94, 0.35)',
@@ -323,6 +207,5 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  btnTextMuted: { color: colors.textSecondary, fontWeight: '700', fontSize: 15 },
   btnTextImport: { color: colors.mint, fontWeight: '700', fontSize: 15 },
 });

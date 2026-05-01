@@ -1,17 +1,17 @@
 /**
- * Respaldo completo de datos locales (JSON) para migrar entre instalaciones sin perder historial.
- * Extensión recomendada: .moneytrack.json
+ * Respaldo completo para migrar entre instalaciones sin perder historial.
  *
- * El objeto raíz incluye `schema` (orden de campos y notas) para que otra app o un script
- * pueda mapear los mismos datos sin adivinar el shape.
+ * Export por defecto: CSV con cabecera `MoneyTrack-CSV-Export;v1` (ver `respaldoCsvMoneyTrack.js`).
+ * Import: CSV nuevo o JSON legado (`format: moneytrack-respaldo`); el picker acepta ambos.
  *
- * Export: archivo .moneytrack.json + compartir. iOS: Share con `url`. Android: expo-sharing solo si existe el nativo
- * (NativeModules.ExpoSharing); si no, nunca se hace require y no hay error — reserva texto.
- * Import: `expo-document-picker`. FS: API legacy (SDK 54).
+ * Share: `expo-sharing` (archivo adjunto); fallback `Share` con URI de contenido (sin `message` en Android).
+ * FS: API legacy (SDK 54).
  */
-import { NativeModules, Platform, Share } from 'react-native';
+import { Platform, Share } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
+import { CSV_EXPORT_MAGIC, serializarDataACsv, parsearRespaldoCsv } from './respaldoCsvMoneyTrack';
 
 export const BACKUP_FORMAT = 'moneytrack-respaldo';
 export const BACKUP_VERSION = 1;
@@ -73,9 +73,6 @@ export const BACKUP_DATA_FIELD_NOTES = {
   avisosGastosMovimiento: 'Historial breve de avisos de campana por editar o quitar gastos.',
 };
 
-/** Límite práctico para compartir JSON como texto en `message` (varía por fabricante). */
-const MAX_JSON_SHARE_CHARS = 350_000;
-
 const ORDERED_SET = new Set(BACKUP_DATA_KEYS_ORDERED);
 
 /**
@@ -131,9 +128,10 @@ export function parsearRespaldoJson(texto) {
   if (!texto || typeof texto !== 'string') {
     return { ok: false, error: 'Archivo vacío o no legible.' };
   }
+  const limpio = texto.replace(/^\uFEFF/, '').trim();
   let obj;
   try {
-    obj = JSON.parse(texto);
+    obj = JSON.parse(limpio);
   } catch {
     return { ok: false, error: 'No es un JSON válido.' };
   }
@@ -143,7 +141,8 @@ export function parsearRespaldoJson(texto) {
   if (obj.format !== BACKUP_FORMAT) {
     return {
       ok: false,
-      error: 'Este archivo no es un respaldo de MoneyTrack (.moneytrack.json).',
+      error:
+        'Este archivo no es un respaldo de MoneyTrack. Elige el .csv exportado desde Administrar o un .json de respaldo antiguo.',
     };
   }
   if (obj.version !== BACKUP_VERSION) {
@@ -170,18 +169,46 @@ function nombreArchivoRespaldoLegible() {
   const day = String(d.getDate()).padStart(2, '0');
   const h = String(d.getHours()).padStart(2, '0');
   const min = String(d.getMinutes()).padStart(2, '0');
-  return `MoneyTrack-respaldo-${y}-${m}-${day}_${h}${min}.moneytrack.json`;
+  return `MoneyTrack-respaldo-${y}-${m}-${day}_${h}${min}.csv`;
 }
 
+const SHARE_CSV_OPTS = {
+  mimeType: 'text/comma-separated-values',
+  dialogTitle: 'Guardar respaldo MoneyTrack',
+  UTI: 'public.comma-separated-values-text',
+};
+
 /**
- * Comparte el archivo de respaldo sin provocar "Cannot find native module 'ExpoSharing'":
- * en Android no se hace `require('expo-sharing')` si el nativo no está enlazado.
+ * Comparte el .csv como archivo. En Android, no mezclar `message` con `url` en `Share`: WhatsApp y otras apps
+ * envían solo el texto y ignoran el adjunto.
  */
 async function compartirArchivoRespaldo(fileUri) {
+  try {
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(fileUri, SHARE_CSV_OPTS);
+      return true;
+    }
+  } catch {
+    // Fallback nativo abajo
+  }
+
+  if (Platform.OS === 'android') {
+    try {
+      const contentUri = await FileSystem.getContentUriAsync(fileUri);
+      await Share.share({
+        title: 'Respaldo MoneyTrack (.csv)',
+        url: contentUri,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   if (Platform.OS === 'ios') {
     try {
       await Share.share({
-        title: 'Respaldo MoneyTrack',
+        title: 'Respaldo MoneyTrack (.csv)',
         url: fileUri,
       });
       return true;
@@ -190,46 +217,7 @@ async function compartirArchivoRespaldo(fileUri) {
     }
   }
 
-  if (Platform.OS === 'android' && NativeModules.ExpoSharing) {
-    try {
-      const Sharing = require('expo-sharing');
-      if (!(await Sharing.isAvailableAsync())) return false;
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'application/json',
-        dialogTitle: 'Guardar respaldo MoneyTrack',
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   return false;
-}
-
-async function exportarRespaldoSoloTexto(jsonCompacto) {
-  if (jsonCompacto.length > MAX_JSON_SHARE_CHARS) {
-    const kb = Math.round(jsonCompacto.length / 1000);
-    return {
-      ok: false,
-      mensaje: `El respaldo es muy grande (~${kb} KB). Instala la última versión de la app (incluye exportar como archivo) o reduce datos.`,
-    };
-  }
-  try {
-    await Share.share({
-      title: 'Respaldo MoneyTrack',
-      message: jsonCompacto,
-    });
-    return {
-      ok: true,
-      mensaje:
-        Platform.OS === 'android' && !NativeModules.ExpoSharing
-          ? 'Esta instalación aún no puede adjuntar un archivo automático. Instala la última versión de MoneyTrack (APK generado de nuevo en tu PC o EAS) y el export será un archivo listo para importar. Mientras tanto puedes guardar este texto como respaldo.'
-          : 'Tu teléfono compartió el respaldo como texto. Si puedes, actualiza la app para exportar un archivo directo.',
-    };
-  } catch (e) {
-    return { ok: false, mensaje: e?.message || 'No se pudo abrir el menú compartir.' };
-  }
 }
 
 /**
@@ -242,18 +230,22 @@ export async function exportarRespaldoCompartir(state, onboardingCompletado) {
       mensaje: 'Exportar archivo está disponible en la app para Android o iPhone.',
     };
   }
-  const payload = crearPayloadRespaldo(state, onboardingCompletado);
-  const jsonPretty = serializarRespaldo(payload, true);
-  const jsonCompacto = serializarRespaldo(payload, false);
+  const data = ordenarDataParaExportacion(state);
+  const exportedAt = new Date().toISOString();
+  const csv = serializarDataACsv(data, exportedAt, onboardingCompletado);
 
-  const base = FileSystem.cacheDirectory;
+  const base = FileSystem.cacheDirectory || FileSystem.documentDirectory;
   if (!base) {
-    return exportarRespaldoSoloTexto(jsonCompacto);
+    return {
+      ok: false,
+      mensaje:
+        'No hay carpeta temporal para crear el archivo en este entorno. Usa la app instalada en el teléfono (no solo la versión web).',
+    };
   }
 
   const fileUri = `${base}${nombreArchivoRespaldoLegible()}`;
   try {
-    await FileSystem.writeAsStringAsync(fileUri, jsonPretty, {
+    await FileSystem.writeAsStringAsync(fileUri, csv, {
       encoding: FileSystem.EncodingType.UTF8,
     });
   } catch (e) {
@@ -268,11 +260,15 @@ export async function exportarRespaldoCompartir(state, onboardingCompletado) {
     return {
       ok: true,
       mensaje:
-        'Elige dónde guardar el archivo (por ejemplo Descargas, Drive o Archivos). En el otro dispositivo abre MoneyTrack → Administrar → Importar datos y selecciona ese archivo.',
+        'Deberías ver el archivo .csv como adjunto. Elige WhatsApp, Drive, Archivos o Correo y guárdalo. En el otro teléfono: Administrar → Importar datos y abre ese .csv.',
     };
   }
 
-  return exportarRespaldoSoloTexto(jsonCompacto);
+  return {
+    ok: false,
+    mensaje:
+      'No se pudo abrir el menú para compartir el archivo .csv (permisos o versión del sistema). Reintenta; si el teléfono pide acceso a archivos, acéptalo. No se envió el respaldo como texto para que puedas importar un archivo real.',
+  };
 }
 
 /**
@@ -289,7 +285,17 @@ export async function importarRespaldoElegirArchivo() {
   let pick;
   try {
     pick = await DocumentPicker.getDocumentAsync({
-      type: ['application/json', 'text/plain', 'application/octet-stream', '*/*'],
+      type: [
+        'text/csv',
+        'text/comma-separated-values',
+        'application/csv',
+        'application/json',
+        'text/json',
+        'text/plain',
+        'application/octet-stream',
+        'application/x-json',
+        '*/*',
+      ],
       copyToCacheDirectory: true,
     });
   } catch {
@@ -309,8 +315,30 @@ export async function importarRespaldoElegirArchivo() {
   const text = await FileSystem.readAsStringAsync(asset.uri, {
     encoding: FileSystem.EncodingType.UTF8,
   });
+  const inicio = text.replace(/^\uFEFF/, '').trimStart();
+  if (inicio.startsWith(CSV_EXPORT_MAGIC)) {
+    const parsedCsv = parsearRespaldoCsv(text);
+    if (!parsedCsv.ok) {
+      return { ok: false, error: parsedCsv.error };
+    }
+    return {
+      ok: true,
+      onboardingCompletado: parsedCsv.onboardingCompletado,
+      data: parsedCsv.data,
+      exportedAt: parsedCsv.exportedAt,
+    };
+  }
   const parsed = parsearRespaldoJson(text);
   if (!parsed.ok) {
+    const parsedCsv2 = parsearRespaldoCsv(text);
+    if (parsedCsv2.ok) {
+      return {
+        ok: true,
+        onboardingCompletado: parsedCsv2.onboardingCompletado,
+        data: parsedCsv2.data,
+        exportedAt: parsedCsv2.exportedAt,
+      };
+    }
     return { ok: false, error: parsed.error };
   }
   return {
