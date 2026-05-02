@@ -20,6 +20,7 @@ export const BACKUP_VERSION = 1;
 export const BACKUP_DATA_KEYS_ORDERED = [
   'moneda',
   'nombreUsuario',
+  'temaId',
   'saldosCuentas',
   'bancosDetalle',
   'limiteTarjetaCredito',
@@ -49,6 +50,7 @@ export const BACKUP_DATA_KEYS_ORDERED = [
 export const BACKUP_DATA_FIELD_NOTES = {
   moneda: 'Etiqueta o código de moneda principal (texto).',
   nombreUsuario: 'Nombre para personalizar avisos en campana y notificaciones locales (texto corto).',
+  temaId: 'Tema visual: original | rosa | vino | militar.',
   saldosCuentas: 'Objeto con totales por tipo: efectivo, banco, plataforma, etc.',
   bancosDetalle: 'Array de cuentas bancarias { id, nombre, saldo, … }.',
   limiteTarjetaCredito: 'Límite global legado (número); puede convivir con tarjetasCredito.',

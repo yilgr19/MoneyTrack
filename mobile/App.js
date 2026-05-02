@@ -16,12 +16,14 @@ import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 import { NotificacionLecturaProvider } from './src/context/NotificacionLecturaContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { notificacionesSistemaDisponibles } from './src/lib/notificacionesLocalesEntorno';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import { MoneyTrackMark } from './src/components/MoneyTrackMark';
-import { colors, spacing, typography } from './src/theme';
+import { spacing, typography } from './src/theme';
+import { paletteOriginal } from './src/theme/colorPalettes';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -33,7 +35,7 @@ function useImmersiveSystemChrome() {
     async function applyAndroid() {
       if (Platform.OS !== 'android') return;
       try {
-        await SystemUI.setBackgroundColorAsync(colors.bg);
+        await SystemUI.setBackgroundColorAsync(paletteOriginal.bg);
         await NavigationBar.setBehaviorAsync('overlay-swipe');
         await NavigationBar.setVisibilityAsync('hidden');
         await NavigationBar.setButtonStyleAsync('light');
@@ -50,7 +52,12 @@ function useImmersiveSystemChrome() {
   }, []);
 }
 
-const loadingGradientColors = [colors.gradTop, colors.gradMid, colors.gradBottom, colors.bg];
+const loadingGradientColors = [
+  paletteOriginal.gradTop,
+  paletteOriginal.gradMid,
+  paletteOriginal.gradBottom,
+  paletteOriginal.bg,
+];
 const loadingGradientLocations = [0, 0.28, 0.62, 1];
 
 /** Moneda dorada girando + pulso suave (tema dinero). */
@@ -96,7 +103,7 @@ function SpinningCoin() {
   return (
     <Animated.View style={[styles.coinWrap, { transform: [{ rotate }, { scale: pulse }] }]}>
       <LinearGradient
-        colors={[colors.accentGold, '#b8922f', colors.accentGold]}
+        colors={[paletteOriginal.accentGold, '#b8922f', paletteOriginal.accentGold]}
         start={{ x: 0.15, y: 0 }}
         end={{ x: 0.85, y: 1 }}
         style={styles.coinCircle}
@@ -142,7 +149,12 @@ function MiniChartBars() {
     loops.forEach((l) => l.start());
     return () => loops.forEach((l) => l.stop());
   }, [h0, h1, h2, h3]);
-  const barColors = [colors.mint, colors.chartBlue, colors.mint, colors.chartBlue];
+  const barColors = [
+    paletteOriginal.mint,
+    paletteOriginal.chartBlue,
+    paletteOriginal.mint,
+    paletteOriginal.chartBlue,
+  ];
   return (
     <View style={styles.chartRow}>
       {heights.map((h, i) => (
@@ -171,7 +183,7 @@ function LoadingSplash() {
 
   return (
     <View style={styles.loading}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: paletteOriginal.bg }]} />
       <LinearGradient
         colors={loadingGradientColors}
         locations={loadingGradientLocations}
@@ -250,6 +262,11 @@ function Root() {
   );
 }
 
+function ThemeBridge({ children }) {
+  const { state } = useApp();
+  return <ThemeProvider temaId={state?.temaId}>{children}</ThemeProvider>;
+}
+
 export default function App() {
   useImmersiveSystemChrome();
   useEffect(() => {
@@ -262,9 +279,11 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <NotificacionLecturaProvider>
-          <Root />
-        </NotificacionLecturaProvider>
+        <ThemeBridge>
+          <NotificacionLecturaProvider>
+            <Root />
+          </NotificacionLecturaProvider>
+        </ThemeBridge>
       </AppProvider>
     </SafeAreaProvider>
   );
@@ -273,7 +292,7 @@ export default function App() {
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: paletteOriginal.bg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
@@ -282,7 +301,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(247, 245, 251, 0.06)',
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: colors.stroke,
+    borderColor: paletteOriginal.stroke,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -336,18 +355,18 @@ const styles = StyleSheet.create({
   coinSymbol: {
     fontSize: 30,
     fontWeight: '900',
-    color: colors.accentDeep,
+    color: paletteOriginal.accentDeep,
     marginTop: -2,
   },
   loadingBrand: {
     ...typography.title,
     marginTop: spacing.lg,
-    color: colors.text,
+    color: paletteOriginal.text,
     letterSpacing: -0.3,
   },
   loadingSub: {
     ...typography.small,
     marginTop: spacing.sm,
-    color: colors.textMuted,
+    color: paletteOriginal.textMuted,
   },
 });

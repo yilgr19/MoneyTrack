@@ -17,6 +17,7 @@ import { exportarRespaldoCompartir, importarRespaldoElegirArchivo } from '../lib
 import { reemplazarPagosRecordatorioTarjetas, generarIdGasto } from '../lib/finance';
 import { normalizarIntencionCompraPersistida, normalizarLineaListaSuper } from '../lib/asistenteComprasLogic';
 import { notificacionesSistemaDisponibles } from '../lib/notificacionesLocalesEntorno';
+import { normalizeTemaId } from '../theme';
 
 export function normalizeState(raw) {
   const saldos = raw.saldosCuentas
@@ -33,6 +34,7 @@ export function normalizeState(raw) {
   return {
     moneda: raw.moneda || '',
     nombreUsuario: String(raw.nombreUsuario || '').trim().slice(0, 80),
+    temaId: normalizeTemaId(raw.temaId),
     saldosCuentas: saldos,
     bancosDetalle,
     limiteTarjetaCredito: parseFloat(raw.limiteTarjetaCredito) || 0,
@@ -390,11 +392,12 @@ export function AppProvider({ children }) {
     setMostrarOnboarding(true);
   }, []);
 
-  const completarOnboarding = useCallback(async (nombreUsuario) => {
+  const completarOnboarding = useCallback(async (nombreUsuario, temaIdOpcional) => {
     const n = String(nombreUsuario || '').trim().slice(0, 80);
+    const tid = normalizeTemaId(temaIdOpcional);
     const irASaldo = irASaldoTrasOnboardingRef.current;
     irASaldoTrasOnboardingRef.current = true;
-    replaceState((s) => ({ ...s, nombreUsuario: n }));
+    replaceState((s) => ({ ...s, nombreUsuario: n, temaId: tid }));
     try {
       await clearOnboardingReabrirActivo();
     } catch {

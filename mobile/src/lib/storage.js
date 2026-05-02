@@ -9,6 +9,7 @@ const KEY_ONBOARDING_REABRIR = 'onboardingReabrirActivo';
 const KEYS = [
   'moneda',
   'nombreUsuario',
+  'temaId',
   'saldosCuentas',
   'bancosDetalle',
   'plataformasDetalle',
@@ -62,6 +63,7 @@ export async function loadAppState() {
   return {
     moneda: map.moneda || '',
     nombreUsuario: map.nombreUsuario || '',
+    temaId: map.temaId || '',
     saldosCuentas: saldosCuentas || undefined,
     saldoEfectivo: map.saldoEfectivo,
     saldoBanco: map.saldoBanco,
@@ -95,6 +97,7 @@ export async function persistAppState(state) {
   const pairs = [
     ['moneda', state.moneda || ''],
     ['nombreUsuario', String(state.nombreUsuario || '').trim().slice(0, 80)],
+    ['temaId', String(state.temaId || '').trim().slice(0, 24)],
     ['saldosCuentas', JSON.stringify(saldos)],
     ['limiteTarjetaCredito', String(parseFloat(state.limiteTarjetaCredito) || 0)],
     ['presupuestoMensual', String(parseFloat(state.presupuestoMensual) || 0)],
@@ -168,6 +171,7 @@ export async function clearStorageFull() {
     ['asistenteUmbral48h', '50'],
     ['listaSuperCategoriaPreferida', ''],
     ['nombreUsuario', ''],
+    ['temaId', ''],
   ]);
 }
 

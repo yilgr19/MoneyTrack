@@ -30,6 +30,7 @@ const TABLAS_PLANAS = new Set([
 const ESCALARES_CSV = [
   'moneda',
   'nombreUsuario',
+  'temaId',
   'limiteTarjetaCredito',
   'presupuestoMensual',
   'presupuestoDesdeFecha',
@@ -154,6 +155,7 @@ function dataVaciaImportacion() {
   return {
     moneda: '',
     nombreUsuario: '',
+    temaId: '',
     saldosCuentas: {},
     bancosDetalle: [],
     limiteTarjetaCredito: 0,
@@ -362,12 +364,15 @@ export function parsearRespaldoCsv(texto) {
           } else if (
             k === 'moneda' ||
             k === 'nombreUsuario' ||
+            k === 'temaId' ||
             k === 'presupuestoDesdeFecha' ||
             k === 'saldoInicialNota' ||
             k === 'listaSuperCategoriaPreferida'
           ) {
             if (k === 'nombreUsuario') {
               data[k] = v != null && String(v).trim() ? String(v).trim().slice(0, 80) : '';
+            } else if (k === 'temaId') {
+              data[k] = v != null && String(v).trim() ? String(v).trim().slice(0, 24) : '';
             } else {
               data[k] = v != null ? String(v) : '';
             }

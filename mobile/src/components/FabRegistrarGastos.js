@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Pressable, StyleSheet, Platform, Modal, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
-import { colors, spacing, shadows, TAB_BAR_SCROLL_PADDING, radii, typography, iconSemantic } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 /**
  * Botón flotante (+): abre un panel con tarjetas (registrar gasto, asistente de compras).
@@ -14,6 +14,99 @@ export default function FabRegistrarGastos({ visible = true }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
+  const { colors, typography, shadows, iconSemantic, spacing, radii, TAB_BAR_SCROLL_PADDING, temaId } = useTheme();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        layerFill: {
+          ...StyleSheet.absoluteFillObject,
+          zIndex: 2000,
+          ...Platform.select({
+            ios: {},
+            android: { elevation: 24 },
+            default: {},
+          }),
+        },
+        wrap: {
+          position: 'absolute',
+          right: spacing.lg,
+          width: SIZE,
+          height: SIZE,
+          zIndex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        fab: {
+          width: SIZE,
+          height: SIZE,
+          borderRadius: SIZE / 2,
+          backgroundColor: colors.accentDeep,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 2,
+          borderColor: colors.accent,
+          ...Platform.select({
+            ios: { ...shadows.card },
+            android: { elevation: 26 },
+          }),
+        },
+        mOverlay: {
+          flex: 1,
+          justifyContent: 'flex-end',
+        },
+        mBackdrop: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: 'rgba(0,0,0,0.52)',
+          zIndex: 0,
+        },
+        mSheet: {
+          zIndex: 1,
+          width: '100%',
+          alignSelf: 'stretch',
+          backgroundColor: colors.bgElevated,
+          borderTopLeftRadius: radii.xl,
+          borderTopRightRadius: radii.xl,
+          padding: spacing.lg,
+          borderWidth: 1,
+          borderColor: colors.stroke,
+          ...Platform.select({
+            ios: { ...shadows.card },
+            android: { elevation: 16 },
+            default: {},
+          }),
+        },
+        sheetTitle: { ...typography.title, marginBottom: spacing.xs },
+        sheetHint: { ...typography.small, color: colors.textMuted, marginBottom: spacing.md, lineHeight: 20 },
+        row: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+          borderRadius: radii.lg,
+          padding: spacing.md,
+          marginBottom: spacing.sm,
+          borderWidth: 1,
+          borderColor: colors.stroke,
+        },
+        iconCircle: {
+          width: 48,
+          height: 48,
+          borderRadius: radii.md,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: spacing.md,
+          borderWidth: 1,
+          borderColor: colors.stroke,
+          flexShrink: 0,
+        },
+        textBlock: { flex: 1, minWidth: 0 },
+        rowTitle: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+        rowSub: { color: colors.textMuted, fontSize: 13, marginTop: 3, lineHeight: 18 },
+        closeBtn: { alignSelf: 'center', marginTop: spacing.sm, paddingVertical: spacing.sm },
+        closeBtnText: { ...typography.body, color: colors.accentBright, fontWeight: '600' },
+      }),
+    [temaId, colors, typography, shadows, spacing, radii]
+  );
 
   if (!visible) return null;
 
@@ -28,10 +121,6 @@ export default function FabRegistrarGastos({ visible = true }) {
 
   return (
     <View style={styles.layerFill} pointerEvents="box-none" collapsable={false}>
-      {/**
-       * El Modal NO debe colgar del contenedor 58×58 del FAB: en Android el panel puede quedar sin medir
-       * y solo verse el fondo oscuro.
-       */}
       <Modal
         visible={sheetOpen}
         animationType="slide"
@@ -139,101 +228,3 @@ export default function FabRegistrarGastos({ visible = true }) {
 }
 
 const SIZE = 58;
-
-const styles = StyleSheet.create({
-  /**
-   * Capa a pantalla completa con box-none: el + queda por encima de escenas nativas (screens)
-   * sin interceptar toques fuera del botón. elevation alto en Android evita que cards con elevation
-   * roben el hit-test del FAB.
-   */
-  layerFill: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2000,
-    ...Platform.select({
-      ios: {},
-      android: { elevation: 24 },
-      default: {},
-    }),
-  },
-  /**
-   * Tamaño fijo: en Android un View absolute solo con right/bottom puede ocupar todo el ancho
-   * y tapar listas/scroll (rectángulo oscuro + bloqueo de toques).
-   */
-  wrap: {
-    position: 'absolute',
-    right: spacing.lg,
-    width: SIZE,
-    height: SIZE,
-    zIndex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fab: {
-    width: SIZE,
-    height: SIZE,
-    borderRadius: SIZE / 2,
-    backgroundColor: colors.accentDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.accent,
-    ...Platform.select({
-      ios: { ...shadows.card },
-      android: { elevation: 26 },
-    }),
-  },
-  mOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  /** Capa oscura detrás del sheet (zIndex por debajo del panel). */
-  mBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.52)',
-    zIndex: 0,
-  },
-  mSheet: {
-    zIndex: 1,
-    width: '100%',
-    alignSelf: 'stretch',
-    backgroundColor: colors.bgElevated,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-    ...Platform.select({
-      ios: { ...shadows.card },
-      android: { elevation: 16 },
-      default: {},
-    }),
-  },
-  sheetTitle: { ...typography.title, marginBottom: spacing.xs },
-  sheetHint: { ...typography.small, color: colors.textMuted, marginBottom: spacing.md, lineHeight: 20 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.stroke,
-    flexShrink: 0,
-  },
-  textBlock: { flex: 1, minWidth: 0 },
-  rowTitle: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-  rowSub: { color: colors.textMuted, fontSize: 13, marginTop: 3, lineHeight: 18 },
-  closeBtn: { alignSelf: 'center', marginTop: spacing.sm, paddingVertical: spacing.sm },
-  closeBtnText: { ...typography.body, color: colors.accentBright, fontWeight: '600' },
-});

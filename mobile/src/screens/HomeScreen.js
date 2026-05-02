@@ -49,16 +49,8 @@ import {
 } from '../lib/finance';
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import { withAvisoGastoMovimiento } from '../lib/notificacionesApp';
-import {
-  colors,
-  spacing,
-  radii,
-  typography,
-  layoutStyles,
-  iconSemantic,
-  colorIconoMetaDesdeNombre,
-  shadows,
-} from '../theme';
+import { spacing, radii, layoutStyles } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { ordenarLineasListaSuper } from '../lib/asistenteComprasLogic';
 
 /** Subtítulo rotativo bajo «Análisis»: tono cercano y guía suave (10 variantes). */
@@ -146,28 +138,28 @@ const FRASES_AHORRO_DONUT_VACIO = [
 ];
 
 /** Icono por origen del gasto (movimiento de salida). */
-function iconoUltimoMovimiento(g) {
+function iconoUltimoMovimiento(g, colors) {
   if (g?.esTransferenciaBolsillo) {
-    return { name: 'swap-horizontal', bg: 'rgba(45, 212, 191, 0.22)', fg: '#2dd4bf' };
+    return { name: 'swap-horizontal', bg: `${colors.mint}38`, fg: colors.mint };
   }
   const id = normalizarOrigenCuenta(g?.origen) || 'billeteras';
-  return iconoCuentaPatrimonio(id);
+  return iconoCuentaPatrimonio(id, colors);
 }
 
-function iconoCuentaPatrimonio(cuentaId) {
+function iconoCuentaPatrimonio(cuentaId, colors) {
   switch (cuentaId) {
     case 'efectivo':
-      return { name: 'cash-outline', bg: 'rgba(217, 180, 74, 0.24)', fg: colors.accentGold };
+      return { name: 'cash-outline', bg: `${colors.accentGold}3d`, fg: colors.accentGold };
     case 'banco':
-      return { name: 'business-outline', bg: 'rgba(167, 216, 222, 0.2)', fg: colors.chartBlue };
+      return { name: 'business-outline', bg: `${colors.chartBlue}33`, fg: colors.chartBlue };
     case 'tarjetaCredito':
-      return { name: 'card-outline', bg: 'rgba(125, 193, 145, 0.22)', fg: colors.mint };
+      return { name: 'card-outline', bg: `${colors.mint}38`, fg: colors.mint };
     case 'nequi':
-      return { name: 'phone-portrait-outline', bg: 'rgba(167, 139, 250, 0.22)', fg: '#a78bfa' };
+      return { name: 'phone-portrait-outline', bg: `${colors.chartBlue}38`, fg: colors.chartBlue };
     case 'daviplata':
-      return { name: 'phone-portrait-outline', bg: 'rgba(52, 211, 153, 0.2)', fg: '#34d399' };
+      return { name: 'phone-portrait-outline', bg: `${colors.mint}33`, fg: colors.mint };
     default:
-      return { name: 'layers-outline', bg: 'rgba(199, 195, 227, 0.16)', fg: colors.accent };
+      return { name: 'layers-outline', bg: `${colors.accent}29`, fg: colors.accent };
   }
 }
 
@@ -179,8 +171,8 @@ function fmtPctCuenta(n) {
 }
 
 /** Fila animada: icono, barra de % del patrimonio y mini-indicadores */
-function CuentaPatrimonioFila({ cuenta, monto, pctRaw, moneda, index, onPress, pctLegend }) {
-  const meta = iconoCuentaPatrimonio(cuenta.id);
+function CuentaPatrimonioFila({ cuenta, monto, pctRaw, moneda, index, onPress, pctLegend, colors, cuentaPatStyles }) {
+  const meta = iconoCuentaPatrimonio(cuenta.id, colors);
   const barAnim = useRef(new Animated.Value(0)).current;
   const negativo = monto < 0;
   const pctVis = negativo ? 0 : Math.max(0, Math.min(100, pctRaw));
@@ -271,7 +263,8 @@ function CuentaPatrimonioFila({ cuenta, monto, pctRaw, moneda, index, onPress, p
   );
 }
 
-const cuentaPatStyles = StyleSheet.create({
+function createCuentaPatStyles(colors, typography) {
+  return StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -328,10 +321,22 @@ const cuentaPatStyles = StyleSheet.create({
     textAlign: 'right',
     letterSpacing: 0.2,
   },
-});
+  });
+}
 
 export default function HomeScreen() {
   const { state, ready, replaceState } = useApp();
+  const { colors, typography, shadows, iconSemantic, colorIconoMetaDesdeNombre } = useTheme();
+  const cuentaPatStyles = useMemo(() => createCuentaPatStyles(colors, typography), [colors, typography]);
+  const styles = useMemo(() => createMainHomeStyles(colors, typography, shadows), [colors, typography, shadows]);
+  const Step = ({ n, text }) => (
+    <View style={styles.stepRow}>
+      <View style={styles.stepBadge}>
+        <Text style={styles.stepNum}>{n}</Text>
+      </View>
+      <Text style={[typography.body, { flex: 1 }]}>{text}</Text>
+    </View>
+  );
   const navigation = useNavigation();
   const { width: winW } = useWindowDimensions();
   const moneda = state?.moneda || '';
@@ -868,6 +873,8 @@ export default function HomeScreen() {
               index={idx}
               pctLegend={cuentasPatrimonioBloque.leyenda}
               onPress={() => navigation.navigate('Saldo')}
+              colors={colors}
+              cuentaPatStyles={cuentaPatStyles}
             />
           ))
         )}
@@ -1283,7 +1290,7 @@ export default function HomeScreen() {
                       : '';
                   const rowKey = g.id != null ? String(g.id) : `g-${i}-${String(g.fecha || '')}`;
                   const alt = i % 2 === 1;
-                  const movIco = iconoUltimoMovimiento(g);
+                  const movIco = iconoUltimoMovimiento(g, colors);
                   const gastoId =
                     g?.id != null && String(g.id).trim() ? String(g.id).trim() : null;
                   const puedeGestionarGasto = gastoId && !g.esTransferenciaBolsillo;
@@ -1399,18 +1406,8 @@ export default function HomeScreen() {
   );
 }
 
-function Step({ n, text }) {
-  return (
-    <View style={styles.stepRow}>
-      <View style={styles.stepBadge}>
-        <Text style={styles.stepNum}>{n}</Text>
-      </View>
-      <Text style={[typography.body, { flex: 1 }]}>{text}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
+function createMainHomeStyles(colors, typography, shadows) {
+  return StyleSheet.create({
   analisisSectionTit: {
     fontSize: 10,
     fontWeight: '600',
@@ -2067,4 +2064,5 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(45, 212, 191, 0.2)',
   },
   widgetSuperCta: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.accentBright },
-});
+  });
+}

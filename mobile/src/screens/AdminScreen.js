@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,9 @@ import {
 import ScreenWrap from '../components/ScreenWrap';
 import UICard from '../components/UICard';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 import { formatearNumero, calcularSaldosPorCuenta, montoGastoAfectaSaldo } from '../lib/finance';
-import { colors, spacing, radii, typography } from '../theme';
+import { OPCIONES_TEMA_APP, normalizeTemaId } from '../theme';
 
 export default function AdminScreen() {
   const {
@@ -22,7 +23,77 @@ export default function AdminScreen() {
     exportarDatosRespaldo,
     importarDatosRespaldo,
     reabrirTutorialOnboarding,
+    replaceState,
   } = useApp();
+  const { colors, typography, spacing, radii, temaId } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        statBlock: { marginTop: spacing.md },
+        bigNum: {
+          fontSize: 24,
+          fontWeight: '700',
+          color: colors.mint,
+          marginTop: 4,
+          letterSpacing: -0.5,
+          maxWidth: '100%',
+        },
+        btn: {
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.lg,
+          borderRadius: radii.md,
+          alignItems: 'center',
+          marginBottom: spacing.md,
+          borderWidth: 1,
+        },
+        btnWarn: {
+          backgroundColor: 'rgba(180, 83, 9, 0.35)',
+          borderColor: 'rgba(251, 191, 36, 0.4)',
+        },
+        btnDanger: {
+          backgroundColor: 'rgba(153, 27, 27, 0.4)',
+          borderColor: 'rgba(248, 113, 113, 0.35)',
+          marginBottom: 0,
+        },
+        btnBackup: {
+          marginTop: spacing.md,
+          backgroundColor: 'rgba(34, 197, 94, 0.35)',
+          borderColor: 'rgba(134, 239, 172, 0.45)',
+        },
+        btnBackupMuted: {
+          marginTop: spacing.sm,
+          backgroundColor: 'rgba(32, 26, 44, 0.75)',
+          borderColor: 'rgba(134, 239, 172, 0.25)',
+          marginBottom: 0,
+        },
+        btnTutorial: {
+          backgroundColor: 'rgba(75, 36, 108, 0.45)',
+          borderColor: 'rgba(199, 195, 227, 0.35)',
+        },
+        btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+        btnTextTutorial: { color: colors.accentBright, fontWeight: '700', fontSize: 15 },
+        btnTextImport: { color: colors.mint, fontWeight: '700', fontSize: 15 },
+        temaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+        temaOpt: {
+          width: '47%',
+          minWidth: 130,
+          flexGrow: 1,
+          padding: spacing.md,
+          borderRadius: radii.md,
+          borderWidth: 2,
+          borderColor: colors.stroke,
+          backgroundColor: colors.surfaceHighlight,
+        },
+        temaOptOn: {
+          borderColor: colors.mint,
+          backgroundColor: colors.surfaceSolid,
+        },
+        temaOptEmoji: { fontSize: 20, marginBottom: 4 },
+        temaOptLabel: { ...typography.body, fontWeight: '700', fontSize: 14 },
+        temaOptSub: { ...typography.small, marginTop: 2 },
+      }),
+    [temaId, colors, typography, spacing, radii]
+  );
   const moneda = state.moneda || '';
   const saldos = calcularSaldosPorCuenta(state);
   const totalGastos = (state.gastos || []).reduce((s, g) => s + montoGastoAfectaSaldo(g), 0);
@@ -102,6 +173,33 @@ export default function AdminScreen() {
         <Text style={[typography.small, { marginTop: spacing.md, lineHeight: 20 }]}>
           Excel masivo sigue en la versión web; aquí puedes respaldo completo en archivo propio de la app.
         </Text>
+      </UICard>
+
+      <UICard style={{ marginBottom: spacing.md }}>
+        <Text style={typography.label}>Apariencia</Text>
+        <Text style={[typography.small, { marginTop: spacing.sm, lineHeight: 20, color: colors.textSecondary }]}>
+          Elige la paleta de la app (fondos, tarjetas e iconos). También puedes cambiarla al volver a ver el tutorial.
+        </Text>
+        <View style={styles.temaGrid}>
+          {OPCIONES_TEMA_APP.map((opt) => {
+            const on = normalizeTemaId(state.temaId) === opt.id;
+            return (
+              <TouchableOpacity
+                key={opt.id}
+                style={[styles.temaOpt, on && styles.temaOptOn]}
+                activeOpacity={0.85}
+                onPress={() => replaceState((s) => ({ ...s, temaId: normalizeTemaId(opt.id) }))}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`Tema ${opt.label}`}
+              >
+                <Text style={styles.temaOptEmoji}>{opt.emoji}</Text>
+                <Text style={styles.temaOptLabel}>{opt.label}</Text>
+                <Text style={styles.temaOptSub}>{opt.subtitle}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </UICard>
 
       <UICard style={{ marginBottom: spacing.md }}>
@@ -199,50 +297,3 @@ export default function AdminScreen() {
     </ScreenWrap>
   );
 }
-
-const styles = StyleSheet.create({
-  statBlock: { marginTop: spacing.md },
-  bigNum: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.mint,
-    marginTop: 4,
-    letterSpacing: -0.5,
-    maxWidth: '100%',
-  },
-  btn: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    borderWidth: 1,
-  },
-  btnWarn: {
-    backgroundColor: 'rgba(180, 83, 9, 0.35)',
-    borderColor: 'rgba(251, 191, 36, 0.4)',
-  },
-  btnDanger: {
-    backgroundColor: 'rgba(153, 27, 27, 0.4)',
-    borderColor: 'rgba(248, 113, 113, 0.35)',
-    marginBottom: 0,
-  },
-  btnBackup: {
-    marginTop: spacing.md,
-    backgroundColor: 'rgba(34, 197, 94, 0.35)',
-    borderColor: 'rgba(134, 239, 172, 0.45)',
-  },
-  btnBackupMuted: {
-    marginTop: spacing.sm,
-    backgroundColor: 'rgba(32, 26, 44, 0.75)',
-    borderColor: 'rgba(134, 239, 172, 0.25)',
-    marginBottom: 0,
-  },
-  btnTutorial: {
-    backgroundColor: 'rgba(75, 36, 108, 0.45)',
-    borderColor: 'rgba(199, 195, 227, 0.35)',
-  },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  btnTextTutorial: { color: colors.accentBright, fontWeight: '700', fontSize: 15 },
-  btnTextImport: { color: colors.mint, fontWeight: '700', fontSize: 15 },
-});
